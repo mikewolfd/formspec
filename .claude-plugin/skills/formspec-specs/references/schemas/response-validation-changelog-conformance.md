@@ -2,7 +2,7 @@
 
 This grouped reference covers the five schemas that deal with form output, validation findings, version change tracking, and cross-runtime conformance testing. They form the "data capture and quality" layer of Formspec:
 
-- **Response** -- the filled-in form, pinned to a Definition version.
+- **Response** -- the filled-in form, pinned to a Definition version, with optional authored signature evidence.
 - **ValidationResult** -- a single structured validation finding.
 - **ValidationReport** -- an aggregate snapshot of all validation findings for a Response.
 - **Changelog** -- a diff document between two Definition versions.
@@ -12,445 +12,448 @@ This grouped reference covers the five schemas that deal with form output, valid
 
 # Response Schema Reference Map
 
-> schemas/response.schema.json -- 214 lines -- A completed or in-progress form submission pinned to a specific Definition version.
+> `schemas/response.schema.json` -- 409 lines -- Formspec Response document: completed or in-progress Instance pinned to a specific Definition version (§2.1.6).
 
 ## Overview
 
-The Response schema represents a filled-in form -- the unit of data capture in Formspec. It references exactly one Definition by the immutable tuple `(definitionUrl, definitionVersion)`, enforcing the Response Pinning Rule (VP-01): a Response is always validated against its pinned Definition version, never a newer one. The tuple `(definitionUrl, definitionVersion, id)` uniquely identifies a single form submission across all systems. The schema enforces `additionalProperties: false` and carries lifecycle status, form data, timestamps, optional author/subject metadata, embedded validation results, and an extension point.
+The Response schema is the canonical record of captured form data. It references exactly one Definition by the immutable tuple `(definitionUrl, definitionVersion)` (Response Pinning Rule VP-01): conformant processors must reject a Response whose `definitionVersion` does not match a known Definition at `definitionUrl`. The tuple identifies a canonical Response record across systems; optional `id` adds correlation. The document may embed validation snapshots and provider-neutral **authored signature** evidence (`authoredSignatures`), distinct from respondent-ledger attestations.
 
 ## Top-Level Structure
 
 | Property | Type | Required | Description |
 |---|---|---|---|
 | `$formspecResponse` | `string` (const: `"1.0"`) | Yes | Response specification version. MUST be `"1.0"`. |
-| `definitionUrl` | `string` (format: `uri`) | Yes | Canonical URL of the Definition this Response was created against. Stable logical-form identifier shared across versions. |
-| `definitionVersion` | `string` (minLength: 1) | Yes | Exact version of the Definition. Immutable after creation. Interpretation governed by the Definition's `versionAlgorithm`. |
-| `status` | `string` (enum) | Yes | Lifecycle status: `in-progress`, `completed`, `amended`, `stopped`. |
-| `data` | `object` (additionalProperties: true) | Yes | Primary Instance -- the form data. Structure mirrors the Definition's item tree. |
-| `authored` | `string` (format: `date-time`) | Yes | ISO 8601 last-modified timestamp. Updated on every save. |
-| `id` | `string` | No | Globally unique identifier (e.g., UUID v4). Implementations SHOULD generate one. |
+| `definitionUrl` | `string` (format: `uri`) | Yes | Canonical URL of the Definition. MUST match the Definition's `url`. |
+| `definitionVersion` | `string` (minLength: 1) | Yes | Exact pinned Definition version; immutable for the life of the Response. |
+| `status` | `string` (enum) | Yes | Lifecycle: `in-progress`, `completed`, `amended`, `stopped`. |
+| `data` | `object` (`additionalProperties: true`) | Yes | Primary Instance -- form data shaped by the Definition item tree. |
+| `authored` | `string` (format: `date-time`) | Yes | Last modified (RFC 3339); updated on every save. |
+| `id` | `string` | No | Globally unique id (e.g. UUID). **Required when `authoredSignatures` is present** (`dependentRequired`). |
 | `author` | `object` | No | Person or system that authored the Response. |
-| `subject` | `object` | No | Entity the Response is about (grant, patient, project, etc.). Distinct from author. |
-| `validationResults` | `array` of ValidationResult | No | Most recent validation findings. Snapshot that may be stale if data changed since last validation. |
-| `extensions` | `object` | No | Implementor-specific data. Keys MUST start with `x-`. |
+| `subject` | `object` | No | Entity the Response is about (distinct from `author`). |
+| `validationResults` | `array` of ValidationResult (`$ref` validationResult/1.0) | No | Most recent validation findings; may be stale vs. current `data`. |
+| `authoredSignatures` | `array` (minItems: 1) of AuthoredSignature | No | Canonical authored-signature evidence per signer/document act. |
+| `extensions` | `object` | No | Implementor data; property names MUST match `^x-`. |
 
 ### author Object
 
 | Property | Type | Required | Description |
 |---|---|---|---|
-| `id` | `string` | Yes | Unique identifier of the author within the host system. |
-| `name` | `string` | No | Display name of the author. For human authors, typically their full name. |
+| `id` | `string` | Yes | Unique author identifier in the host system. |
+| `name` | `string` | No | Display name (e.g. full name for humans). |
 
 ### subject Object
 
 | Property | Type | Required | Description |
 |---|---|---|---|
-| `id` | `string` | Yes | Unique identifier of the subject entity within the host system. |
-| `type` | `string` | No | Type of the subject entity (e.g., Grant, Patient, Organization, Project). |
-
-## Key Type Definitions ($defs)
-
-This schema has no `$defs` block. The `author` and `subject` sub-objects are defined inline.
-
-| Inline Object | Description | Key Properties | Used By |
-|---|---|---|---|
-| **author** | Author of the Response | `id` (required, string), `name` (optional, string) | Top-level `author` property |
-| **subject** | Entity the Response describes | `id` (required, string), `type` (optional, string) | Top-level `subject` property |
-
-## Required Fields
-
-- `$formspecResponse`
-- `definitionUrl`
-- `definitionVersion`
-- `status`
-- `data`
-- `authored`
-
-Within `author`: `id` is required.
-Within `subject`: `id` is required.
-
-## Enums and Patterns
-
-| Property Path | Type | Values/Pattern | Description |
-|---|---|---|---|
-| `$formspecResponse` | const | `"1.0"` | Spec version pin. |
-| `status` | enum | `in-progress`, `completed`, `amended`, `stopped` | Lifecycle status controlling completion semantics. |
-| `extensions` (propertyNames) | pattern | `^x-` | All extension keys must start with `x-`. |
-
-## Cross-References
-
-- `validationResults[*]` references `https://formspec.org/schemas/validationResult/1.0` (validationResult.schema.json).
-- Core spec sections: Response Pinning Rule VP-01, VE-05 (saving must never be blocked by validation status).
-
-## Extension Points
-
-- `extensions` object with `propertyNames.pattern: "^x-"` allows implementor-specific data.
-- `data` has `additionalProperties: true` -- its shape is governed by the Definition's item tree, not this schema.
-
-## Validation Constraints
-
-- `additionalProperties: false` at top level, on `author`, and on `subject`.
-- `data` has `additionalProperties: true` -- open object whose shape is governed by the Definition's item tree.
-- `definitionVersion` enforces `minLength: 1`.
-- `definitionUrl` enforces `format: uri`.
-- `authored` enforces `format: date-time`.
-- `extensions` enforces `propertyNames.pattern: "^x-"`.
-- Semantic invariant (not schema-enforceable): a Response with error-severity results MUST NOT have `status: "completed"`. Saving data MUST never be blocked by validation status (VE-05).
-
----
-
-# ValidationResult Schema Reference Map
-
-> schemas/validationResult.schema.json -- 178 lines -- A single structured validation finding produced during constraint evaluation.
-
-## Overview
-
-The ValidationResult schema defines the structure of an individual validation finding produced during the Revalidate phase. Every failed constraint -- bind constraint, required check, type check, cardinality violation, validation shape, or external injection -- produces exactly one ValidationResult. Results are structured JSON objects carrying severity, a resolved instance path, a human-readable message, and machine-readable codes. The absence of a result for a given path means all constraints on that path passed. Six `constraintKind` values partition results into categories mapping 1:1 to the six validation mechanisms plus external injection.
-
-## Top-Level Structure
-
-| Property | Type | Required | Description |
-|---|---|---|---|
-| `$formspecValidationResult` | `string` (const: `"1.0"`) | Yes | Validation result specification version. MUST be `"1.0"`. |
-| `path` | `string` | Yes | Resolved instance path with concrete repeat indexes (dot-notation, 1-based brackets). Never wildcards. |
-| `severity` | `string` (enum) | Yes | `error`, `warning`, or `info`. Only `error` blocks submission. |
-| `constraintKind` | `string` (enum) | Yes | Category of constraint that produced this result. |
-| `message` | `string` | Yes | Human-readable description, suitable for end users. All `{{expression}}` interpolation fully resolved. |
-| `code` | `string` | No | Machine-readable identifier. Seven built-in codes are RESERVED. |
-| `shapeId` | `string` | No | ID of the Validation Shape that produced this result. Present only when `constraintKind` is `shape`. |
-| `source` | `string` (enum) | No | Origin category: `bind`, `shape`, or `external`. |
-| `sourceId` | `string` | No | Specific origin identifier within the source category. |
-| `value` | any | No | Actual value at validation failure time. Any JSON type. |
-| `constraint` | `string` | No | FEL constraint expression that failed. Diagnostic only -- MUST NOT be shown to users. |
-| `context` | `object` | No | Additional structured diagnostic data. For shapes: propagated context with FEL evaluated. For external: system metadata. |
-| `extensions` | `object` | No | Extension data. Keys MUST start with `x-`. |
-
-## Key Type Definitions ($defs)
-
-This schema has no `$defs` block. All properties are defined inline at the top level.
-
-## Required Fields
-
-- `$formspecValidationResult`
-- `path`
-- `severity`
-- `constraintKind`
-- `message`
-
-## Enums and Patterns
-
-| Property Path | Type | Values/Pattern | Description |
-|---|---|---|---|
-| `$formspecValidationResult` | const | `"1.0"` | Spec version pin. |
-| `severity` | enum | `error`, `warning`, `info` | Severity level. Only `error` blocks completion. |
-| `constraintKind` | enum | `required`, `type`, `cardinality`, `constraint`, `shape`, `external` | Category of constraint mechanism. |
-| `source` | enum | `bind`, `shape`, `external` | Origin subsystem of the finding. |
-| `extensions` (propertyNames) | pattern | `^x-` | All extension keys must start with `x-`. |
-
-### Reserved Built-In Codes
-
-| Code | constraintKind | Description |
-|---|---|---|
-| `REQUIRED` | `required` | Required field has null or empty string |
-| `TYPE_MISMATCH` | `type` | Value doesn't conform to declared dataType |
-| `MIN_REPEAT` | `cardinality` | Fewer repeat instances than minRepeat |
-| `MAX_REPEAT` | `cardinality` | More repeat instances than maxRepeat |
-| `CONSTRAINT_FAILED` | `constraint` | Bind constraint returned false |
-| `SHAPE_FAILED` | `shape` | Shape constraint returned false (generic default) |
-| `EXTERNAL_FAILED` | `external` | External system reported failure (generic default) |
-
-Shape-level codes (e.g., `BUDGET_SUM_MISMATCH`) and external system codes (e.g., `EIN_NOT_FOUND`) override the generic defaults.
-
-## Cross-References
-
-- This schema is referenced by both the Response schema (`validationResults` array) and the ValidationReport schema (`results` array).
-- Core spec: Revalidate phase (section 2.4 Phase 3), VE-05, section 5.6 rule 1 (non-relevant fields must not produce results).
-
-## Extension Points
-
-- `extensions` object with `propertyNames.pattern: "^x-"` allows implementor-specific data on individual results.
-
-## Validation Constraints
-
-- `additionalProperties: false` at top level.
-- `path` uses concrete indexed paths (e.g., `lineItems[3].quantity`), not definition-time wildcards.
-- `value` has no type constraint -- any JSON type is valid (string, number, boolean, null, object, array).
-- `extensions` enforces `propertyNames.pattern: "^x-"`.
-- Semantic constraints (not schema-enforceable):
-  - `shapeId` MUST be present when `constraintKind` is `shape` and MUST be absent for other constraint kinds.
-  - Severity ordering: `error` > `warning` > `info`. Only `error` blocks completion.
-  - Message interpolation MUST be fully resolved before surfacing to consumers.
-  - Processors MUST use the seven reserved codes for corresponding built-in constraints.
-
----
-
-# ValidationReport Schema Reference Map
-
-> schemas/validationReport.schema.json -- 169 lines -- Aggregates all validation results for a Response at a point in time.
-
-## Overview
-
-The ValidationReport schema defines a standalone validation summary document produced by the Revalidate phase (section 2.4 Phase 3). It aggregates all validation results from bind constraints, required checks, type checks, cardinality checks, validation shapes, and external validation injections. The report is the sole input to conformance determination: `valid = (zero error-severity results)`. Reports may be persisted alongside a Response as a snapshot but may become stale if data changes after the timestamp. Three validation modes (continuous, deferred, disabled) control when reports are generated but not their structure (section 5.5).
-
-## Top-Level Structure
-
-| Property | Type | Required | Description |
-|---|---|---|---|
-| `$formspecValidationReport` | `string` (const: `"1.0"`) | Yes | Validation report specification version. MUST be `"1.0"`. |
-| `definitionUrl` | `string` (format: `uri`) | No | Canonical URL of the Definition validated against. |
-| `definitionVersion` | `string` | No | Version of the Definition validated against. Always the pinned version (VP-01). |
-| `valid` | `boolean` | Yes | `true` iff zero error-severity results. Sole conformance indicator. Warnings and info never affect validity. |
-| `results` | `array` of ValidationResult | Yes | Complete ordered set of validation findings across all sources. |
-| `counts` | `object` | Yes | Pre-aggregated counts by severity level. |
-| `timestamp` | `string` (format: `date-time`) | Yes | ISO 8601 timestamp of validation run. Used for staleness detection. |
-| `extensions` | `object` | No | Implementor-specific data. Keys MUST start with `x-`. |
-
-### counts Object
-
-| Property | Type | Required | Description |
-|---|---|---|---|
-| `error` | `integer` (minimum: 0) | Yes | Count of error-severity results. When > 0, `valid` MUST be `false`. |
-| `warning` | `integer` (minimum: 0) | Yes | Count of warning-severity results. Never blocks submission. |
-| `info` | `integer` (minimum: 0) | Yes | Count of info-severity results. Informational only. |
-
-## Key Type Definitions ($defs)
-
-This schema has no `$defs` block. The `counts` sub-object is defined inline.
-
-| Inline Object | Description | Key Properties | Used By |
-|---|---|---|---|
-| **counts** | Pre-aggregated severity breakdown | `error`, `warning`, `info` (all required integers >= 0) | Top-level `counts` property |
-
-## Required Fields
-
-- `$formspecValidationReport`
-- `valid`
-- `results`
-- `counts`
-- `timestamp`
-
-Within `counts`: `error`, `warning`, `info` are all required.
-
-## Enums and Patterns
-
-| Property Path | Type | Values/Pattern | Description |
-|---|---|---|---|
-| `$formspecValidationReport` | const | `"1.0"` | Spec version pin. |
-| `extensions` (propertyNames) | pattern | `^x-` | All extension keys must start with `x-`. |
-
-This schema defines no enum properties directly. Enumerations are inherited from the referenced ValidationResult schema.
-
-## Cross-References
-
-- `results[*]` references `https://formspec.org/schemas/validationResult/1.0` (validationResult.schema.json).
-- Core spec: Revalidate phase (section 2.4 Phase 3), Response Pinning Rule VP-01, section 5.5 (validation modes), section 5.6 rule 1 (non-relevant field suppression).
-
-## Extension Points
-
-- `extensions` object with `propertyNames.pattern: "^x-"` allows implementor-specific data on the report itself.
-
-## Validation Constraints
-
-- `additionalProperties: false` at top level and on `counts`.
-- `counts.error`, `counts.warning`, `counts.info` all enforce `minimum: 0` and `type: integer`.
-- `timestamp` enforces `format: date-time`.
-- `definitionUrl` enforces `format: uri`.
-- `extensions` enforces `propertyNames.pattern: "^x-"`.
-- Structural invariants (not schema-enforceable):
-  - `valid = (counts.error === 0)` -- processors MUST ensure this.
-  - `counts.error + counts.warning + counts.info = results.length` -- processors MUST ensure this.
-  - A Response with `valid: false` MUST NOT transition to `completed` status.
-  - Non-relevant fields are guaranteed absent from results.
-- Three validation modes (`continuous`, `deferred`, `disabled`) control when reports are generated but not their structure.
-
----
-
-# Changelog Schema Reference Map
-
-> schemas/changelog.schema.json -- 204 lines -- Enumerates differences between two versions of a Formspec Definition for migration and governance.
-
-## Overview
-
-The Changelog schema describes a diff document comparing two versions of a Formspec Definition. Each atomic Change record describes an addition, removal, modification, move, or rename of a definition element (item, bind, shape, optionSet, dataSource, screener, migration, or metadata). Impact classification (`breaking`/`compatible`/`cosmetic`) drives semver governance and migration generation. The document-level `semverImpact` must equal the maximum impact across all changes.
-
-## Top-Level Structure
-
-| Property | Type | Required | Description |
-|---|---|---|---|
-| `$formspecChangelog` | `string` (const: `"1.0"`) | Yes | Changelog specification version. MUST be `"1.0"`. |
-| `$schema` | `string` (format: `uri`) | No | JSON Schema self-reference. |
-| `definitionUrl` | `string` (format: `uri`) | Yes | Canonical URL of the Definition whose versions are compared. |
-| `fromVersion` | `string` (minLength: 1) | Yes | Base version (before changes). Interpreted per the Definition's `versionAlgorithm`. |
-| `toVersion` | `string` (minLength: 1) | Yes | Target version (after changes). Interpreted per the Definition's `versionAlgorithm`. |
-| `generatedAt` | `string` (format: `date-time`) | No | ISO 8601 timestamp when this changelog was generated. |
-| `semverImpact` | `string` (enum) | Yes | Maximum impact across all changes: `major`, `minor`, or `patch`. |
-| `summary` | `string` | No | Human-readable summary for release notes. |
-| `changes` | `array` of Change | Yes | Ordered array of atomic Change objects. |
+| `id` | `string` | Yes | Unique subject entity identifier. |
+| `type` | `string` | No | Subject type label (e.g. Grant, Patient). |
 
 ## Key Type Definitions ($defs)
 
 | Definition | Description | Key Properties | Used By |
 |---|---|---|---|
-| **Change** | A single atomic modification to a definition element. The combination of type + target + path uniquely identifies what changed. | `type`, `target`, `path`, `impact` (required); `key`, `description`, `before`, `after`, `migrationHint` (optional) | `changes` array items |
+| **AuthoredSignatureIdentityBinding** | Provider-neutral identity-binding evidence for a signature. | `method`, `assuranceLevel` (required); `providerRef`, `externalAttestationRef` (optional, `uri`) | `AuthoredSignature.identityBinding` |
+| **AuthoredSignature** | Canonical authored-signature evidence binding one signer act to the envelope. | See AuthoredSignature properties table | `authoredSignatures[]` |
 
-### Change Object Detail
+### AuthoredSignature Properties
 
 | Property | Type | Required | Description |
 |---|---|---|---|
-| `type` | `string` (enum) | Yes | Kind of change: `added`, `removed`, `modified`, `moved`, `renamed`. |
-| `target` | `string` (enum) | Yes | Category of affected element. |
-| `path` | `string` (minLength: 1) | Yes | Dot-path to the affected element within the definition. |
-| `key` | `string` | No | Item's key property when target is `item`. Stable identifier for cross-version matching. |
-| `impact` | `string` (enum) | Yes | Severity: `breaking`, `compatible`, `cosmetic`. |
-| `description` | `string` | No | Human-readable description for release notes and reviewer context. |
-| `before` | any | No | Previous value/structural fragment. Present for `modified`, `removed`, `renamed`, `moved`. Omitted for `added`. |
-| `after` | any | No | New value/structural fragment. Present for `added`, `modified`, `renamed`, `moved`. Omitted for `removed`. |
-| `migrationHint` | `string` | No | Suggested transform: `drop`, `preserve`, or a FEL expression referencing `$old` (e.g., `$old.cost`, `string($old.amount)`). |
+| `documentId` | `string` (pattern) | Yes | Id of document/signing surface affirmed. |
+| `signatureValue` | `string` (minLength: 1) | Yes | Opaque evidence or reference (not sufficient intent alone). |
+| `signatureMethod` | `string` (pattern) | Yes | How evidence was captured: `drawn`, `typed`, `cryptographic`, `provider-managed`, or `x-` extension. |
+| `signerId` | `string` | No | Stable signer id when available. |
+| `signerName` | `string` (minLength: 1) | Yes | Human-readable signer name. |
+| `signedAt` | `string` (format: `date-time`) | Yes | When the signing act completed. |
+| `consentAccepted` | `boolean` | Yes | Signer accepted declared consent text. |
+| `consentTextRef` | `string` (format: `uri`) | Yes | URI ref to consent text. |
+| `consentVersion` | `string` (minLength: 1) | Yes | Version of consent text accepted. |
+| `affirmationText` | `string` (minLength: 1) | Yes | Affirmation shown and accepted. |
+| `documentHash` | `string` (pattern) | Yes | Hex digest (64–128 hex chars). |
+| `documentHashAlgorithm` | `string` (pattern) | Yes | `sha-256`, `sha-384`, `sha-512`, or `x-` extension. |
+| `responseId` | `string` (minLength: 1) | Yes | MUST match top-level `id` when persisted. |
+| `identityProofRef` | `string` (format: `uri`) | No | URI ref to identity-proofing artifact. |
+| `identityBinding` | AuthoredSignatureIdentityBinding | No | Structured identity-binding evidence. |
+| `signatureProvider` | `string` (minLength: 1) | Yes | Provider/adapter for ceremony evidence. |
+| `ceremonyId` | `string` (minLength: 1) | Yes | Ceremony or provider session id. |
+
+### AuthoredSignatureIdentityBinding Properties
+
+| Property | Type | Required | Description |
+|---|---|---|---|
+| `method` | `string` (pattern) | Yes | Binding method (built-ins + `x-` extension). |
+| `assuranceLevel` | `string` (enum) | Yes | `none`, `low`, `standard`, `high`, `very-high`. |
+| `providerRef` | `string` (format: `uri`) | No | Identity/signature provider URI. |
+| `externalAttestationRef` | `string` (format: `uri`) | No | External attestation URI. |
 
 ## Required Fields
 
-- Top level: `$formspecChangelog`, `definitionUrl`, `fromVersion`, `toVersion`, `semverImpact`, `changes`
+- `$formspecResponse`, `definitionUrl`, `definitionVersion`, `status`, `data`, `authored`
+- `author`: `id`
+- `subject`: `id`
+- **Dependent:** if `authoredSignatures` is present, `id` is required at top level.
+- **AuthoredSignature:** all properties listed as required in the table above (see schema `required` array).
+- **AuthoredSignatureIdentityBinding:** `method`, `assuranceLevel`
+
+## Enums and Patterns
+
+| Property Path | Type | Values/Pattern | Description |
+|---|---|---|---|
+| `$formspecResponse` | const | `"1.0"` | Response document version pin. |
+| `status` | enum | `in-progress`, `completed`, `amended`, `stopped` | Lifecycle; only `completed` forbids error-severity validation (semantic). |
+| `extensions` (propertyNames) | pattern | `^x-` | Extension keys prefix. |
+| `AuthoredSignature.documentId` | pattern | `^[a-zA-Z][a-zA-Z0-9_-]*$` | Document id token. |
+| `AuthoredSignature.signatureMethod` | pattern | `^(drawn\|typed\|cryptographic\|provider-managed\|x-[a-z0-9][a-z0-9-]*)$` | Signature capture method. |
+| `AuthoredSignature.documentHash` | pattern | `^[A-Fa-f0-9]{64,128}$` | Document digest hex length. |
+| `AuthoredSignature.documentHashAlgorithm` | pattern | `^(sha-256\|sha-384\|sha-512\|x-[a-z0-9][a-z0-9-]*)$` | Hash algorithm id. |
+| `AuthoredSignatureIdentityBinding.method` | pattern | `^(none\|email-otp\|sms-otp\|knowledge-based\|oidc\|webauthn\|credential\|in-person\|notary\|x-[a-z0-9][a-z0-9-]*)$` | Identity binding method. |
+| `AuthoredSignatureIdentityBinding.assuranceLevel` | enum | `none`, `low`, `standard`, `high`, `very-high` | Assurance tier. |
+
+## Cross-References
+
+- `validationResults[*]` → `https://formspec.org/schemas/validationResult/1.0` (`validation-result.schema.json`).
+- Core: Response pinning VP-01; VE-05 (saving not blocked by validation); processing model / Response semantics in Core spec §2.1.6.
+
+## Extension Points
+
+- Top-level `extensions`: keys `^x-`; processors ignore unknown keys and preserve on round-trip; MUST NOT alter core semantics.
+- `data`: `additionalProperties: true` -- shape from Definition + `nonRelevantBehavior`.
+
+## Validation Constraints
+
+- Top-level `additionalProperties: false` (except `data` openness above).
+- `author`, `subject`, `AuthoredSignature`, `AuthoredSignatureIdentityBinding`: `additionalProperties: false`.
+- `dependentRequired`: `authoredSignatures` → requires `id`.
+- `authoredSignatures`: `minItems: 1` when present.
+- Formats: `uri` on `definitionUrl`, consent/attestation refs; `date-time` on `authored`, `signedAt`.
+- Semantic (not JSON Schema): error-severity results block `status: completed`; saving not blocked by validation (VE-05).
+
+---
+
+# ValidationResult Schema Reference Map
+
+> `schemas/validation-result.schema.json` -- 178 lines -- Single structured validation finding from the Revalidate phase (§2.4 Phase 3).
+
+## Overview
+
+One failed constraint yields one ValidationResult: severity, resolved instance path, message, and optional machine codes. Absence of a result for a path means constraints passed there. Six `constraintKind` values partition built-in mechanisms plus external injection. Only `error` severity blocks completion.
+
+## Top-Level Structure
+
+| Property | Type | Required | Description |
+|---|---|---|---|
+| `$formspecValidationResult` | `string` (const: `"1.0"`) | Yes | Validation result document version. MUST be `"1.0"`. |
+| `path` | `string` | Yes | Resolved instance path; concrete indexes; no `*` wildcards. |
+| `severity` | `string` (enum) | Yes | `error`, `warning`, `info`. |
+| `constraintKind` | `string` (enum) | Yes | Mechanism category (see enums). |
+| `message` | `string` | Yes | User-facing text; `{{expression}}` resolved for Shapes. |
+| `code` | `string` | No | Machine-readable id; seven reserved built-in codes (see below). |
+| `shapeId` | `string` | No | Validation Shape `id` when `constraintKind` is `shape`. |
+| `source` | `string` (enum) | No | `bind`, `shape`, `external`. |
+| `sourceId` | `string` | No | Origin within category (e.g. external system id). |
+| `value` | any | No | Value at failure time; any JSON type. |
+| `constraint` | `string` | No | Failed FEL expression; diagnostic only, not for end users. |
+| `context` | `object` | No | Structured diagnostics (Shape-evaluated or external metadata). |
+| `extensions` | `object` | No | Per-result extensions; keys `^x-`. |
+
+## Key Type Definitions ($defs)
+
+None -- all top-level properties inline.
+
+## Required Fields
+
+- `$formspecValidationResult`, `path`, `severity`, `constraintKind`, `message`
+
+## Enums and Patterns
+
+| Property Path | Type | Values/Pattern | Description |
+|---|---|---|---|
+| `$formspecValidationResult` | const | `"1.0"` | Version pin. |
+| `severity` | enum | `error`, `warning`, `info` | Strict order error > warning > info. |
+| `constraintKind` | enum | `required`, `type`, `cardinality`, `constraint`, `shape`, `external` | Validation mechanism. |
+| `source` | enum | `bind`, `shape`, `external` | Producing subsystem. |
+| `extensions` (propertyNames) | pattern | `^x-` | Extension key prefix. |
+
+### Reserved built-in `code` values (normative in schema description)
+
+| Code | Typical `constraintKind` |
+|---|---|
+| `REQUIRED` | `required` |
+| `TYPE_MISMATCH` | `type` |
+| `MIN_REPEAT` | `cardinality` |
+| `MAX_REPEAT` | `cardinality` |
+| `CONSTRAINT_FAILED` | `constraint` |
+| `SHAPE_FAILED` | `shape` (default when no specific code) |
+| `EXTERNAL_FAILED` | `external` (default when no specific code) |
+
+Shape-specific and external-specific codes (e.g. `BUDGET_SUM_MISMATCH`, `EIN_NOT_FOUND`) are allowed beyond these seven.
+
+## Cross-References
+
+- Referenced from Response (`validationResults`) and ValidationReport (`results`).
+- Core: Revalidate phase §2.4 Phase 3; §5.6 (non-relevant fields must not produce results).
+
+## Extension Points
+
+- `extensions` with `propertyNames.pattern: "^x-"`.
+
+## Validation Constraints
+
+- Top-level `additionalProperties: false`.
+- `context` is open object (no `additionalProperties: false` in schema).
+- Semantic: `shapeId` presence rules; only `error` blocks completion; reserved codes for built-in kinds.
+
+---
+
+# ValidationReport Schema Reference Map
+
+> `schemas/validation-report.schema.json` -- 169 lines -- Standalone aggregate of validation results at a point in time (§5.4).
+
+## Overview
+
+Output of Revalidate: sole conformance input: `valid` iff zero `error`-severity results. Merges bind, type, cardinality, shapes, and external results. Non-relevant fields absent from `results`. May be stale vs. later `Response.authored`.
+
+## Top-Level Structure
+
+| Property | Type | Required | Description |
+|---|---|---|---|
+| `$formspecValidationReport` | `string` (const: `"1.0"`) | Yes | Report document version. MUST be `"1.0"`. |
+| `definitionUrl` | `string` (format: `uri`) | No | Definition URL validated against (matches Response). |
+| `definitionVersion` | `string` | No | Pinned Definition version (VP-01). |
+| `valid` | `boolean` | Yes | `true` iff no error-severity results. |
+| `results` | `array` of ValidationResult | Yes | Full ordered findings set. |
+| `counts` | `object` | Yes | Severity counts; invariants with `valid` and `results.length`. |
+| `timestamp` | `string` (format: `date-time`) | Yes | When this run completed. |
+| `extensions` | `object` | No | Report-level extensions; keys `^x-`. |
+
+### counts Object
+
+| Property | Type | Required | Description |
+|---|---|---|---|
+| `error` | `integer` (minimum: 0) | Yes | Error count; if > 0, `valid` must be false (semantic). |
+| `warning` | `integer` (minimum: 0) | Yes | Warning count. |
+| `info` | `integer` (minimum: 0) | Yes | Info count. |
+
+## Key Type Definitions ($defs)
+
+None -- `counts` inline only.
+
+## Required Fields
+
+- `$formspecValidationReport`, `valid`, `results`, `counts`, `timestamp`
+- Inside `counts`: `error`, `warning`, `info`
+
+## Enums and Patterns
+
+| Property Path | Type | Values/Pattern | Description |
+|---|---|---|---|
+| `$formspecValidationReport` | const | `"1.0"` | Version pin. |
+| `extensions` (propertyNames) | pattern | `^x-` | Extension keys. |
+
+Enumerations on nested results come from ValidationResult.
+
+## Cross-References
+
+- `results[*]` → `https://formspec.org/schemas/validationResult/1.0`.
+- Core: §2.4 Phase 3, §5.4, §5.5 (modes), §5.6, VP-01.
+
+## Extension Points
+
+- `extensions` (`^x-`); must not alter `valid` or core semantics (semantic).
+
+## Validation Constraints
+
+- Top-level and `counts`: `additionalProperties: false`.
+- `counts.*`: type `integer`, `minimum: 0`.
+- `timestamp`, optional `definitionUrl`: formats as in schema.
+- Semantic: `valid === (counts.error === 0)`; `counts.error + counts.warning + counts.info === results.length`; non-relevant suppression.
+
+---
+
+# Changelog Schema Reference Map
+
+> `schemas/changelog.schema.json` -- 204 lines -- Differences between two Definition versions for semver and migrations.
+
+## Overview
+
+Atomic **Change** records describe add/remove/modify/move/rename on items, binds, shapes, option sets, data sources, screeners, migrations, or metadata. `semverImpact` is the max semver bump implied by per-change `impact`.
+
+## Top-Level Structure
+
+| Property | Type | Required | Description |
+|---|---|---|---|
+| `$formspecChangelog` | `string` (const: `"1.0"`) | Yes | Changelog document version. MUST be `"1.0"`. |
+| `$schema` | `string` (format: `uri`) | No | JSON Schema meta URI. |
+| `definitionUrl` | `string` (format: `uri`) | Yes | Definition `url` being compared. |
+| `fromVersion` | `string` (minLength: 1) | Yes | Base version. |
+| `toVersion` | `string` (minLength: 1) | Yes | Target version. |
+| `generatedAt` | `string` (format: `date-time`) | No | Generation time. |
+| `semverImpact` | `string` (enum) | Yes | `major`, `minor`, or `patch` -- max across changes. |
+| `summary` | `string` | No | Release-notes summary. |
+| `changes` | `array` of Change (`$ref` #/$defs/Change) | Yes | Ordered change list. |
+
+## Key Type Definitions ($defs)
+
+| Definition | Description | Key Properties | Used By |
+|---|---|---|---|
+| **Change** | One atomic definition-element change. | `type`, `target`, `path`, `impact` (required); `key`, `description`, `before`, `after`, `migrationHint` (optional) | `changes[]` |
+
+### Change Object
+
+| Property | Type | Required | Description |
+|---|---|---|---|
+| `type` | `string` (enum) | Yes | `added`, `removed`, `modified`, `moved`, `renamed`. |
+| `target` | `string` (enum) | Yes | `item`, `bind`, `shape`, `optionSet`, `dataSource`, `screener`, `migration`, `metadata`. |
+| `path` | `string` (minLength: 1) | Yes | Dot-path to affected element. |
+| `key` | `string` | No | Item key when `target` is `item`. |
+| `impact` | `string` (enum) | Yes | `breaking`, `compatible`, `cosmetic`. |
+| `description` | `string` | No | Human-readable change description. |
+| `before` | any | No | Prior fragment per `type` rules in schema description. |
+| `after` | any | No | New fragment per `type` rules. |
+| `migrationHint` | `string` | No | `drop`, `preserve`, or FEL with `$old` for §6.7 fieldMap hints. |
+
+## Required Fields
+
+- Top-level: `$formspecChangelog`, `definitionUrl`, `fromVersion`, `toVersion`, `semverImpact`, `changes`
 - Each Change: `type`, `target`, `path`, `impact`
 
 ## Enums and Patterns
 
 | Property Path | Type | Values/Pattern | Description |
 |---|---|---|---|
-| `$formspecChangelog` | const | `"1.0"` | Spec version pin. |
-| `semverImpact` | enum | `major`, `minor`, `patch` | Aggregate semantic-version impact for the release. |
-| `Change.type` | enum | `added`, `removed`, `modified`, `moved`, `renamed` | Kind of change. |
-| `Change.target` | enum | `item`, `bind`, `shape`, `optionSet`, `dataSource`, `screener`, `migration`, `metadata` | Category of affected definition element. |
-| `Change.impact` | enum | `breaking`, `compatible`, `cosmetic` | Severity classification driving semver bump. |
+| `$formspecChangelog` | const | `"1.0"` | Version pin. |
+| `semverImpact` | enum | `major`, `minor`, `patch` | Aggregate semver gate. |
+| `Change.type` | enum | `added`, `removed`, `modified`, `moved`, `renamed` | Change kind. |
+| `Change.target` | enum | `item`, `bind`, `shape`, `optionSet`, `dataSource`, `screener`, `migration`, `metadata` | Affected subsystem. |
+| `Change.impact` | enum | `breaking`, `compatible`, `cosmetic` | Per-change severity. |
 
-### Impact Classification Rules
+### Impact vs semver (semantic)
 
-| Impact | Semver | Examples |
-|---|---|---|
-| `breaking` | major | Item removed, key renamed, dataType changed, required added to existing field, repeat toggled, itemType changed, option removed from closed set. |
-| `compatible` | minor | Optional item added, option added, constraint relaxed, item moved, new shape/bind. |
-| `cosmetic` | patch | Label/hint/description/help changed, display order changed. |
+| `impact` | Drives `semverImpact` |
+|---|---|
+| `breaking` | `major` |
+| `compatible` | `minor` |
+| `cosmetic` | `patch` |
+
+Document-level `semverImpact` must equal the maximum across `changes[]` (not expressible in JSON Schema alone).
 
 ## Cross-References
 
-- The Changelog schema is self-contained. The `Change` type is defined in `$defs` and referenced internally via `$ref: "#/$defs/Change"`.
-- Changelog spec (section 6.7): migration `fieldMap` entries can be auto-generated from `migrationHint` values.
+- Changelog spec / Core §6.7 migrations and `migrationHint` → `fieldMap`.
+- Self-contained: Change only via `#/$defs/Change`.
 
 ## Extension Points
 
-None -- the Changelog schema does not include an `extensions` property.
+None (`additionalProperties: false` everywhere).
 
 ## Validation Constraints
 
-- `additionalProperties: false` at top level and on `Change`.
-- `fromVersion` and `toVersion` enforce `minLength: 1`.
-- `Change.path` enforces `minLength: 1`.
-- `definitionUrl` enforces `format: uri`.
-- `generatedAt` enforces `format: date-time`.
-- `before` and `after` have no type constraint -- any JSON value is valid (structural fragments).
-- Semantic invariant (not schema-enforceable): `semverImpact` must equal the maximum `impact` across all changes (`breaking` -> `major`, `compatible` -> `minor`, `cosmetic` -> `patch`).
+- Top-level and Change: `additionalProperties: false`.
+- `fromVersion`, `toVersion`, `Change.path`: `minLength: 1`.
+- `definitionUrl`, `$schema`: `format: uri`; `generatedAt`: `date-time`.
+- `before` / `after`: unconstrained JSON types.
 
 ---
 
 # Conformance Suite Schema Reference Map
 
-> schemas/conformance-suite.schema.json -- 158 lines -- Defines shared conformance test cases executed by both Python and TypeScript runners.
+> `schemas/conformance-suite.schema.json` -- 158 lines -- Shared-case contract for cross-runtime conformance (Python + TypeScript).
 
 ## Overview
 
-The Conformance Suite schema defines the canonical contract for cross-runtime conformance test cases. Each case is executed by both the Python and TypeScript test runners to ensure behavioral parity between implementations. Cases are identified by a stable `id`, categorized by `kind` (determining execution mode), and carry expected outputs for assertion. The schema uses conditional validation (`allOf` with `if/then`) to require different properties based on the `kind` value.
+Each case has stable `id`, execution `kind`, `expected` payload after normalization, and mandatory `legacyCoverage` mapping. `allOf` + `if`/`then` adds requirements for `FEL_EVALUATION` vs processing/report/response kinds. `$defs.standardValidationCode` fixes the vocabulary for codes both runtimes must agree on (extends built-in list with registry-related codes).
 
 ## Top-Level Structure
 
 | Property | Type | Required | Description |
 |---|---|---|---|
-| `id` | `string` (minLength: 1, pattern: `^[a-z0-9][a-z0-9._-]*$`) | Yes | Stable, unique case identifier. Lowercase alphanumeric with dots, underscores, hyphens. |
-| `kind` | `string` (enum) | Yes | Execution mode for this case. |
-| `definitionPath` | `string` (minLength: 1) | Conditional | Repository-relative path to the form definition fixture. Required for ENGINE_PROCESSING, VALIDATION_REPORT, RESPONSE_VALIDATION. |
-| `registryPaths` | `array` of `string` (minItems: 1) | No | Repository-relative registry fixtures to load. |
-| `payloadPath` | `string` (minLength: 1) | Conditional | Repository-relative path to the input payload fixture. Required (or `inputData`) for non-FEL kinds. |
-| `inputData` | any | Conditional | Inline input payload. Alternative to `payloadPath` for non-FEL kinds. |
-| `mode` | `string` (enum) | No | Validation mode: `continuous` or `submit`. For processing/report/response kinds. |
-| `skipScreener` | `boolean` | No | When true, skip screener entry before evaluating the main definition. |
-| `expression` | `string` (minLength: 1) | Conditional | FEL expression to evaluate. Required for FEL_EVALUATION. |
-| `comparator` | `string` (enum) | Conditional | Comparison strategy. Required for FEL_EVALUATION. |
-| `fields` | `array` of field objects | No | Field declarations and values for FEL_EVALUATION cases. |
-| `compareResponseData` | `boolean` | No | When true, RESPONSE_VALIDATION also compares normalized response.data. |
-| `expected` | `object` | Yes | Canonical expected output after shared normalization. Open object -- structure depends on `kind`. |
-| `legacyCoverage` | `array` of coverage entries (minItems: 1) | Yes | Mapping of this case to replaced legacy test surfaces. |
+| `id` | `string` (minLength: 1, pattern) | Yes | Stable unique case id. |
+| `kind` | `string` (enum) | Yes | Execution mode (see enums). |
+| `definitionPath` | `string` (minLength: 1) | Conditional | Repo-relative Definition fixture; required for ENGINE_PROCESSING, VALIDATION_REPORT, RESPONSE_VALIDATION. |
+| `registryPaths` | `array` of `string` (each minLength: 1, minItems: 1) | No | Optional registry fixtures to load. |
+| `payloadPath` | `string` (minLength: 1) | Conditional | Repo-relative payload file; with `inputData`, part of `oneOf` for non-FEL kinds. |
+| `inputData` | any | Conditional | Inline payload alternative to `payloadPath`. |
+| `mode` | `string` (enum) | No | `continuous` or `submit` for validation-related kinds. |
+| `skipScreener` | `boolean` | No | Skip screener before main definition when true. |
+| `expression` | `string` (minLength: 1) | Conditional | FEL for FEL_EVALUATION. |
+| `comparator` | `string` (enum) | Conditional | FEL comparison strategy. |
+| `fields` | `array` of field object | No | Field declarations/values for FEL_EVALUATION. |
+| `compareResponseData` | `boolean` | No | If true, RESPONSE_VALIDATION also compares normalized `response.data`. |
+| `expected` | `object` | Yes | Expected output after shared normalization (shape depends on `kind`). |
+| `legacyCoverage` | `array` (minItems: 1) of coverage object | Yes | Maps case to replaced legacy tests. |
 
-### Field Object (within `fields` array)
-
-| Property | Type | Required | Description |
-|---|---|---|---|
-| `key` | `string` (minLength: 1) | Yes | Field key identifier. |
-| `dataType` | `string` (minLength: 1) | No | Data type of the field. |
-| `value` | any | No | Value to assign to the field. |
-
-### Legacy Coverage Entry
+### Field object (`fields[]`)
 
 | Property | Type | Required | Description |
 |---|---|---|---|
-| `path` | `string` (minLength: 1) | Yes | Repository-relative path of the replaced legacy test surface. |
-| `check` | `string` (minLength: 1) | Yes | Legacy test id/name/check this case replaces. |
+| `key` | `string` (minLength: 1) | Yes | Field key. |
+| `dataType` | `string` (minLength: 1) | No | Declared data type. |
+| `value` | any | No | Field value. |
+
+### legacyCoverage entry
+
+| Property | Type | Required | Description |
+|---|---|---|---|
+| `path` | `string` (minLength: 1) | Yes | Repo-relative path of replaced legacy surface. |
+| `check` | `string` (minLength: 1) | Yes | Legacy test id/name/check replaced. |
 
 ## Key Type Definitions ($defs)
 
 | Definition | Description | Key Properties | Used By |
 |---|---|---|---|
-| **standardValidationCode** | Standard validation result codes that both runtimes MUST emit identically. | enum of 14 string values | Not `$ref`'d in this schema -- serves as a normative vocabulary contract for test runners. |
+| **standardValidationCode** | Codes both runtimes MUST emit identically for shared validation assertions. | enum (14 values) | Normative vocabulary; not `$ref`'d by properties in this file |
 
-### standardValidationCode Enum (exhaustive)
+### standardValidationCode (exhaustive enum)
 
-| Code | Category |
-|---|---|
-| `REQUIRED` | Built-in (validationResult reserved) |
-| `TYPE_MISMATCH` | Built-in (validationResult reserved) |
-| `MIN_REPEAT` | Built-in (validationResult reserved) |
-| `MAX_REPEAT` | Built-in (validationResult reserved) |
-| `CONSTRAINT_FAILED` | Built-in (validationResult reserved) |
-| `PATTERN_MISMATCH` | Built-in (validationResult reserved) |
-| `MAX_LENGTH_EXCEEDED` | Built-in (validationResult reserved) |
-| `RANGE_UNDERFLOW` | Built-in (validationResult reserved) |
-| `RANGE_OVERFLOW` | Built-in (validationResult reserved) |
-| `SHAPE_FAILED` | Built-in (validationResult reserved) |
-| `UNRESOLVED_EXTENSION` | Registry extension code |
-| `EXTENSION_COMPATIBILITY_MISMATCH` | Registry extension code |
-| `EXTENSION_RETIRED` | Registry extension code |
-| `EXTENSION_DEPRECATED` | Registry extension code |
+| Value |
+|---|
+| `REQUIRED` |
+| `TYPE_MISMATCH` |
+| `MIN_REPEAT` |
+| `MAX_REPEAT` |
+| `CONSTRAINT_FAILED` |
+| `PATTERN_MISMATCH` |
+| `MAX_LENGTH_EXCEEDED` |
+| `RANGE_UNDERFLOW` |
+| `RANGE_OVERFLOW` |
+| `SHAPE_FAILED` |
+| `UNRESOLVED_EXTENSION` |
+| `EXTENSION_COMPATIBILITY_MISMATCH` |
+| `EXTENSION_RETIRED` |
+| `EXTENSION_DEPRECATED` |
 
 ## Required Fields
 
-- Always required: `id`, `kind`, `expected`, `legacyCoverage`
-- When `kind` is `FEL_EVALUATION`: `expression`, `comparator` (additional)
-- When `kind` is `ENGINE_PROCESSING`, `VALIDATION_REPORT`, or `RESPONSE_VALIDATION`: `definitionPath`, and one of (`payloadPath` or `inputData`)
+- Always: `id`, `kind`, `expected`, `legacyCoverage`
+- If `kind` = `FEL_EVALUATION`: `expression`, `comparator`
+- If `kind` ∈ {`ENGINE_PROCESSING`, `VALIDATION_REPORT`, `RESPONSE_VALIDATION`}: `definitionPath` and **oneOf** `payloadPath` **or** `inputData`
 
 ## Enums and Patterns
 
 | Property Path | Type | Values/Pattern | Description |
 |---|---|---|---|
-| `id` | pattern | `^[a-z0-9][a-z0-9._-]*$` | Must start with lowercase letter or digit, then only lowercase letters, digits, dots, underscores, hyphens. |
-| `kind` | enum | `FEL_EVALUATION`, `ENGINE_PROCESSING`, `VALIDATION_REPORT`, `RESPONSE_VALIDATION` | Execution mode. |
-| `mode` | enum | `continuous`, `submit` | Validation mode for processing/report/response kinds. |
-| `comparator` | enum | `exact`, `normalized`, `tolerant-decimal` | Comparison strategy for FEL_EVALUATION cases. |
-| `$defs.standardValidationCode` | enum | `REQUIRED`, `TYPE_MISMATCH`, `MIN_REPEAT`, `MAX_REPEAT`, `CONSTRAINT_FAILED`, `PATTERN_MISMATCH`, `MAX_LENGTH_EXCEEDED`, `RANGE_UNDERFLOW`, `RANGE_OVERFLOW`, `SHAPE_FAILED`, `UNRESOLVED_EXTENSION`, `EXTENSION_COMPATIBILITY_MISMATCH`, `EXTENSION_RETIRED`, `EXTENSION_DEPRECATED` | Standard codes both runtimes must emit identically. |
+| `id` | pattern | `^[a-z0-9][a-z0-9._-]*$` | Case id syntax. |
+| `kind` | enum | `FEL_EVALUATION`, `ENGINE_PROCESSING`, `VALIDATION_REPORT`, `RESPONSE_VALIDATION` | Runner mode. |
+| `mode` | enum | `continuous`, `submit` | Validation timing for applicable kinds. |
+| `comparator` | enum | `exact`, `normalized`, `tolerant-decimal` | FEL result comparison. |
+| `$defs.standardValidationCode` | enum | (14 values, table above) | Cross-runtime code parity. |
 
 ## Cross-References
 
-- The Conformance Suite schema is self-contained. It references external fixture files by repository-relative path (strings), not by `$ref`.
-- The `standardValidationCode` $def cross-references the reserved codes from `validationResult.schema.json` plus registry extension codes from the extension registry spec.
+- Fixture paths are plain strings, not JSON Schema `$ref`.
+- `standardValidationCode` aligns with `validation-result.schema.json` reserved codes where overlapping, plus extension-registry-related codes per schema description.
 
 ## Extension Points
 
-None -- the Conformance Suite schema does not include an `extensions` property.
+None at document root.
 
 ## Validation Constraints
 
-- `additionalProperties: false` at top level, on field objects, and on legacy coverage entries.
-- `id` enforces both `minLength: 1` and `pattern: "^[a-z0-9][a-z0-9._-]*$"`.
-- `registryPaths` enforces `minItems: 1` when present (if provided, must have at least one entry).
-- `legacyCoverage` enforces `minItems: 1` -- every case must document at least one replaced legacy check.
-- `expected` is an open object (`type: object` with no `additionalProperties` restriction on its contents) -- its structure depends on the `kind`.
-- `inputData` has no type constraint -- any JSON value is valid.
-- Conditional validation via `allOf` with `if/then`:
-  - **FEL_EVALUATION cases**: `expression` and `comparator` become required. `fields` is allowed as an array.
-  - **ENGINE_PROCESSING / VALIDATION_REPORT / RESPONSE_VALIDATION cases**: `definitionPath` becomes required. Exactly one of `payloadPath` or `inputData` must be present (`oneOf`).
+- `additionalProperties: false` on root, each `fields[]` item, each `legacyCoverage[]` item.
+- `allOf` conditionals:
+  1. **If** `kind` = `FEL_EVALUATION` **then** `required`: `expression`, `comparator`; `fields` may be array.
+  2. **If** `kind` ∈ {ENGINE_PROCESSING, VALIDATION_REPORT, RESPONSE_VALIDATION} **then** `required`: `definitionPath`; **oneOf** `{ required: [payloadPath] }` or `{ required: [inputData] }`.
+- `registryPaths`: when present, `minItems: 1` and each item `minLength: 1`.
+- `legacyCoverage`: `minItems: 1`.
+- `expected`: typed as object without further property restriction -- content is runner-defined.

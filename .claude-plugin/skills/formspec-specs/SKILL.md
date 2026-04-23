@@ -1,41 +1,43 @@
 ---
 name: formspec-specs
-version: 1.1.0
-description: This skill should be used when the user asks about "the spec", "spec sections", "how does formspec define X", "what section covers Y", "cross-tier behavior", "FEL grammar", "validation rules", "component binding", "theme cascade", "mapping transforms", "extension registry", "screener routing", "assist protocol", "respondent ledger", "references document", "locale document", "ontology binding", "schema structure", "what properties does X have", "JSON schema for Y", or any question requiring knowledge of the Formspec specification suite or JSON schemas. Also triggers on implementation questions where normative spec behavior matters -- processing model phases, null propagation, bind semantics, slot resolution, screener evaluation pipeline, determination records, version migrations, locale fallback, concept alignment, schema validation constraints, etc.
+version: 1.2.0
+description: This skill should be used when the user asks about "the spec", "spec sections", "how does formspec define X", "what section covers Y", "cross-tier behavior", "FEL grammar", "validation rules", "component binding", "theme cascade", "mapping transforms", "extension registry", "screener routing", "assist protocol", "respondent ledger", "intake handoff", "token registry", "references document", "locale document", "ontology binding", "schema structure", "what properties does X have", "JSON schema for Y", or any question requiring knowledge of the Formspec specification suite or JSON schemas. Also triggers on implementation questions where normative spec behavior matters -- processing model phases, null propagation, bind semantics, slot resolution, screener evaluation pipeline, determination records, version migrations, locale fallback, concept alignment, workflow handoff boundaries, schema validation constraints, etc.
 ---
 
 # Formspec Specification Navigator
 
-Navigate 18.7K lines of specification content and 10.1K lines of JSON schemas without loading everything into context. This skill provides structured section maps, schema reference maps, cross-reference guides, and decision trees for finding the right spec section or schema property quickly.
+Navigate ~20.1K lines of canonical specification prose and ~11.2K lines of JSON schemas without loading everything into context. This skill provides structured section maps, schema reference maps, cross-reference guides, and decision trees for finding the right spec section or schema property quickly.
 
 ## Specification Architecture
 
 Formspec uses a **three-tier architecture** with companion and add-on specifications:
 
-```
+```text
 ┌─────────────────────────────────────────────────────┐
-│ Tier 3: Components (component-spec.md, 3521 lines)  │  Explicit rendering tree
+│ Tier 3: Components (component-spec.md, 3592 lines)  │  Explicit rendering tree
 │   35 component types, slot binding, responsive       │  Overrides Tier 1 & 2
 ├─────────────────────────────────────────────────────┤
-│ Tier 2: Theme (theme-spec.md, 1167 lines)           │  Presentation intent
+│ Tier 2: Theme (theme-spec.md, 1222 lines)           │  Presentation intent
 │   Design tokens, widget catalog, selector cascade    │  Overrides Tier 1
 ├─────────────────────────────────────────────────────┤
-│ Tier 1: Core (spec.md, 4729 lines)                  │  Data & logic
-│   Items, binds, FEL, validation, versioning          │  Baseline behavior
+│ Tier 1: Core (spec.md, 4778 lines)                  │  Data & logic
+│   Items, binds, FEL, validation, versioning,         │  Baseline behavior
+│   Intake Handoff boundary (see §2.1.6)               │
 ├─────────────────────────────────────────────────────┤
 │ Companions:                                          │
-│   FEL Grammar (395 lines) — Normative PEG grammar   │
-│   Mapping DSL (2023 lines) — Bidirectional transforms│
-│   Extension Registry (584 lines) — Extension system  │
-│   Changelog (260 lines) — Version change format      │
-│   Screener (1508 lines) — Respondent routing         │
-│   Assist (801 lines) — Form-filling interop protocol │
-│   References (697 lines) — Sidecar external context  │
-│   Locale (1253 lines) — Internationalization         │
-│   Ontology (782 lines) — Semantic concept binding    │
+│   FEL Grammar (395 lines) -- Normative PEG grammar   │
+│   Mapping DSL (2031 lines) -- Bidirectional transforms│
+│   Extension Registry (591 lines) -- Extension system  │
+│   Changelog (267 lines) -- Version change format      │
+│   Screener (2047 lines) -- Respondent routing         │
+│   Assist (801 lines) -- Form-filling interop protocol │
+│   References (697 lines) -- Sidecar external context  │
+│   Locale (1263 lines) -- Internationalization         │
+│   Ontology (782 lines) -- Semantic concept binding    │
+│   Token Registry (516 lines) -- Token catalog (tooling)│
 ├─────────────────────────────────────────────────────┤
 │ Add-On:                                              │
-│   Respondent Ledger (969 lines) — Audit trail        │
+│   Respondent Ledger (1070 lines) -- Audit trail     │
 └─────────────────────────────────────────────────────┘
 ```
 
@@ -50,9 +52,11 @@ Formspec uses a **three-tier architecture** with companion and add-on specificat
 | FEL syntax, operators, functions | Core spec S3 + FEL Grammar | S3.1-3.12 + full grammar |
 | Validation shapes, severity, constraint kinds | Core spec | S5.1-5.7 |
 | Processing model (rebuild/recalculate/revalidate/notify) | Core spec | S2.4 |
-| Inline screener routing (legacy) | Core spec | S4.7 |
+| Intake Handoff boundary object (response + validation + ledger pins) | Core spec + Intake Handoff schema | S2.1.6 / handoff record |
+| Inline / embedded screener on Definition | Deprecated; use standalone Screener | Core notes; Screener spec |
 | Versioning, migrations, response pinning | Core spec | S6.1-6.7 |
 | Design tokens, color/spacing/typography | Theme spec | S3.1-3.5 |
+| Token Registry catalog (categories, tokenMeta, tooling) | Token Registry spec | Full doc |
 | Widget catalog and configuration | Theme spec | S4.1-4.4 |
 | Selector cascade (defaults -> selectors -> overrides) | Theme spec | S5.1-5.6 |
 | Page layout, 12-column grid, regions | Theme spec | S6.1-6.5 |
@@ -94,7 +98,7 @@ Formspec uses a **three-tier architecture** with companion and add-on specificat
 ## File Types in specs/
 
 | Suffix | Purpose | Normative? | When to Read |
-|--------|---------|------------|--------------|
+|--------|---------|------------|---------------|
 | `.md` | Canonical specification | **Yes** | Authoritative source for any behavioral question |
 | `.llm.md` | Generated LLM reference | No | Quick context loading -- compact summaries, auto-generated |
 | `.bluf.md` | Bottom-line summary | No | 4-line essence of each spec, injected into canonical |
@@ -107,19 +111,21 @@ Formspec uses a **three-tier architecture** with companion and add-on specificat
 These are the key places where specifications reference each other:
 
 1. **Token Cascade** (Component S10 <- Theme S3): Components inherit design tokens from Theme. Unresolved tokens handled per S10.4.
-2. **Widget Config** (Component S5-6 <- Theme S4): Theme's widget catalog provides typed configuration consumed by component rendering.
-3. **Bind Compatibility** (Component S4.6 <- Core S4.3): Component slot binding checked against Definition item data types. See compatibility matrix in Component Appendix C.
-4. **Conditional Logic** (Component S8 vs Core S4.3 relevant): Component `when` controls rendering visibility; Core `relevant` controls data relevance. Both use FEL but have different semantics -- `relevant=false` excludes from response, `when=false` only hides visually.
-5. **Responsive Design** (Component S9 <- Theme S6.4): Component breakpoints merge with Theme layout breakpoints using mobile-first strategy.
-6. **Processing Model** (Core S2.4): All tiers depend on the 4-phase processing model -- Rebuild -> Recalculate -> Revalidate -> Notify.
-7. **Extension Resolution** (All tiers <- Extension Registry): Extensions declared on items resolve against loaded registry entries. Unresolved = error.
-8. **Mapping <-> Core Versioning** (Mapping Appendix A <-> Core S6.7): Version migrations can generate mapping rules; mapping rules can produce migrations.
-9. **Screener -> Definition Routing** (Screener S6 -> Core S4): Screener routes target Definitions by URL. The Screener's items reuse Core Item/Bind schemas but run in an isolated evaluation scope.
-10. **Assist -> Core + References + Ontology** (Assist S4-S8): Assist introspection reads Core Definition state; help tools consume References sidecar content; autofill profiles use Ontology concept identity for cross-form value matching.
-11. **Locale -> Core + Theme + Component** (Locale S4): Locale string keys address Core item labels/choices, Theme page titles, and Component node text via `$page.` and `$component.` prefixes.
-12. **Ontology -> Core + Registry** (Ontology S7): Ontology resolution cascade layers concept bindings over registry concept entries and raw `semanticType` values from Core items.
-13. **References -> Core** (References S2): References Document targets a Definition by URL and binds external resources to items by path. Pure metadata -- no behavioral effect.
-14. **Respondent Ledger -> Core Response** (Ledger S2): Ledger references a Response by `responseId` and pins a Definition by `(definitionUrl, definitionVersion)` tuple. Additive audit layer.
+2. **Token Registry <- Theme/Component** (Token Registry spec): Registry documents describe keys and metadata for tokens used in Theme and Component `tokens` / `tokenMeta`; renderers use flat Theme maps at runtime.
+3. **Widget Config** (Component S5-6 <- Theme S4): Theme's widget catalog provides typed configuration consumed by component rendering.
+4. **Bind Compatibility** (Component S4.6 <- Core S4.3): Component slot binding checked against Definition item data types. See compatibility matrix in Component Appendix C.
+5. **Conditional Logic** (Component S8 vs Core S4.3 relevant): Component `when` controls rendering visibility; Core `relevant` controls data relevance. Both use FEL but have different semantics -- `relevant=false` excludes from response, `when=false` only hides visually.
+6. **Responsive Design** (Component S9 <- Theme S6.4): Component breakpoints merge with Theme layout breakpoints using mobile-first strategy.
+7. **Processing Model** (Core S2.4): All tiers depend on the 4-phase processing model -- Rebuild -> Recalculate -> Revalidate -> Notify.
+8. **Extension Resolution** (All tiers <- Extension Registry): Extensions declared on items resolve against loaded registry entries. Unresolved = error.
+9. **Mapping <-> Core Versioning** (Mapping Appendix A <-> Core S6.7): Version migrations can generate mapping rules; mapping rules can produce migrations.
+10. **Screener -> Definition Routing** (Screener S6 -> Core S4): Standalone Screener routes target Definitions by URL. Screener items reuse Core Item/Bind schemas in an isolated evaluation scope.
+11. **Assist -> Core + References + Ontology** (Assist S4-S8): Assist introspection reads Core Definition state; help tools consume References sidecar content; autofill profiles use Ontology concept identity for cross-form value matching.
+12. **Locale -> Core + Theme + Component** (Locale S4): Locale string keys address Core item labels/choices, Theme page titles, and Component node text via `$page.` and `$component.` prefixes.
+13. **Ontology -> Core + Registry** (Ontology S7): Ontology resolution cascade layers concept bindings over registry concept entries and raw `semanticType` values from Core items.
+14. **References -> Core** (References S2): References Document targets a Definition by URL and binds external resources to items by path. Pure metadata -- no behavioral effect.
+15. **Respondent Ledger -> Core Response** (Ledger S2): Ledger references a Response by `responseId` and pins a Definition by `(definitionUrl, definitionVersion)` tuple. Additive audit layer.
+16. **Intake Handoff -> Response + ValidationReport + Ledger** (Core S2.1.6): Handoff pins definition, references canonical Response and ValidationReport snapshot, and binds ledger head for downstream workflow hosts.
 
 ## Critical Behavioral Rules (Cross-Spec)
 
@@ -137,10 +143,11 @@ These are the key places where specifications reference each other:
 - **References are pure metadata**: References MUST NOT affect data capture, validation, or the processing model (References S1.1)
 - **Locale is presentation-only**: Locale Documents MUST NOT affect data collection, validation logic, or behavioral semantics (Locale S1.2)
 - **Ontology bindings are pure metadata**: Ontology MUST NOT alter core behavioral semantics -- required, relevant, readonly, calculate, validation (Ontology S1)
+- **Token Registry is tooling-facing**: Registry documents are optional at runtime; Theme flat `tokens` remain the renderer surface (Token Registry spec)
 
 ## JSON Schemas -- Co-Authoritative with Specs
 
-The `schemas/` directory contains 18 JSON Schema files (10130 lines total). Schemas and specs are **co-authoritative** -- neither is assumed more correct than the other:
+The `schemas/` directory contains **21** JSON Schema files (~11229 lines total). Schemas and specs are **co-authoritative** -- neither is assumed more correct than the other:
 
 - **Schemas** define structural truth: what properties exist, their types, required fields, enums, patterns, constraints.
 - **Specs** define behavioral truth: processing semantics, evaluation order, null handling, precedence, error behavior.
@@ -149,24 +156,27 @@ The `schemas/` directory contains 18 JSON Schema files (10130 lines total). Sche
 
 | Schema | Lines | Defines |
 |--------|-------|---------|
-| `definition.schema.json` | 1729 | Core form definition -- items, binds, instances, variables, screener |
-| `component.schema.json` | 1490 | Component tree -- 35 component types, slot binding, responsive |
-| `core-commands.schema.json` | 1220 | Programmatic commands for form manipulation |
-| `fel-functions.schema.json` | 994 | FEL standard library -- function signatures across 9 categories |
-| `mapping.schema.json` | 817 | Mapping DSL -- transforms, adapters, bidirectional rules |
-| `theme.schema.json` | 658 | Theme document -- tokens, widgets, selectors, pages, layout |
+| `definition.schema.json` | 1635 | Core form definition -- items, binds, instances, variables |
+| `component.schema.json` | 1505 | Component tree -- 35 component types, slot binding, responsive |
+| `fel-functions.schema.json` | 1157 | FEL standard library -- function signatures across categories |
+| `core-commands.schema.json` | 1152 | Programmatic commands for form manipulation |
+| `mapping.schema.json` | 824 | Mapping DSL -- transforms, adapters, bidirectional rules |
+| `theme.schema.json` | 688 | Theme document -- tokens, widgets, selectors, pages, layout |
 | `registry.schema.json` | 647 | Extension registry -- entries, publishers, lifecycle |
-| `ontology.schema.json` | 429 | Ontology document -- concept bindings, vocabulary bindings, alignments |
-| `references.schema.json` | 324 | References document -- external resources, audience, referenceDefs |
+| `respondent-ledger-event.schema.json` | 492 | Single append-only ledger event payload |
+| `ontology.schema.json` | 426 | Ontology document -- concept bindings, vocabulary bindings, alignments |
+| `response.schema.json` | 409 | Form response -- submitted data, metadata, pinned version |
+| `references.schema.json` | 326 | References document -- external resources, audience, referenceDefs |
 | `screener.schema.json` | 286 | Screener document -- evaluation pipeline, strategies, routes |
+| `intake-handoff.schema.json` | 249 | Intake Handoff boundary record -- workflow/case handoff |
 | `determination.schema.json` | 235 | Determination record -- screener evaluation output |
-| `response.schema.json` | 214 | Form response -- submitted data, metadata, pinned version |
-| `respondent-ledger.schema.json` | 205 | Respondent ledger -- append-only audit trail |
+| `respondent-ledger.schema.json` | 205 | Respondent ledger envelope -- append-only audit trail |
 | `changelog.schema.json` | 204 | Version changelog -- change objects, impact |
-| `validationResult.schema.json` | 178 | Single validation result -- severity, path, constraint kind |
+| `validation-result.schema.json` | 178 | Single validation result -- severity, path, constraint kind |
 | `locale.schema.json` | 173 | Locale document -- internationalized strings, fallback cascade |
-| `validationReport.schema.json` | 169 | Full validation report -- aggregated results |
+| `validation-report.schema.json` | 169 | Full validation report -- aggregated results |
 | `conformance-suite.schema.json` | 158 | Test conformance suite -- test cases, expected outcomes |
+| `token-registry.schema.json` | 111 | Token Registry document -- categories and token metadata |
 
 ### Schema <-> Spec Correspondence
 
@@ -184,12 +194,15 @@ The `schemas/` directory contains 18 JSON Schema files (10130 lines total). Sche
 | ontology | Ontology spec | S2-7 |
 | references | References spec | S2-7 |
 | respondent-ledger | Respondent Ledger | S3-10 |
+| respondent-ledger-event | Respondent Ledger | Event taxonomy / payloads |
 | response | Core spec | S2.1 (Response abstraction) |
 | validationResult | Core spec | S5.3 |
 | validationReport | Core spec | S5.4 |
 | fel-functions | Core spec | S3.5 (Built-in Functions) |
 | core-commands | N/A (tooling) | Studio/MCP tooling layer |
 | conformance-suite | N/A (testing) | Test infrastructure |
+| intake-handoff | Core spec | S2.1.6 (Intake Handoff) |
+| token-registry | Token Registry spec | Full doc |
 
 ### Schema Decision Tree
 
@@ -204,34 +217,39 @@ The `schemas/` directory contains 18 JSON Schema files (10130 lines total). Sche
 | Page layout structure | theme -> pages |
 | Mapping transform types | mapping -> fieldRule |
 | Extension entry format | registry -> RegistryEntry |
-| What a validation error looks like | validationResult |
+| What a validation error looks like | validation-result |
 | Screener pipeline structure, phases, strategies | screener -> phases, strategies |
 | Override route configuration | screener -> routes (overrideCondition) |
 | Determination record structure | determination |
+| Intake Handoff root fields and refs | intake-handoff |
 | Locale string key format and fallback | locale -> strings, fallback |
 | Ontology concept binding shape | ontology -> concepts |
 | Vocabulary binding and alignment | ontology -> vocabularies, alignments |
 | References document structure | references -> references array |
 | Agent vs human audience targeting | references -> audience enum |
-| Respondent ledger event types | respondent-ledger -> events |
+| Respondent ledger envelope | respondent-ledger |
+| Ledger event payload kinds | respondent-ledger-event (see `respondent-ledger.md` reference map -- grouped with envelope) |
 | Ledger checkpoint and integrity | respondent-ledger -> checkpoints |
+| Token registry categories and entries | token-registry |
 
 ### Schema Reference Maps
 
 For property-level navigation of each schema, consult:
 
-- **`references/schemas/definition.md`** -- Definition schema: items, binds, instances, variables (1729 lines)
-- **`references/schemas/component.md`** -- Component schema: 35 components, slot binding, responsive (1490 lines)
-- **`references/schemas/core-commands.md`** -- Core commands schema: programmatic form manipulation (1220 lines)
-- **`references/schemas/fel-functions.md`** -- FEL functions schema: function catalog (994 lines)
-- **`references/schemas/mapping-theme-registry.md`** -- Mapping (817), theme (658), and registry (647) schemas (2122 combined)
-- **`references/schemas/response-validation-changelog-conformance.md`** -- Response (214), validation (178+169), changelog (204), conformance (158) schemas (923 combined)
+- **`references/schemas/definition.md`** -- Definition schema: items, binds, instances, variables (1635 lines)
+- **`references/schemas/component.md`** -- Component schema: 35 components, slot binding, responsive (1505 lines)
+- **`references/schemas/fel-functions.md`** -- FEL functions schema: function catalog (1157 lines)
+- **`references/schemas/core-commands.md`** -- Core commands schema: programmatic form manipulation (1152 lines)
+- **`references/schemas/mapping-theme-registry.md`** -- Mapping (824), theme (688), and registry (647) schemas (2159 combined)
+- **`references/schemas/response-validation-changelog-conformance.md`** -- Response (409), validation (178+169), changelog (204), conformance (158) schemas (1118 combined)
+- **`references/schemas/intake-handoff.md`** -- Intake Handoff schema: workflow boundary record (249 lines)
 - **`references/schemas/determination.md`** -- Determination record schema: screener evaluation output (235 lines)
 - **`references/schemas/screener.md`** -- Screener schema: evaluation pipeline, strategies, routes (286 lines)
 - **`references/schemas/locale.md`** -- Locale schema: internationalized strings, fallback cascade (173 lines)
-- **`references/schemas/ontology.md`** -- Ontology schema: concept bindings, vocabulary bindings, alignments (429 lines)
-- **`references/schemas/references.md`** -- References schema: external resources, audience, referenceDefs (324 lines)
-- **`references/schemas/respondent-ledger.md`** -- Respondent ledger schema: append-only audit trail (205 lines)
+- **`references/schemas/ontology.md`** -- Ontology schema: concept bindings, vocabulary bindings, alignments (426 lines)
+- **`references/schemas/references.md`** -- References schema: external resources, audience, referenceDefs (326 lines)
+- **`references/schemas/respondent-ledger.md`** -- Respondent ledger schema: envelope plus event payloads (205 + 492 lines)
+- **`references/schemas/token-registry.md`** -- Token Registry schema: categories and token metadata (111 lines)
 
 Each schema reference contains: top-level structure, $defs catalog, required fields, enums, cross-references, extension points, x-lm annotations, and validation constraints.
 
@@ -239,21 +257,23 @@ Each schema reference contains: top-level structure, $defs catalog, required fie
 
 For section-by-section navigation of each specification, consult the reference files:
 
-- **`references/core-spec.md`** -- Core specification: items, binds, FEL, validation, versioning (4729 lines mapped)
-- **`references/theme-spec.md`** -- Theme specification: tokens, widgets, cascade, layout (1167 lines mapped)
-- **`references/component-spec.md`** -- Component specification: tree, binding, 35 components, responsive (3521 lines mapped)
-- **`references/mapping-spec.md`** -- Mapping specification: transforms, bidirectional, adapters (2023 lines mapped)
+- **`references/core-spec.md`** -- Core specification: items, binds, FEL, validation, versioning, Intake Handoff (4778 lines mapped)
+- **`references/theme-spec.md`** -- Theme specification: tokens, widgets, cascade, layout (1222 lines mapped)
+- **`references/component-spec.md`** -- Component specification: tree, binding, 35 components, responsive (3592 lines mapped)
+- **`references/mapping-spec.md`** -- Mapping specification: transforms, bidirectional, adapters (2031 lines mapped)
 - **`references/fel-grammar.md`** -- FEL normative grammar: lexical rules, precedence, paths (395 lines mapped)
-- **`references/extension-registry.md`** -- Extension registry: publishing, discovery, lifecycle (584 lines mapped)
-- **`references/changelog-spec.md`** -- Changelog format: change objects, impact classification (260 lines mapped)
-- **`references/screener-spec.md`** -- Screener: evaluation pipeline, strategies, override routes, determination (1508 lines mapped)
+- **`references/extension-registry.md`** -- Extension registry: publishing, discovery, lifecycle (591 lines mapped)
+- **`references/changelog-spec.md`** -- Changelog format: change objects, impact classification (267 lines mapped)
+- **`references/screener-spec.md`** -- Screener: evaluation pipeline, strategies, override routes, determination (2047 lines mapped)
 - **`references/assist-spec.md`** -- Assist: form-filling interop, introspection, mutation, profiles (801 lines mapped)
-- **`references/respondent-ledger-spec.md`** -- Respondent Ledger: audit trail, event taxonomy, integrity (969 lines mapped)
+- **`references/respondent-ledger-spec.md`** -- Respondent Ledger: audit trail, event taxonomy, integrity (1070 lines mapped)
 - **`references/references-spec.md`** -- References: sidecar external context, agent data stores (697 lines mapped)
-- **`references/locale-spec.md`** -- Locale: internationalization, string keys, fallback cascade (1253 lines mapped)
+- **`references/locale-spec.md`** -- Locale: internationalization, string keys, fallback cascade (1263 lines mapped)
 - **`references/ontology-spec.md`** -- Ontology: semantic binding, concept alignment, vocabulary mapping (782 lines mapped)
+- **`references/token-registry-spec.md`** -- Token Registry: token catalog, categories, tooling vs runtime (516 lines mapped)
 
 Each reference file contains:
+
 - Complete section map (heading -> description -> key concepts -> when to consult)
 - Cross-references to other specs
 - Key schemas defined
@@ -274,14 +294,16 @@ Each reference file contains:
 Common questions span multiple specs. These are the most frequent cross-spec paths:
 
 - **FEL syntax + semantics**: `fel-grammar.md` (grammar) -> `spec.md` S3 (semantics) -> `fel-functions.schema.json` (stdlib)
-- **Validation**: `spec.md` S5 (shapes, rules) -> `validationResult.schema.json` -> `validationReport.schema.json`
+- **Validation**: `spec.md` S5 (shapes, rules) -> `validation-result.schema.json` -> `validation-report.schema.json`
 - **Versioning + Migration**: `spec.md` S6.7 -> `changelog-spec.md` S6 -> `mapping-spec.md` Appendix A
 - **Extensions**: `spec.md` S8 -> `extension-registry.md` -> `registry.schema.json`
 - **Widget resolution**: `spec.md` S4.2 (widgetHint) -> `theme-spec.md` S4 (catalog) -> `component-spec.md` S5-6 (components)
+- **Tokens + registry**: `theme-spec.md` S3 (flat tokens) -> `token-registry-spec.md` (catalog) -> `token-registry.schema.json`
 - **Screener -> Determination**: `screener-spec.md` S3-S8 (pipeline) -> `screener-spec.md` S9 (Determination Record) -> `determination.schema.json`
 - **Screener -> Definition routing**: `screener-spec.md` S6 (routes) -> `spec.md` S4 (target Definition)
 - **Assist -> form state**: `assist-spec.md` S4 (introspection) -> `spec.md` S2.4 (processing model) -> `references-spec.md` (help content) -> `ontology-spec.md` (concept identity for autofill)
 - **Locale -> all tiers**: `locale-spec.md` S4 (string keys) -> `spec.md` S4.2 (item labels/choices) + `theme-spec.md` S6 (page titles) + `component-spec.md` S3 (node text)
 - **Ontology resolution cascade**: `ontology-spec.md` S7 -> `extension-registry.md` (concept entries) -> `spec.md` S4.2 (semanticType)
 - **References -> Assist**: `references-spec.md` S2-S6 (reference content) -> `assist-spec.md` S5 (help tools consume references)
-- **Respondent Ledger -> Response**: `respondent-ledger-spec.md` S2 (layering) -> `spec.md` S2.1 (Response) -> `response.schema.json`
+- **Respondent Ledger -> Response**: `respondent-ledger-spec.md` S2 (layering) -> `spec.md` S2.1 (Response) -> `response.schema.json` / `respondent-ledger-event.schema.json`
+- **Intake Handoff -> audit + validation**: `spec.md` S2.1.6 -> `intake-handoff.schema.json` -> `validation-report.schema.json` + `respondent-ledger.schema.json`

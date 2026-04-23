@@ -1,111 +1,120 @@
 # Changelog Specification Reference Map
 
-> specs/registry/changelog-spec.md -- 260 lines, ~12K -- Companion: Version Changelog Format, Impact Classification
+> specs/registry/changelog-spec.md -- 267 lines, ~18K -- Companion: Registry tier; Changelog JSON format, impact classification, and migration hints
 
 ## Overview
 
-The Changelog Specification defines a JSON document format for enumerating structural differences between two versions of a Formspec Definition. It supports automated migration generation, CI/CD impact gating, and human-readable release notes. The spec builds on Formspec v1.0 semver semantics (core spec S6.2) and migration objects (core spec S6.7), providing the bridge between version comparison and data migration.
+The Changelog Specification defines a JSON document format that enumerates structural differences between two versions of a Formspec Definition. It supports migration tooling, impact analysis, reviewer notifications, human-readable release notes, and CI/CD gates on breaking changes. Terminology and Definition structure follow Formspec v1.0; semver interpretation follows Core §6.2 and migration objects follow Core §6.7.
 
 ## Section Map
 
-### Front Matter, Introduction, and Document Schema (Lines 1-86)
+### Front Matter, Title, Introduction, and BLUF (Lines 1-34)
 
 | Section | Heading | Description | Key Concepts | Consult When |
 |---------|---------|-------------|--------------|--------------|
-| Title | Formspec Changelog Format v1.0 | Title block with status (Draft), companion relationship to Formspec v1.0, and date (2025-07). | Draft, companion spec | Checking spec maturity or date |
-| 1 | Introduction | Defines the purpose of a Changelog Document: automated tooling (migration generation, impact analysis, reviewer notifications), human review (structured release notes), and programmatic consumers (CI/CD gates that reject breaking changes on minor branches). States that terminology follows Formspec v1.0 and references S6.2 (semver) and S6.7 (migrations). | Changelog Document, migration generation, impact analysis, CI/CD gates | Understanding what changelogs are for, or why the format exists |
-| BLUF | Bottom Line Up Front | Compact summary: a valid changelog requires `$formspecChangelog`, `definitionUrl`, `fromVersion`, `toVersion`, `semverImpact`, and `changes`. Impact classification drives migration planning and semver governance. Governed by `schemas/changelog.schema.json`. | Required fields, semver governance, changelog.schema.json | Quick orientation before deeper reading |
-| 2 | Changelog Document Schema | Defines the top-level JSON object structure with all properties. Contains a generated schema-ref table from `schemas/changelog.schema.json` enumerating nine properties. States that `semverImpact` MUST equal the max impact across all changes (breaking->major, compatible->minor, cosmetic->patch). | `$formspecChangelog` (const "1.0"), `$schema`, `changes`, `definitionUrl`, `fromVersion`, `toVersion`, `generatedAt`, `semverImpact`, `summary` | Building or validating a changelog document, understanding required vs optional top-level fields |
-| 2.1 | Example | Full JSON example of a changelog with a `removed` (breaking) and `added` (compatible) change, showing all top-level fields and two Change objects with `before`/`after`/`migrationHint`. Demonstrates version bump from 2.1.0 to 3.0.0 with semverImpact "major". | Example structure, `migrationHint: "drop"`, version bump, complete document shape | Seeing a complete changelog document in practice |
+| YAML | Front matter | `title`, `version` (e.g. 1.0.0-draft.1), `date`, `status: draft` for the spec document itself (not the changelog JSON). | draft, version, status | Checking spec document metadata |
+| -- | Formspec Changelog Format v1.0 | Title block: Draft status, companion to Formspec v1.0, body date note (2025-07). | companion spec, Draft | Orientation on spec maturity |
+| 1 | Introduction | Defines a **Changelog Document** as JSON enumerating diffs between two Definition versions; use cases are automated tooling, human review, and programmatic consumers (e.g. CI rejecting breaking changes on minor branches). | Changelog Document, CI/CD gates, migration generation | Why the format exists and who consumes it |
+| BLUF | Bottom Line Up Front | Embedded BLUF: required top-level fields; impact classification drives migration planning and semver governance; governed by `schemas/changelog.schema.json`. | `$formspecChangelog`, `definitionUrl`, `fromVersion`, `toVersion`, `semverImpact`, `changes`, changelog.schema.json | Quick validation checklist before deep read |
 
-### Change Object (Lines 88-154)
-
-| Section | Heading | Description | Key Concepts | Consult When |
-|---------|---------|-------------|--------------|--------------|
-| 3 | Change Object | Defines the schema for individual Change entries within the `changes` array. Nine properties: `type` (enum: added/removed/modified/moved/renamed), `target` (enum: item/bind/shape/optionSet/dataSource/screener/migration/metadata), `path` (dot-path to affected element), `key` (optional, the item key when target is "item"), `impact` (enum: breaking/compatible/cosmetic), `description` (recommended, human-readable), `before`/`after` (optional, previous/new value or structural fragment), `migrationHint` (optional, FEL expression or "drop" or "preserve"). | Change object, `type` enum, `target` enum, `impact` enum, `path`, `key`, `before`, `after`, `migrationHint` | Constructing or parsing individual change entries, understanding what each property means |
-| 3.1 | Change Type Examples | Provides concrete JSON examples for all five change types. `added`: after only, phone field example. `removed`: before + migrationHint "drop", fax field example. `modified`: before + after with partial fragments (changed label only). `renamed`: key change with FEL hint (`$old.cost`), both before and after keys shown. `moved`: path change in before/after, salary field relocated between groups. | added (after only), removed (before + migrationHint), modified (before + after partial), renamed (key change + FEL hint), moved (path change in before/after) | Implementing a changelog generator or understanding what each change type looks like |
-
-### Impact Classification Rules (Lines 156-194)
+### Changelog Document Schema (Lines 35-93)
 
 | Section | Heading | Description | Key Concepts | Consult When |
 |---------|---------|-------------|--------------|--------------|
-| 4 | Impact Classification Rules | Declares that a conformant generator MUST classify each change per the rules in subsections 4.1-4.3. Any change pattern not explicitly listed defaults to **cosmetic**. This is the normative classification framework. | Impact classification, conformance requirement, default-to-cosmetic rule | Implementing impact classification logic, or understanding why a change gets a certain severity |
-| 4.1 | Breaking (-> major) | Enumerates 7 change patterns that MUST be classified as breaking: (1) item removed, (2) item key renamed, (3) dataType changed, (4) required constraint added to existing field, (5) repeat/non-repeat toggled, (6) itemType changed (e.g., group->field), (7) option removed from closed optionSet. Each includes rationale explaining why it invalidates stored responses. | Breaking changes, major version bump, stored response invalidation, structural incompatibility | Determining whether a change is breaking, understanding what constitutes a major version bump |
-| 4.2 | Compatible (-> minor) | Enumerates 7 change patterns classified as compatible: (1) optional item added, (2) required item added with default, (3) option added to optionSet, (4) new shape added, (5) new bind added, (6) constraint relaxed (e.g., maxLength increased), (7) item moved between groups with key preserved. All are additive or non-destructive. | Compatible changes, minor version bump, additive changes, no data loss | Determining whether a change is compatible, understanding safe additive modifications |
-| 4.3 | Cosmetic (-> patch) | Enumerates 6 change patterns classified as cosmetic: (1) label changed, (2) hint changed, (3) help changed, (4) description changed, (5) display order changed within a group, (6) shape property modified (e.g., width). All are display-only with zero data impact. | Cosmetic changes, patch version bump, display-only changes, presentation metadata | Determining whether a change is purely cosmetic with zero data impact |
+| 2 | Changelog Document Schema | Top-level object is JSON; generated schema-ref table from `schemas/changelog.schema.json` lists pointers for every property. `semverImpact` MUST equal the maximum impact across `changes` (breaking→major, compatible→minor, cosmetic→patch). | `$formspecChangelog` const `"1.0"`, `$schema`, `changes`, `definitionUrl`, `fromVersion`, `toVersion`, `generatedAt`, `semverImpact`, `summary` | Authoring or validating top-level changelog JSON |
+| 2.1 | Example | Full example: `$schema` URL, versions 2.1.0→3.0.0, `semverImpact` major, `removed` + `added` changes with `before`/`after`/`migrationHint`. | example JSON, `migrationHint: "drop"` | Concrete document shape |
 
-### Generation Algorithm (Lines 196-217)
+### Change Object (Lines 95-161)
 
 | Section | Heading | Description | Key Concepts | Consult When |
 |---------|---------|-------------|--------------|--------------|
-| 5 | Generation Algorithm | Defines the 8-step algorithm a conformant changelog generator MUST follow: (1) load both Definition versions, (2) index items by `key` (the stable identifier), (3) detect removals (key in old but not new), (4) detect additions (key in new but not old), (5) detect modifications (key in both, compare all properties, emit separate Change per differing property), (6) detect renames -- OPTIONAL heuristic matching unpaired removed/added keys sharing same dataType+structure+binds, (7) detect moves (key in both, parent path differs), (8) compute `semverImpact` as max(all change impacts). Steps 3-7 MUST be repeated for binds, shapes, optionSets, dataSources, and screeners using their respective identifiers. | Generation algorithm, key-based indexing, rename heuristic (same dataType + structure + binds), move detection (parent path change), semverImpact computation (max across changes), multi-target iteration | Implementing a changelog generator, understanding the diff algorithm, or debugging incorrect changelogs |
+| 3 | Change Object | One atomic modification per entry in `changes`: required `type`, `target`, `path`, `impact`; optional `key` (item target); recommended `description`; optional `before`/`after`; optional `migrationHint` (FEL, `"drop"`, or `"preserve"`; see §6). | `type`, `target`, `path`, `key`, `impact`, `description`, `before`, `after`, `migrationHint` | Parsing or emitting a single Change |
+| 3.1 | Change Type Examples | JSON examples for `added`, `removed`, `modified`, `renamed`, `moved` with the expected `before`/`after`/`migrationHint` patterns. | added, removed, modified, renamed, moved | Implementing diff presentation or generators |
 
-### Migration Relationship (Lines 219-249)
-
-| Section | Heading | Description | Key Concepts | Consult When |
-|---------|---------|-------------|--------------|--------------|
-| 6 | Relationship to S6.7 Migrations | Explains that a Changelog Document with `migrationHint` entries on breaking changes provides sufficient information to auto-generate a S6.7 `migration` object. This is the bridge between changelog output and the Definition's migrations array. | Auto-generation, S6.7 migration objects, migrationHint-to-fieldMap translation | Understanding how changelogs feed into migration generation |
-| 6.1 | Mapping Rules | Table mapping each change type + migrationHint combination to a generated `fieldMap` entry: `removed`/`"drop"` -> omit (value discarded); `removed`/`"preserve"` -> `{ "oldKey": "oldKey" }` (carry forward to extension data); `renamed` + FEL expression -> `{ "newKey": "$old.cost" }`; `modified` (dataType change) + FEL -> `{ "amount": "STRING($old.amount)" }` (coercion); `modified` (added required + default) + `"preserve"` -> `{ "field": "$old.field ?? 'default'" }` (fallback). | fieldMap generation, drop vs preserve, FEL coercion expressions (`STRING()`, `$old.field ?? 'default'`), extension data carry-forward | Implementing migration auto-generation, understanding what fieldMap entries look like for each scenario |
-| 6.2 | Generation Procedure | 4-step procedure for converting a Changelog Document `C` into a migration object: (1) create migration shell `{ "fromVersion": C.fromVersion, "fieldMap": {} }`, (2) for each breaking change with migrationHint present -- skip if "drop", otherwise add `{ [change.key]: change.migrationHint }` to fieldMap, (3) for each renamed change add `{ [after.key]: migrationHint }` to fieldMap, (4) resulting migration is valid per S6.7 and insertable into the new Definition's migrations array. Includes advisory note that auto-generated migrations SHOULD be reviewed by a form author before deployment. | Migration generation procedure, fieldMap assembly, advisory review requirement, drop-means-skip | Implementing the migration generator, or understanding the exact algorithm for fieldMap construction |
-
-### Media Type and File Extension (Lines 251-260)
+### Impact Classification Rules (Lines 163-201)
 
 | Section | Heading | Description | Key Concepts | Consult When |
 |---------|---------|-------------|--------------|--------------|
-| 7 | Media Type and File Extension | Defines the media type (`application/vnd.formspec.changelog+json`), file extension (`.changelog.json`), and naming convention (`{definitionSlug}-{fromVersion}..{toVersion}.changelog.json` using a double-dot version separator). Example: `grant-application-2.1.0..3.0.0.changelog.json`. | Media type, file extension `.changelog.json`, naming convention, double-dot version separator | File discovery, content-type headers, naming changelog files correctly |
+| 4 | Impact Classification Rules | Conformant generators MUST classify each change per §4.1–4.3; **unlisted changes default to cosmetic**. | default cosmetic, MUST classify | Ambiguous change severity |
+| 4.1 | Breaking (→ major) | Table: item removed; key renamed; `dataType` changed; `required` added on existing field; repeat ↔ non-repeat; `itemType` changed; option removed from **closed** optionSet. | breaking, major, closed optionSet | Major bump justification |
+| 4.2 | Compatible (→ minor) | Table: optional item added; required item added with default; option added; new shape; new bind; constraint relaxed; item moved between groups with key preserved. | compatible, minor, additive | Minor bump justification |
+| 4.3 | Cosmetic (→ patch) | Table: `label`/`hint`/`help`/`description` changes; display order within group; shape property (e.g. width). | cosmetic, patch, presentation-only | Patch-only diffs |
+
+### Generation Algorithm (Lines 203-224)
+
+| Section | Heading | Description | Key Concepts | Consult When |
+|---------|---------|-------------|--------------|--------------|
+| 5 | Generation Algorithm | Eight mandatory steps: load both versions; index items by `key`; detect removed/added/modified; optional rename heuristic among unpaired removed+added (same `dataType`, child structure, binds); detect moves (parent path differs); compute `semverImpact` as max impact. **Repeat** the detection steps for `binds`, `shapes`, `optionSets`, `dataSources`, and `screeners` using their respective identifiers. | key indexing, rename heuristic, move detection, semverImpact max, binds, shapes, optionSets, dataSources, screeners | Implementing or auditing a changelog generator |
+
+### Relationship to Core §6.7 Migrations (Lines 226-256)
+
+| Section | Heading | Description | Key Concepts | Consult When |
+|---------|---------|-------------|--------------|--------------|
+| 6 | Relationship to §6.7 Migrations | Changelog with `migrationHint` on breaking changes is enough to **auto-generate** a Core §6.7 `migration` object. | auto-generate migration, §6.7 | Changelog → migration pipeline |
+| 6.1 | Mapping Rules | Table: `removed`+`drop` → omit from fieldMap; `removed`+`preserve` → `{ "oldKey": "oldKey" }` extension carry-forward; `renamed`+FEL → `{ "newKey": "$old..." }`; `modified` (dataType)+FEL coercion; `modified` (required+default)+`preserve` with `??` default. | fieldMap, drop, preserve, FEL, `$old` | Translating hints to fieldMap |
+| 6.2 | Generation Procedure | Build `{ fromVersion, fieldMap }`; for each **breaking** change with `migrationHint`, skip `drop`, else add key→hint; for `renamed`, add `{ [after.key]: migrationHint }`; result valid per §6.7 for `migrations` array. Note: auto-generated migrations SHOULD be author-reviewed; hints are **advisory**. | breaking + migrationHint, renamed fieldMap, advisory | Implementing migration synthesis |
+
+### Media Type and Closing (Lines 258-267)
+
+| Section | Heading | Description | Key Concepts | Consult When |
+|---------|---------|-------------|--------------|--------------|
+| 7 | Media Type and File Extension | IANA-style media type `application/vnd.formspec.changelog+json`; extension `.changelog.json`; SHOULD name `{definitionSlug}-{fromVersion}..{toVersion}.changelog.json`. | media type, `.changelog.json`, double-dot `..` in filename | HTTP Content-Type, file naming |
 
 ## Cross-References
 
-| Referenced Spec/Schema | Section | Context |
-|------------------------|---------|---------|
-| Formspec v1.0 S6.2 (Semver Semantics) | S1, S2, throughout | The changelog's `fromVersion`/`toVersion` are interpreted per the definition's `versionAlgorithm` (default: semver). The `semverImpact` field maps directly to semver bump levels (breaking->major, compatible->minor, cosmetic->patch). |
-| Formspec v1.0 S6.7 (Migrations) | S1, S6, S6.1, S6.2 | Changelog `migrationHint` entries are designed to auto-generate S6.7 `migration` objects with `fieldMap` entries. The generated migration is insertable into the new Definition's `migrations` array. |
-| `schemas/changelog.schema.json` | S2 (schema-ref table), BLUF | The generated schema-ref table in S2 is sourced from this schema. The BLUF section states this schema is the governing structural contract. |
-| Definition `url` property | S2 | `definitionUrl` must match the definition's top-level `url` property. |
-| Definition `versionAlgorithm` | S2 | Versions are interpreted per this property (default: semver). |
+- **Formspec v1.0 Core §6.2** -- Semver semantics; `fromVersion`/`toVersion` interpreted per definition `versionAlgorithm` (default semver); `semverImpact` aligns with major/minor/patch.
+- **Formspec v1.0 Core §6.7** -- Migration objects and `migrations` array; changelog §6 defines how hints become `fieldMap` entries.
+- **`schemas/changelog.schema.json`** -- Structural contract; BLUF and §2 generated schema-ref table cite this schema.
+- **Definition `url`** -- `definitionUrl` MUST match the definition’s top-level `url`.
+- **Definition `versionAlgorithm`** -- Governs interpretation of version strings in `fromVersion`/`toVersion`.
+- **FEL** -- `migrationHint` may be a FEL expression (e.g. `$old.cost`, `STRING($old.amount)`); normative FEL grammar is in the Core/FEL specs (changelog references usage only).
 
 ## Impact Classification Quick Reference
 
-| Impact Level | Semver Bump | Default? | Trigger Patterns |
-|---|---|---|---|
-| **breaking** | major | No | Item removed, key renamed, dataType changed, required added to existing field, repeat/non-repeat toggled, itemType changed (group<->field), option removed from closed optionSet |
-| **compatible** | minor | No | Optional item added, required item added with default, option added to optionSet, new shape/bind added, constraint relaxed, item moved (key preserved) |
-| **cosmetic** | patch | YES (default for unlisted changes) | Label/hint/help/description changed, display order changed within group, shape property modified |
+| Impact Level | Semver bump | Default for unlisted? | Trigger patterns (summary) |
+|--------------|-------------|------------------------|----------------------------|
+| breaking | major | No | Remove item, rename key, change `dataType`, add `required` to existing field, toggle repeat, change `itemType`, remove option from closed optionSet |
+| compatible | minor | No | Optional add, required add with default, option add, new shape/bind, relaxed constraint, move with key preserved |
+| cosmetic | patch | **Yes** | Label/hint/help/description, in-group order, shape-only property changes |
 
-The `semverImpact` at the document level MUST equal the maximum impact: `breaking > compatible > cosmetic` maps to `major > minor > patch`.
+Document-level `semverImpact` MUST equal the **maximum** impact across all `changes` (breaking > compatible > cosmetic → major > minor > patch).
 
 ## Change Type Quick Reference
 
 | Type | `before` | `after` | `migrationHint` | Notes |
 |------|----------|---------|-----------------|-------|
-| `added` | absent | present | rare | New element; after contains full structural fragment |
-| `removed` | present | absent | common | Element deleted; migrationHint says what to do with stored data |
-| `modified` | present (partial) | present (partial) | when breaking | Changed property; before/after contain ONLY the changed properties, not the full item |
-| `renamed` | present (old key) | present (new key) | FEL expression | Heuristically detected; migrationHint is a FEL ref like `$old.cost` |
-| `moved` | present (old path) | present (new path) | rare | Key preserved, parent path differs |
+| `added` | absent | present | uncommon | New element |
+| `removed` | present | absent | common | Often `drop` or `preserve` |
+| `modified` | partial | partial | when needed | One Change **per differing property** |
+| `renamed` | old key | new key | often FEL | Optional heuristic vs removed+added |
+| `moved` | old `path` | new `path` | uncommon | Key unchanged, parent path differs |
 
 ## Critical Behavioral Rules
 
-1. **Key is the stable identifier**: The generation algorithm indexes items by `key`, not by path or position. Keys are the identity anchor across versions. Path changes alone trigger `moved`, not `modified`.
+1. **`$formspecChangelog` MUST be `"1.0"`** -- Top-level discriminator for the changelog document format (schema const).
 
-2. **Rename detection is optional and heuristic**: Conformant generators MAY detect renames by matching unpaired removed/added keys that share the same `dataType`, child structure, and binds. This is explicitly marked as OPTIONAL (step 6). Generators that skip this will emit separate `removed` + `added` entries instead.
+2. **`semverImpact` MUST equal the max over `changes`** -- Not independently set; breaking → major, compatible → minor, cosmetic → patch, aggregated as the strictest change.
 
-3. **Steps 3-7 repeat for ALL target types**: The algorithm is not just for items. It must be repeated for `binds`, `shapes`, `optionSets`, `dataSources`, and `screeners` using their respective identifiers. Missing this produces an incomplete changelog.
+3. **Keys index identity for items** -- Stable identifier across versions; removals/additions keyed by presence of `key`; parent path change → `moved`, not a rename of identity.
 
-4. **Unlisted changes default to cosmetic**: Any change pattern not explicitly listed in S4.1 or S4.2 MUST be classified as cosmetic. This is a safe default that avoids false-positive breaking change alerts.
+4. **Rename detection is OPTIONAL** -- Heuristic among unpaired removed/added with same `dataType`, child structure, and binds; otherwise emit separate `removed` and `added`.
 
-5. **`semverImpact` is computed, not declared**: The document-level `semverImpact` MUST equal the maximum impact across all entries in the `changes` array. A generator that lets authors set this independently is non-conformant.
+5. **Repeat detection for all targets** -- After the item walk, repeat the same class of steps for `binds`, `shapes`, `optionSets`, `dataSources`, and `screeners` with their native identifiers.
 
-6. **One Change per differing property for modifications**: Step 5 states the generator must emit a separate Change with `type: "modified"` for EACH differing property, not one Change per modified item. A label change and a dataType change on the same item produce two Change objects.
+6. **One `modified` Change per property delta** -- Same item with multiple property diffs yields multiple Change rows.
 
-7. **`before`/`after` presence rules by change type**: `added` has `after` only; `removed` has `before` only; `modified`, `renamed`, and `moved` have both. For `modified`, these contain only the changed properties (partial fragments), not the full item.
+7. **Unlisted patterns default to cosmetic** -- Safe default for classification when not covered by §4.1 or §4.2.
 
-8. **Migration generation only processes breaking changes with hints**: The S6.2 procedure only creates fieldMap entries for changes where `impact` is `"breaking"` AND `migrationHint` is present. Compatible and cosmetic changes are ignored. Renamed items are processed separately regardless of their impact.
+8. **`migrationHint` semantics** -- May be FEL, `"drop"`, or `"preserve"`; see §6 for migration mapping.
 
-9. **`"drop"` hint means no fieldMap entry**: When `migrationHint` is `"drop"`, the migration generator skips the entry entirely (the old value is discarded). This is distinct from `"preserve"`, which carries the old value forward into extension data via `{ "oldKey": "oldKey" }`.
+9. **`"drop"` yields no `fieldMap` entry** -- Discards old value; contrast `"preserve"` on remove → `{ "oldKey": "oldKey" }` for extension carry-forward.
 
-10. **`"preserve"` on removed items carries data to extension storage**: The fieldMap entry `{ "oldKey": "oldKey" }` means the old value is kept but placed into extension/overflow data, not into a regular form field. This prevents data loss for fields that no longer exist in the new schema.
+10. **`renamed` contributes `{ [after.key]: migrationHint }` to `fieldMap`** -- In addition to the breaking-change loop rules in §6.2.
 
-11. **Auto-generated migrations are advisory**: The spec explicitly states migrations SHOULD be reviewed by a form author before deployment. The `migrationHint` is advisory, not normative -- it is a suggestion for tooling, not a guarantee of correctness.
+11. **Migration auto-generation is advisory** -- SHOULD be reviewed before deploy; `migrationHint` is not normative proof of correct migration.
 
-12. **`$formspecChangelog` is the version discriminator**: The top-level `$formspecChangelog` property MUST be the const string `"1.0"`. This is how processors identify a changelog document and its schema version, analogous to `$formspec` on Definitions and `$formspecRegistry` on Registry Documents.
+12. **`definitionUrl` must match Definition `url`** -- Ensures the changelog describes the intended canonical definition.
+
+13. **Closed optionSet option removal is breaking** -- Explicit in §4.1; distinguishes invalidating existing stored selections.
+
+14. **Media type and extension** -- Use `application/vnd.formspec.changelog+json` and `.changelog.json` for interchange and discovery.

@@ -1,305 +1,290 @@
 # Core Specification Reference Map
 
-> specs/core/spec.md -- 4729 lines, ~225K -- Tier 1: Definition, FEL, Validation, Versioning
+> specs/core/spec.md -- 4778 lines, ~242K -- Tier 1: Definition, FEL, Validation, Versioning, Intake Handoff
 
 ## Overview
 
-The Core Specification defines the complete data model, expression language, validation system, and versioning semantics for Formspec -- a JSON-native declarative form standard. It covers what data is collected (Items), how that data behaves (Binds, Shapes, FEL expressions), and how validation results and responses are structured. This is Tier 1 of the three-tier architecture; it explicitly excludes rendering/presentation (Tier 2: Theme, Tier 3: Components) while providing optional advisory presentation hints.
+The Core Specification defines the JSON-native declarative form model: Definition and Response documents, the Formspec Expression Language (FEL), the four-phase processing model, structured validation and reports, identity and versioning, and the Intake Handoff boundary record that binds a canonical Response to a ValidationReport snapshot and respondent-ledger evidence for workflow acceptance. It is Tier 1 of the architecture; rendering remains advisory hints only (Theme Tier 2, Components Tier 3). **Screener routing** is normative only in the standalone [Screener Specification](../screener/screener-spec.md); the embedded `screener` property on Definitions is deprecated and removed from the Definition schema.
 
 ## Section Map
 
-### Front Matter and Introduction (Lines 1-191)
+### Front Matter and Introduction (Lines 1-193)
 
 | Section | Heading | Description | Key Concepts | Consult When |
 |---------|---------|-------------|--------------|--------------|
-| Abstract | Abstract | Defines Formspec as a format-agnostic, JSON-native standard for declarative form definition and validation, independent of rendering technology. Draws on XForms, SHACL, and FHIR R5. | JSON-native, renderer-agnostic, self-contained definition | Understanding what Formspec is and its design heritage |
-| Status | Status of This Document | Draft specification disclaimer; not yet submitted to any standards body. | draft, unstable | Determining spec maturity |
-| Conventions | Conventions and Terminology | RFC 2119 keyword definitions and key term glossary (conformant processor, definition document, normative, informative). | MUST/SHOULD/MAY, conformant processor, definition document | Interpreting normative language in the spec |
-| S1 | 1. Introduction | High-level introduction to Formspec's purpose and positioning. | -- | Orienting to the spec |
-| S1.1 | 1.1 Motivation | Explains why Formspec exists: JSON ecosystem lacks a coherent form standard equivalent to what XForms provided for XML. Lists gaps in JSON Schema, React form libs, low-code platforms, FHIR Questionnaire, ODK XForms. | JSON Schema limitations, XForms heritage, fragmentation | Understanding the problem Formspec solves |
-| S1.2 | 1.2 Design Principles | Seven prioritized design principles (AD-01 through AD-07): schema is data, separate structure/behavior/presentation, JSON-native, language-agnostic, layered complexity, extensible without forking, structured validation. | AD-01..AD-07, three-layer separation, layered complexity | Resolving design tradeoffs or understanding "why" decisions |
-| S1.3 | 1.3 Scope | Defines what the spec covers (Definition schema, Response schema, FEL, processing model, validation results, extension points) and explicitly excludes (rendering, transport, auth, storage, non-JSON serialization). | in-scope vs out-of-scope | Determining if something falls within the core spec |
-| S1.4 | 1.4 Conformance | Two conformance tiers: Core (parse definitions, all data types, all bind MIPs, full FEL, shapes, processing model, identity/versioning, option sets, cycle detection) and Extended (extensions, screener routing, composition, migration, pre-population). | Core conformance, Extended conformance | Implementing a conformant processor; understanding minimum requirements |
-| S1.4.1 | 1.4.1 Formspec Core | Nine requirements for Core conformance. | data types, bind MIPs, FEL, shapes, processing model, cycle detection | Building a Core-conformant implementation |
-| S1.4.2 | 1.4.2 Formspec Extended | Additional requirements for Extended conformance (extensions, screener, composition, migration, prePopulate). | extended processor | Building an Extended-conformant implementation |
-| S1.4.3 | 1.4.3 Conformance Prohibitions | Three things a conformant processor MUST NOT do: silently substitute versions, validate non-relevant fields, block persistence based on validation state. | VP-01 (pinning), non-relevant exemption, VE-05 (save never blocked) | Avoiding conformance violations |
+| Abstract | Abstract | Formspec as a format-agnostic, JSON-native standard for declarative form definition and validation, independent of rendering; draws on XForms, SHACL, FHIR R5. | JSON-native, renderer-agnostic, self-contained definition | Understanding what Formspec is and its design heritage |
+| Status | Status of This Document | Draft disclaimer; not submitted to a standards body. | draft, unstable | Determining spec maturity |
+| Conventions | Conventions and Terminology | RFC 2119 keywords and glossary (conformant processor, definition document, normative, informative). | MUST/SHOULD/MAY, conformant processor, definition document | Interpreting normative language |
+| S1 | 1. Introduction | Purpose and positioning of the spec. | -- | Orienting to the spec |
+| S1.1 | 1.1 Motivation | Why Formspec exists: gaps in JSON Schema, React form stacks, low-code, FHIR Questionnaire, ODK XForms. | JSON Schema limitations, XForms heritage, fragmentation | Understanding the problem Formspec solves |
+| S1.2 | 1.2 Design Principles | Seven principles (AD-01 through AD-07): schema is data, separate structure/behavior/presentation, JSON-native, language-agnostic, layered complexity, extensible without forking, structured validation. | AD-01..AD-07, three-layer separation | Resolving design tradeoffs |
+| S1.3 | 1.3 Scope | In-scope: Definition, Response, **Intake Handoff** JSON contracts, FEL, processing model, validation results, extension points. Out-of-scope: rendering, transport, auth, storage, non-JSON serialization (unless companion). | Intake Handoff, in-scope vs out-of-scope | Deciding if behavior belongs in Core |
+| S1.4 | 1.4 Conformance | Core vs Extended tiers. | Core conformance, Extended conformance | Minimum processor requirements |
+| S1.4.1 | 1.4.1 Formspec Core | Nine Core requirements (parse definitions, data types, bind MIPs, FEL, shapes, processing model, identity/versioning, option sets, cycle detection); optional strict subset of FEL functions with explicit errors. | data types, bind MIPs, FEL, shapes, processing model, cycle detection | Building a Core-conformant processor |
+| S1.4.2 | 1.4.2 Formspec Extended | Extended = Core plus extensions, **screener (standalone spec)**, composition, migrations, prePopulate. | Extended processor, screener-spec | Building an Extended-conformant processor |
+| S1.4.3 | 1.4.3 Conformance Prohibitions | MUST NOT: silently substitute versions, validate non-relevant fields, block persistence on validation state. | VP-01, non-relevant exemption, VE-05 | Avoiding conformance violations |
 
-### Conceptual Model (Lines 193-946)
-
-| Section | Heading | Description | Key Concepts | Consult When |
-|---------|---------|-------------|--------------|--------------|
-| S2 | 2. Conceptual Model | Introduces the six core abstractions and their relationships. | Definition, Instance, Item, Bind, Shape, Response | Getting the big picture of the data model |
-| S2.1 | 2.1 Core Abstractions | Overview of the six abstractions that form the foundation of the spec. | six abstractions | Understanding the conceptual architecture |
-| S2.1.1 | 2.1.1 Definition | The complete, versioned form specification. Contains identity (url+version), items, binds, data sources, shapes, metadata. Identity tuple `(url, version)` is globally unique and immutable. | Definition, url, version, identity tuple, `$formspec` | Creating or parsing a Definition document |
-| S2.1.2 | 2.1.2 Instance | A JSON object mirroring the Definition's item tree. Contains current field values. Supports primary instance (`$primary`) and named secondary instances (read-only reference data). Mapping rules: field->scalar, non-repeatable group->object, repeatable group->array, display->nothing. | primary instance, secondary instance, instance mirroring rules | Understanding how item trees map to data structures |
-| S2.1.3 | 2.1.3 Item | A node in the Definition's structural tree. Three types: `field` (data value), `group` (container, optionally repeatable), `display` (read-only presentational). Fields require `dataType`. Full data type table with 13 types including `money`. Key must match `^[a-zA-Z_][a-zA-Z0-9_]*$`. | field, group, display, dataType, key, string/text/integer/decimal/boolean/date/dateTime/time/uri/attachment/choice/multiChoice/money | Defining items; understanding data type semantics and JSON representations |
-| S2.1.4 | 2.1.4 Bind | Behavioral declaration attached to data nodes by path. Six bind properties: `calculate`, `relevant`, `required`, `readonly`, `constraint`, `default`. Binds are evaluated reactively when dependencies change. | calculate, relevant, required, readonly, constraint, default, reactive evaluation | Implementing reactive form behavior; understanding bind MIPs |
-| S2.1.5 | 2.1.5 Validation Shape | Named, composable validation rule set (borrowed from SHACL). Requires `id`, `target`, `message`. Supports `constraint` (FEL expression) and composition operators (`and`, `or`, `not`, `xone`). Produces structured ValidationResult entries. | Shape, id, target, constraint, and/or/not/xone, ValidationResult, severity | Implementing cross-field validation; composing validation rules |
-| S2.1.6 | 2.1.6 Response | A completed or in-progress instance pinned to a specific Definition version. Contains `definitionUrl`, `definitionVersion`, `status` (in-progress/completed/amended/stopped), `authored`, `data`, optional `author`, `subject`, `validationResults`. A Response with error-severity results MUST NOT be marked completed. | Response, definitionUrl, definitionVersion, status lifecycle, authored, VE-05 (save never blocked) | Creating or validating Response documents; understanding the response lifecycle |
-| S2.1.7 | 2.1.7 Data Source | Declaration making external/supplemental data available to FEL at runtime. Three mechanisms: inline `data`, URL `source`, host function (`formspec-fn:` URI). Secondary instances are read-only; calculate binds MUST NOT target them. | Data Source, secondary instance, inline data, URL source, formspec-fn:, read-only | Configuring external data sources; understanding @instance() references |
-| S2.2 | 2.2 Relationships | Formal relationship constraints between the six abstractions. Six rules governing how Definitions, Items, Binds, Shapes, Responses, and Instances relate. | relationship constraints, path resolution | Validating structural integrity of a Definition |
-| S2.3 | 2.3 The Three Layers | Strict three-layer separation: Structure (Items -- what data), Behavior (Binds+Shapes -- how data behaves), Presentation (how displayed -- advisory hints only, out of scope). | Structure layer, Behavior layer, Presentation layer, three-layer invariant | Understanding architectural boundaries; determining where something belongs |
-| S2.3 (L1) | Layer 1: Structure Layer | Defines WHAT data is collected: item tree, data types, repeatability, options, labels. Pure schema with no logic. | item tree, data types | Understanding the structural foundation |
-| S2.3 (L2) | Layer 2: Behavior Layer | Defines HOW data behaves: computed values, conditional visibility, dynamic required/readonly, constraints, shapes, defaults. All expressed in FEL. MUST NOT contain rendering instructions. | reactive behavior, FEL expressions | Implementing form logic |
-| S2.3 (L3) | Layer 3: Presentation Layer | Defines HOW data is displayed. Optional advisory hints only. Full rendering is out of scope; Theme spec (Tier 2) and Component spec (Tier 3) extend this. | presentation hints, advisory, Theme spec, Component spec | Understanding presentation tier boundaries |
-| S2.4 | 2.4 Processing Model | Four-phase processing cycle (adapted from XForms): Rebuild, Recalculate, Revalidate, Notify. MUST execute in order. Includes deferred processing for batch operations. Presentation hints do NOT participate in the cycle. | Rebuild, Recalculate, Revalidate, Notify, four-phase cycle, deferred processing | Implementing the reactive engine; understanding evaluation order |
-| S2.4 (Ph1) | Phase 1: Rebuild | Triggered by structural changes (repeat add/remove, definition replacement). Re-indexes items, reconstructs dependency DAG, validates acyclicity. | rebuild, dependency graph, DAG, cycle detection | Handling repeat instance changes; understanding when rebuild fires |
-| S2.4 (Ph2) | Phase 2: Recalculate | Triggered by value changes. Identifies dirty nodes, computes affected subgraph (transitive closure), topologically sorts, evaluates calculate/relevant/required/readonly in order. Minimal recalculation guarantee. Iterates until stable (min 100 iterations). | dirty nodes, affected subgraph, topological sort, minimal recalculation | Implementing incremental re-evaluation; understanding calculation cascades |
-| S2.4 (Ph3) | Phase 3: Revalidate | Triggered after recalculate. Evaluates constraint binds (including surfacing parse errors as CONSTRAINT_PARSE_ERROR), required checks, and shape constraints for affected nodes. Composed shapes evaluated via composition operators. | revalidate, constraint evaluation, shape evaluation, CONSTRAINT_PARSE_ERROR | Implementing the validation pipeline |
-| S2.4 (Ph4) | Phase 4: Notify | Triggered after revalidate. Signals state changes to presentation layer/observers: changed values, changed MIP states, changed validation states. Mechanism is implementation-defined. | notify, state change signals | Connecting the engine to a UI layer |
-| S2.4 (Def) | Deferred Processing | During batch operations, accumulate writes, defer all four phases until batch ends, then run one complete cycle. Final state must be identical regardless of individual vs batch processing. | batch operations, deferred evaluation | Implementing bulk data loading or import |
-| S2.4 (Pres) | Presentation Hints and Processing | Presentation/formPresentation are metadata only. They do NOT participate in the processing cycle. FEL MUST NOT reference presentation properties. Presentation MUST NOT appear in Response data. | presentation isolation | Ensuring presentation doesn't leak into behavior |
-| S2.5 | 2.5 Validation Results | Defines the structured ValidationResult data structure. Not boolean pass/fail -- structured JSON with severity, path, message, constraintKind, code. | ValidationResult, structured validation | Understanding validation output format |
-| S2.5.1 | 2.5.1 ValidationResult Entry | Full property table: severity, path, message, constraintKind (required/type/cardinality/constraint/shape/external), code, source, shapeId, constraint. Eight standard built-in codes: REQUIRED, TYPE_MISMATCH, MIN_REPEAT, MAX_REPEAT, CONSTRAINT_FAILED, CONSTRAINT_PARSE_ERROR, SHAPE_FAILED, EXTERNAL_FAILED. | ValidationResult properties, constraintKind enum, standard codes, CONSTRAINT_PARSE_ERROR | Producing or consuming validation results |
-| S2.5.2 | 2.5.2 Severity Levels | Three levels: error (blocks completion), warning (advisory), info (informational). Strictly ordered: error > warning > info. MUST distinguish all three in output. | error, warning, info, severity ordering | Implementing severity-based filtering; understanding submission blocking |
-| S2.5.3 | 2.5.3 Aggregated Validation State | Derived state: "invalid" (has errors), "valid-with-warnings" (no errors, has warnings), "valid" (no errors or warnings). | aggregated state | Summarizing validation status |
-| S2.5.4 | 2.5.4 Non-Relevant Fields | Non-relevant fields MUST NOT produce ValidationResult entries. Previously-emitted results MUST be removed when field becomes non-relevant. Re-relevant fields must be re-evaluated. | non-relevant validation suppression | Handling relevance transitions in the validation pipeline |
-
-### Expression Language -- FEL (Lines 948-1815)
+### Conceptual Model (Lines 195-1149)
 
 | Section | Heading | Description | Key Concepts | Consult When |
 |---------|---------|-------------|--------------|--------------|
-| S3 | 3. Expression Language -- FEL | Introduction to FEL: small, deterministic, side-effect-free expression language. Not general-purpose -- no statements, loops, assignment, I/O, user-defined functions. | FEL, deterministic, side-effect-free | Understanding the expression language scope |
-| S3.1 | 3.1 Design Goals | Five design goals: host-language independence, familiarity, unambiguous PEG grammar, determinism (except `now()`), type safety with no implicit coercion. | PEG grammar, determinism, type safety, no coercion | Understanding FEL design philosophy |
-| S3.2 | 3.2 Field References | How FEL expressions reference instance data via `$` sigil. | field references, `$` sigil | Writing FEL expressions that read form data |
-| S3.2.1 | 3.2.1 Simple References | `$fieldKey` (field value), `$parent.child` (nested), `$` (self-reference in constraints). Lexically scoped within repeat instances. | `$fieldKey`, `$parent.child`, `$` self-reference, lexical scoping | Writing basic field references |
-| S3.2.2 | 3.2.2 Repeat References | `$repeat[index].field` (specific instance, 1-based index), `$repeat[*].field` (array of all values), `@current` (current repeat instance), `@index` (1-based position), `@count` (total instances). Out-of-bounds index MUST signal error. | `[*]` wildcard, `@current`, `@index` (1-based), `@count`, indexed access (1-based) | Working with repeatable group data; writing aggregate expressions |
-| S3.2.3 | 3.2.3 Cross-Instance References | `@instance('name').path` accesses secondary instance data. Argument must be string literal matching a declared data source name. | `@instance()`, secondary instance access | Referencing external/secondary data in expressions |
-| S3.3 | 3.3 Operators | Full operator precedence table (10 levels) and semantics for all operators. | operator precedence, associativity | Writing complex FEL expressions; resolving operator ambiguity |
-| S3.3 (prec) | Precedence Table | 10 levels from lowest (ternary `? :`) to highest (unary `not`, `-`). Includes `or`, `and`, `=`/`!=`, comparisons, `in`/`not in`, `??`, `+`/`-`/`&`, `*`/`/`/`%`. | precedence levels 1-10 | Determining evaluation order in complex expressions |
-| S3.3 (sem) | Operator Semantics | Detailed rules: arithmetic requires numbers (division by zero = error), comparisons require same type, equality allows null comparison, logical operators require booleans (no truthy/falsy), `&` for string concatenation (not `+`), `??` null-coalescing, `in`/`not in` for membership, ternary with short-circuit. | arithmetic rules, comparison rules, `&` concatenation, `??` null-coalescing, `in` membership, ternary | Understanding type constraints on operators; debugging type errors |
-| S3.4 | 3.4 Type System | Five primitive types plus one compound type. | FEL type system | Understanding the type landscape |
-| S3.4.1 | 3.4.1 Primitive Types | `string`, `number` (decimal semantics, 18+ significant digits, no binary float rounding), `boolean`, `date` (ISO 8601, literal `@YYYY-MM-DD`), `money` (`{amount: string, currency: string}`), `null`. | string, number, boolean, date, money, null, decimal precision | Understanding FEL types and their JSON representations |
-| S3.4.2 | 3.4.2 Compound Type | `array` -- ordered sequence of same-type values. Produced by repeat wildcards and array literals. All elements must be same type. | array, array literals, homogeneous typing | Working with collections in FEL |
-| S3.4.3 | 3.4.3 Coercion Rules | FEL has NO implicit coercion. Explicit cast functions: `number()`, `string()`, `boolean()`, `date()` with defined behaviors for each input type. Critical: empty string and null are NOT the same. Required treats both as unsatisfied, but otherwise they differ. | no implicit coercion, explicit cast functions, null vs empty string | Handling type conversions; understanding the null/empty distinction |
-| S3.5 | 3.5 Built-in Functions | Comprehensive function library that all conformant processors MUST implement. | built-in functions | Looking up available FEL functions |
-| S3.5.1 | 3.5.1 Aggregate Functions | `sum`, `count`, `countWhere`, `sumWhere`, `avgWhere`, `minWhere`, `maxWhere`, `avg`, `min`, `max`. Predicate-based variants (`*Where`) filter by a boolean expression where `$` refers to the current element. Element-wise array operations for computing derived values before aggregation. | sum, count, countWhere, sumWhere, avgWhere, minWhere, maxWhere, avg, min, max, element-wise operations | Computing totals, averages, and filtered counts/sums across repeats |
-| S3.5.2 | 3.5.2 String Functions | `length`, `contains`, `startsWith`, `endsWith`, `substring` (1-based), `replace` (literal), `upper`, `lower`, `trim`, `matches` (regex subset), `format` (positional placeholders). | length, contains, startsWith, endsWith, substring, replace, upper, lower, trim, matches, format | String manipulation and pattern matching in FEL |
-| S3.5.3 | 3.5.3 Numeric Functions | `round` (banker's rounding), `floor`, `ceil`, `abs`, `power`. | round, floor, ceil, abs, power | Numeric manipulation in FEL |
-| S3.5.4 | 3.5.4 Date Functions | `today`, `now` (non-deterministic), `hours`/`minutes`/`seconds` (time extraction), `time` (construction), `timeDiff`, `year`, `month`, `day`, `dateDiff` (years/months/days), `dateAdd`. | today, now, dateDiff, dateAdd, time functions, hours, minutes, seconds, timeDiff | Date arithmetic and extraction in FEL |
-| S3.5.5 | 3.5.5 Logical Functions | `if` (conditional, short-circuit, same-type branches), `coalesce` (first non-null), `empty` (null/empty-string/empty-array), `present` (inverse of empty), `selected` (multiChoice contains value). | if, coalesce, empty, present, selected | Conditional logic and null handling in FEL |
-| S3.5.6 | 3.5.6 Type-Checking Functions | `isNumber`, `isString`, `isDate`, `isNull`, `typeOf`. | isNumber, isString, isDate, isNull, typeOf | Runtime type checking in expressions |
-| S3.5.7 | 3.5.7 Money Functions | `money` (construct), `moneyAmount` (extract amount), `moneyCurrency` (extract currency), `moneyAdd` (same currency required), `moneySum` (array, same currency), `moneySumWhere` (predicate-filtered sum of money array, same currency). | money, moneyAmount, moneyCurrency, moneyAdd, moneySum, moneySumWhere | Working with monetary values in FEL |
-| S3.5.8 | 3.5.8 MIP-State Query Functions | `valid($path)`, `relevant($path)`, `readonly($path)`, `required($path)`. Evaluated during Revalidate phase after all Recalculate MIPs resolved. | valid, relevant, readonly, required (query functions) | Querying computed MIP state of fields in expressions |
-| S3.5.9 | 3.5.9 Repeat Navigation Functions | `prev()` (previous row or null), `next()` (next row or null), `parent()` (parent context). MUST only be called within a repeat context. Row order changes trigger re-evaluation. Implementations SHOULD treat prev()/next() as depending on entire repeat collection. | prev, next, parent, repeat navigation | Navigating between repeat rows; running totals; referencing parent data |
-| S3.5.10 | 3.5.10 Locale, Runtime Metadata, and Instance Lookup | `instance(name, path?)` reads secondary instance data programmatically (equivalent to `@instance()` syntax for literals). `locale()` returns active BCP 47 locale tag. `runtimeMeta(key)` reads host-supplied metadata. `pluralCategory(number, locale?)` returns CLDR cardinal plural category (zero/one/two/few/many/other). | instance, locale, runtimeMeta, pluralCategory, BCP 47, CLDR, plural rules | Accessing locale/metadata at runtime; pluralization; programmatic instance lookups |
-| S3.6 | 3.6 Dependency Tracking | How FEL drives reactive behavior through dependency graph construction and incremental re-evaluation. | dependency tracking, reactivity | Implementing the reactive engine |
-| S3.6.1 | 3.6.1 Reference Extraction | At load time, parse every FEL expression to extract field references. Build a directed dependency graph G=(V,E) where edges mean "expression v references value u". | reference extraction, dependency graph construction | Building the dependency graph at definition load time |
-| S3.6.2 | 3.6.2 Topological Ordering | Dependency graph MUST be a DAG. Verify acyclicity during Rebuild. Cycle detection must identify participating fields. Compute topological ordering for evaluation sequence. | DAG, acyclicity, topological sort, cycle detection | Implementing evaluation ordering; handling circular dependency errors |
-| S3.6.3 | 3.6.3 Incremental Re-evaluation | On value change: identify dirty root, compute affected set (forward transitive closure), topologically sort affected set, re-evaluate only affected expressions. Minimal recalculation guarantee. | dirty subgraph, affected set, minimal recalculation | Implementing efficient incremental updates |
-| S3.6.4 | 3.6.4 Wildcard Dependencies | `$repeat[*].field` creates dependency on ALL instances. Any element change or repeat add/remove marks wildcard-dependent expressions as dirty. Track at collection level. | wildcard dependencies, collection-level tracking | Handling aggregate expression dependencies |
-| S3.7 | 3.7 Grammar (Informative) | Simplified PEG grammar for FEL. Informative, not normative. Covers Expression, LetExpr, IfExpr, Ternary, all operator levels, Atom, FieldRef, FunctionCall, ObjectLiteral, ArrayLiteral, Literal, DateLiteral, DateTimeLiteral. Includes `let...in` syntax for local bindings. | PEG grammar, informative grammar, let expressions, object literals | Implementing a FEL parser; understanding syntactic structure |
-| S3.8 | 3.8 Null Propagation | Explicit null-propagation rules for FEL. General rule: null propagates through expressions. Special handling for boolean contexts (relevant/required/readonly/constraint/if). | null propagation, null in boolean contexts | Understanding how nulls flow through expressions; debugging unexpected nulls |
-| S3.8.1 | 3.8.1 General Rule | Null propagates through arithmetic, concatenation, comparisons. In boolean contexts: relevant->true, required->false, readonly->false, constraint->true (passes), if()->error. | null propagation defaults per context | Handling null values in different bind/expression contexts |
-| S3.8.2 | 3.8.2 Functions with Special Null Handling | Lists 20+ functions that override the general null propagation rule (coalesce, empty, present, isNull, typeOf, count, sum, avg, min, max, ??, string(null), boolean(null), number(null), date(null), length(null)). | special null handling exceptions | Understanding which functions handle null specially |
-| S3.8.3 | 3.8.3 Missing Field References | Existing field with no value resolves to null. Non-existent field key is a definition error (static check at load time, not runtime). | missing reference = null, undefined reference = definition error | Distinguishing runtime null from definition errors |
-| S3.9 | 3.9 Element-Wise Array Operations | When arithmetic/comparison/string operators are applied to two equal-length arrays, the operation is element-wise. Mismatched lengths = error. Scalar + array = broadcast. Null elements propagate per-position. | element-wise operations, scalar broadcast, array arithmetic | Computing derived values across repeat collections before aggregation |
-| S3.10 | 3.10 Error Handling | Two error classes: definition errors (load time) and evaluation errors (runtime). | definition errors, evaluation errors | Implementing error handling in a FEL evaluator |
-| S3.10.1 | 3.10.1 Definition Errors | Detected at load/rebuild: syntax error, undefined reference, undefined instance, undefined function, circular dependency, arity mismatch, calculate target conflict, read-only instance write. MUST NOT proceed to Recalculate. | syntax error, undefined reference, circular dependency, arity mismatch | Implementing load-time validation of definitions |
-| S3.10.2 | 3.10.2 Evaluation Errors | Runtime errors: type error, division by zero, index out of bounds, date overflow, regex error. All produce null + diagnostic (not surfaced to end users). Rationale: form users should not be punished for author mistakes. | type error -> null, diagnostic recording, graceful degradation | Implementing runtime error handling in FEL evaluation |
-| S3.11 | 3.11 Reserved Words | `and`, `or`, `not`, `in`, `true`, `false`, `null`. Plus all built-in function names in the function namespace. | reserved words | Choosing field keys and extension function names |
-| S3.12 | 3.12 Extension Functions | Domain-specific extensions may register additional FEL functions. Must not collide with built-ins, must be pure, total, and declare signatures. Definitions SHOULD declare used extensions in `extensions` array. | extension functions, pure, total, signature declaration | Extending FEL with domain-specific functions |
+| S2 | 2. Conceptual Model | Six core abstractions and relationships. | Definition, Instance, Item, Bind, Shape, Response | Big-picture data model |
+| S2.1 | 2.1 Core Abstractions | Foundation of the six abstractions. | six abstractions | Architecture overview |
+| S2.1.1 | 2.1.1 Definition | Versioned form spec; identity `(url, version)` globally unique and immutable; `$formspec`. | Definition, url, version, identity tuple | Creating or parsing a Definition |
+| S2.1.2 | 2.1.2 Instance | JSON mirror of item tree; `$primary` and named secondaries; mapping rules field→scalar, group→object/repeat array, display→nothing. | primary instance, secondary instance, instance mirroring | How structure maps to JSON data |
+| S2.1.3 | 2.1.3 Item | Tree nodes: `field`, `group` (optional repeat), `display`; `dataType` on fields; key pattern; data type catalog including `money`. | field, group, display, dataType, key | Defining items |
+| S2.1.4 | 2.1.4 Bind | Behavioral attachment by path: calculate, relevant, required, readonly, constraint, default; reactive evaluation. | calculate, relevant, required, readonly, constraint, default | Reactive form behavior |
+| S2.1.5 | 2.1.5 Validation Shape | Named composable rules: id, target, message; constraint and and/or/not/xone; ValidationResult entries. | Shape, id, target, constraint, and/or/not/xone | Cross-field validation |
+| S2.1.6 | 2.1.6 Response | Instance pinned to definition version; status lifecycle; `data`; optional `authoredSignatures` (when present, top-level `id` REQUIRED); `validationResults` snapshot; schema from `response.schema.json`. | Response, definitionUrl, definitionVersion, status, authoredSignatures, VE-05 | Response documents and signing envelope |
+| S2.1.6.1 | 2.1.6.1 Intake Handoff | Boundary record when intake is ready for workflow: binds Response, ValidationReport ref, ledger head, pinned `definitionRef`; `initiationMode` workflowInitiated vs publicIntake; **normative `caseRef` string** for workflow-initiated acceptance; schema `intake-handoff.schema.json`. | Intake Handoff, handoffId, initiationMode, caseRef, responseHash, ledgerHeadRef, definitionRef | Intake-to-workflow handoff and acceptance |
+| S2.1.7 | 2.1.7 Data Source | External/supplemental data for FEL: inline `data`, URL `source`, `formspec-fn:`; secondaries read-only unless `readonly: false` scratchpad. | Data Source, @instance(), formspec-fn:, readonly | Secondary instances |
+| S2.2 | 2.2 Relationships | Formal constraints linking Definition, Items, Binds, Shapes, Responses, Instances. | relationship constraints, path resolution | Structural integrity |
+| S2.3 | 2.3 The Three Layers | Structure (Items), Behavior (Binds+Shapes), Presentation (advisory only). | three layers, presentation out of scope | Architectural boundaries |
+| S2.3 (L1) | Layer 1: Structure Layer (Items) | What data is collected. | item tree, data types | Structure-only authoring |
+| S2.3 (L2) | Layer 2: Behavior Layer (Binds + Shapes) | How data behaves; all FEL; no rendering instructions. | reactive behavior, FEL | Logic layer |
+| S2.3 (L3) | Layer 3: Presentation Layer | Advisory hints; Theme and Component specs extend. | presentation hints, Theme spec, Component spec | Presentation tier |
+| S2.4 | 2.4 Processing Model | Rebuild → Recalculate → Revalidate → Notify; deferred batch processing; presentation excluded from cycle. | Rebuild, Recalculate, Revalidate, Notify, deferred processing | Engine evaluation order |
+| S2.4 (Ph1) | Phase 1: Rebuild | Structural changes; dependency DAG; acyclicity. | rebuild, DAG, cycle detection | Repeat add/remove, definition swap |
+| S2.4 (Ph2) | Phase 2: Recalculate | Dirty nodes, affected subgraph, topological order, calculate/relevant/required/readonly; stability iteration. | dirty nodes, topological sort, minimal recalculation | Incremental recalculation |
+| S2.4 (Ph3) | Phase 3: Revalidate | Constraints, required, shapes; CONSTRAINT_PARSE_ERROR surfaced. | revalidate, CONSTRAINT_PARSE_ERROR | Validation pipeline |
+| S2.4 (Ph4) | Phase 4: Notify | State change signals to presentation; implementation-defined. | notify | UI integration |
+| S2.4 (Def) | Deferred Processing | Batch: defer all phases until end; final state same as sequential. | batch operations | Bulk load / import |
+| S2.4 (Pres) | Presentation Hints and Processing | Presentation does not participate in cycle; FEL must not reference presentation. | presentation isolation | Preventing presentation leakage |
+| S2.5 | 2.5 Validation Results | Structured ValidationResult model (overview before §5 detail). | ValidationResult, structured validation | Validation output shape |
+| S2.5.1 | 2.5.1 ValidationResult Entry | severity, path, message, constraintKind, code, source, shapeId, constraint; standard codes including CONSTRAINT_PARSE_ERROR. | constraintKind, REQUIRED, TYPE_MISMATCH, SHAPE_FAILED | Producing/consuming results |
+| S2.5.2 | 2.5.2 Severity Levels | error, warning, info; strict ordering. | error, warning, info | Severity semantics |
+| S2.5.3 | 2.5.3 Aggregated Validation State | invalid / valid-with-warnings / valid. | aggregated state | Summary UX |
+| S2.5.4 | 2.5.4 Non-Relevant Fields | No ValidationResults for non-relevant; stale results removed on transition. | non-relevant validation suppression | Relevance and validation |
 
-### Definition Schema (Lines 1819-2598)
+### Expression Language -- FEL (Lines 1151-2025)
 
 | Section | Heading | Description | Key Concepts | Consult When |
 |---------|---------|-------------|--------------|--------------|
-| S4 | 4. Definition Schema | Detailed JSON schema for Definition documents. | Definition schema | Creating or validating Definition documents |
-| S4.0 | 4.0 Bottom Line Up Front | BLUF summary: valid definition requires `$formspec`, `url`, `version`, `status`, `title`, `items`. Identity is immutable tuple `(url, version)`. | required top-level properties | Quick reference for minimum valid definition |
-| S4.1 | 4.1 Top-Level Structure | Full generated schema-ref table of all top-level Definition properties (20+ properties total). Includes `$formspec`, `url`, `version`, `status`, `title`, `items` (required), plus optional `binds`, `shapes`, `instances`, `variables`, `optionSets`, `screener`, `migrations`, `formPresentation`, `extensions`, `derivedFrom`, `description`, `date`, `name`, `versionAlgorithm`, `nonRelevantBehavior`. | top-level properties, required vs optional | Authoring or parsing a complete Definition document |
-| S4.1.1 | 4.1.1 Form Presentation | Optional `formPresentation` object: `pageMode` (single/wizard/tabs), `labelPosition` (top/start/hidden), `density` (compact/comfortable/spacious), `defaultCurrency` (ISO 4217), `direction` (ltr/rtl/auto), `showProgress` (wizard only), `allowSkip` (wizard only), `defaultTab` (tabs only, 0-based), `tabPosition` (tabs only, top/bottom/left/right). All advisory. | formPresentation, pageMode, labelPosition, density, defaultCurrency, direction, showProgress, allowSkip, defaultTab, tabPosition | Configuring form-wide presentation defaults; wizard and tab behavior |
-| S4.1.2 | 4.1.2 Page Mode Processing | Behavioral requirements for processors that support specific page modes. Wizard mode: one page at a time, Next/Previous controls, validate before forward navigation (unless allowSkip), progress indicator when showProgress is true. Tabs mode: tab bar per tabPosition, one page visible, click/activate to switch, mount all pages (visibility change only), defaultTab selection. Property applicability rules: showProgress/allowSkip only for wizard; defaultTab/tabPosition only for tabs. | wizard mode, tabs mode, page validation gate, property applicability | Implementing page mode navigation; understanding when wizard/tabs properties apply |
-| S4.2 | 4.2 Item Schema | Detailed schema for Item nodes. Every item requires `key` and `type`. | Item schema | Defining form items |
-| S4.2.1 | 4.2.1 Common Item Properties | Properties on all item types: `key` (required, globally unique across entire Definition, `[a-zA-Z][a-zA-Z0-9_]*`), `type` (required, group/field/display), `label` (required), `description`, `hint`, `labels` (context-keyed alternatives with well-known names: short, pdf, csv, accessibility). | key uniqueness (global), label requirement, hint vs description, labels contexts | Defining any item node |
-| S4.2.2 | 4.2.2 Group Items | Group-specific properties: `children` (required, array of Items), `repeatable` (boolean), `minRepeat`, `maxRepeat`. Non-repeatable groups appear once; repeatable groups create per-repetition copies. minRepeat > 0 means pre-populate that many empty repetitions. | children, repeatable, minRepeat, maxRepeat | Defining sections and repeatable collections |
-| S4.2.3 | 4.2.3 Field Items | Field-specific properties: `dataType` (required), `currency`, `precision`, `prefix`, `suffix`, `options` (inline array or URI), `optionSet` (named reference, takes precedence over `options`), `initialValue` (literal or `=expression` for one-time evaluation), `semanticType` (domain meaning annotation, resolves concept registry entries), `prePopulate` (instance+path+editable, syntactic sugar for initialValue+readonly), `children` (dependent sub-questions). Full data type table with 13 types. | dataType, options, optionSet, initialValue, prePopulate, semanticType, concept resolution | Defining data-entry fields; understanding data type options |
-| S4.2.4 | 4.2.4 Display Items | Display items: read-only, no data, MUST NOT have children/dataType. Only `relevant` bind applies; other binds meaningless and MUST be ignored. | display items, no-data nodes | Adding instructions, headings, or informational text |
-| S4.2.5 | 4.2.5 Presentation Hints | Optional `presentation` object on any item. Advisory only. MUST NOT affect data capture/validation/submission. Unknown keys ignored (forward-compatible). | presentation object, advisory hints | Adding presentation metadata to items |
-| S4.2.5.1 | 4.2.5.1 Widget Hint | `widgetHint` string suggesting preferred UI control. Tables for group hints (section/card/accordion/tab), display hints (paragraph/heading/divider/banner), field hints by dataType (comprehensive table). Custom values must be `x-` prefixed. Incompatible/unrecognized hints MUST be ignored. | widgetHint, per-dataType widget tables | Suggesting widget selection for renderers |
-| S4.2.5.2 | 4.2.5.2 Layout | `layout` sub-object. On groups: `flow` (stack/grid/inline), `columns` (1-12), `collapsible`, `collapsedByDefault`, `page` (named wizard step or tab). On fields/display: `colSpan` (1-12), `newRow`. Layout does NOT cascade parent->child. | layout, flow, columns, colSpan, page, no cascade | Arranging items spatially; configuring wizard pages |
-| S4.2.5.3 | 4.2.5.3 Style Hints | `styleHints` sub-object: `emphasis` (primary/success/warning/danger/muted), `size` (compact/default/large). Semantic tokens, not CSS. | styleHints, emphasis, size | Applying semantic visual tokens |
-| S4.2.5.4 | 4.2.5.4 Accessibility | `accessibility` sub-object: `role` (alert/status/navigation/complementary/region), `description` (screen-reader-only), `liveRegion` (off/polite/assertive). Named after ARIA but not ARIA-specific. | accessibility, role, liveRegion | Adding assistive technology metadata |
-| S4.2.5.5 | 4.2.5.5 Precedence and Interaction | Five rules: formPresentation provides defaults, item-level overrides per-property, existing properties complementary, widgetHint takes precedence over semanticType, disabledDisplay controls non-relevant rendering, no cascade from parent to child. | presentation precedence, no cascade | Resolving conflicts between presentation hints at different levels |
-| S4.2.5.6 | 4.2.5.6 Forward Compatibility | `presentation` top-level allows additional properties (ignored). Nested sub-objects (`layout`, `styleHints`, `accessibility`) do NOT allow additional properties (catches typos). | forward compatibility, additionalProperties | Understanding how the presentation schema evolves |
-| S4.3 | 4.3 Bind Schema | Detailed schema for Bind objects. Binds attach behavioral expressions to data nodes by path. | Bind schema | Defining form behavior (calculations, visibility, validation) |
-| S4.3.1 | 4.3.1 Bind Properties | Full property table: `path` (required), `calculate`, `relevant`, `required`, `readonly`, `constraint`, `constraintMessage`, `default` (applies on non-relevant->relevant transitions), `whitespace` (preserve/trim/normalize/remove -- applied BEFORE storage and validation), `excludedValue` (preserve/null -- in-memory evaluation model), `nonRelevantBehavior` (per-path override of definition default), `disabledDisplay` (hidden/protected). | path, calculate, relevant, required, readonly, constraint, default, whitespace, excludedValue, nonRelevantBehavior, disabledDisplay | Authoring bind declarations; understanding all bind properties |
-| S4.3.2 | 4.3.2 Inheritance Rules | `relevant`: inherited via AND (child non-relevant if any ancestor is). `readonly`: inherited via OR (child readonly if any ancestor is). `required`: NOT inherited. `calculate`: NOT inherited. `constraint`: NOT inherited. | relevance inheritance (AND), readonly inheritance (OR), required/calculate/constraint not inherited | Understanding how bind properties propagate through the item hierarchy |
-| S4.3.3 | 4.3.3 Path Syntax | Dot-separated segments: `fieldKey`, `group.field`, `group[*].field`, `group[@index=N].field`, `groupA.groupB[*].field`. `[*]` for all repetitions. FEL expression indexes are 1-based; resolved instance paths in ValidationResults use 0-based JSON array indexes. Distinction between FieldRef (definition-time with `[*]`) and resolved instance paths. | path syntax, dot notation, `[*]` wildcard, `[@index=N]`, FieldRef vs resolved path, 1-based vs 0-based | Writing bind paths; understanding path resolution |
-| S4.4 | 4.4 Instance Schema | Schema for named secondary data sources. Properties: `source` (URL with `{{param}}` templates), `static`, `data` (inline fallback), `schema` (type declarations), `readonly` (default true; when false acts as writable scratch-pad). At least one of `source` or `data` required. | Instance schema, source, static, data, schema, readonly, writable scratchpad | Declaring secondary data sources |
-| S4.4.1 | 4.4.1 Instance Properties | Full property table for instance declarations. | instance properties | Configuring secondary instances |
-| S4.4.2 | 4.4.2 Referencing Instances in Expressions | `@instance('name').path` syntax. Undeclared instance = definition error. Unavailable instance data = null. | @instance() reference syntax | Accessing secondary instance data in FEL |
-| S4.5 | 4.5 Variables | Named computed values with lexical scoping. Declared in top-level `variables` array. Properties: `name` (referenced as `@name`), `expression` (FEL), `scope` (item key or `#` for global). Continuously recalculated. MUST NOT form circular dependencies. | variables, @name, scope, continuous recalculation | Creating reusable intermediate calculations |
-| S4.5.1 | 4.5.1 Variable Properties | Full property table for variables. | variable properties | Declaring variables |
-| S4.5.2 | 4.5.2 Evaluation Semantics | Continuously recalculated on dependency change. No circular dependencies allowed. Evaluation order respects dependency graph. Use `initialValue` for one-time computation. | continuous recalculation, dependency ordering | Understanding when and how variables are evaluated |
-| S4.6 | 4.6 Option Sets | Named, reusable option lists at Definition top level. Referenced by fields via `optionSet` property. Supports inline `options` array or external `source` with `valueField`/`labelField`. | optionSets, reusable options, source, valueField, labelField | Sharing option lists across multiple choice fields |
-| S4.6.1 | 4.6.1 OptionSet Properties | Property table for option sets. | option set properties | Authoring option set declarations |
-| S4.7 | 4.7 Screener Routing | Routing mechanism that classifies respondents and directs to appropriate target Definition. Contains `items`, `binds` (screener-scoped, do NOT interact with main form), `routes` (evaluated in declaration order, first match wins). Screener items are NOT part of form instance data. A Definition MAY have both screener and regular items/binds. | screener, routes, condition, target, first-match-wins, screener scope isolation | Implementing form routing/gating logic |
-| S4.7.1 | 4.7.1 Screener Properties | Property table for screener components: items, binds (screener-scoped, supports required/relevant/constraint/calculate), routes (condition + target + label). | screener properties | Authoring screener declarations |
+| S3 | 3. Expression Language -- Formspec Expression Language (FEL) | Deterministic, side-effect-free expression language scoped to form logic. | FEL, deterministic, side-effect-free | Expression language scope |
+| S3.1 | 3.1 Design Goals | Host independence, familiarity, PEG grammar, determinism (except `now()`), no implicit coercion. | PEG, determinism, type safety | FEL philosophy |
+| S3.2 | 3.2 Field References | `$` sigil and path forms. | field references, `$` | Reading form data in FEL |
+| S3.2.1 | 3.2.1 Simple References | `$fieldKey`, `$parent.child`, `$` self in constraints; lexical scoping in repeats. | `$parent.child`, self-reference | Basic references |
+| S3.2.2 | 3.2.2 Repeat References | `$repeat[n]`, `[*]`, `@current`, `@index` (1-based), `@count`; OOB index errors. | `[*]`, @current, @index, @count | Repeat aggregates |
+| S3.2.3 | 3.2.3 Cross-Instance References | `@instance('name').path`; literal name; undeclared instance = definition error. | @instance(), secondary instance | Cross-instance data |
+| S3.3 | 3.3 Operators | Precedence table and semantics. | operator precedence, associativity | Complex expressions |
+| S3.3 (prec) | Precedence Table | Ten levels from ternary through unary. | precedence levels 1-10 | Evaluation order |
+| S3.3 (sem) | Operator Semantics | Arithmetic, comparison, logic (strict booleans), `&` concat, `??`, `in`, ternary short-circuit. | `&`, `??`, in, ternary | Type rules per operator |
+| S3.4 | 3.4 Type System | Primitives + homogeneous arrays. | FEL types | Type landscape |
+| S3.4.1 | 3.4.1 Primitive Types | string, number (decimal), boolean, date, money, null. | money, date literal @YYYY-MM-DD, decimal precision | Literals and JSON shapes |
+| S3.4.2 | 3.4.2 Compound Type | Arrays from wildcards and literals; same-type elements. | array, homogeneous | Collections |
+| S3.4.3 | 3.4.3 Coercion Rules | No implicit coercion; explicit `number`, `string`, `boolean`, `date`; null vs `''`. | cast functions, null vs empty string | Conversions |
+| S3.5 | 3.5 Built-in Functions | Required function library. | built-in functions | Function lookup |
+| S3.5.1 | 3.5.1 Aggregate Functions | sum, count, *Where variants, avg, min, max; element-wise pipelines. | sumWhere, countWhere, element-wise | Aggregates over repeats |
+| S3.5.2 | 3.5.2 String Functions | length, contains, substring (1-based), matches, format, trim, etc. | matches, format, substring | String ops |
+| S3.5.3 | 3.5.3 Numeric Functions | round (banker's), floor, ceil, abs, power. | round, floor, ceil | Numeric ops |
+| S3.5.4 | 3.5.4 Date Functions | today, now (non-deterministic), dateDiff, dateAdd, time helpers. | today, now, dateDiff | Date/time |
+| S3.5.5 | 3.5.5 Logical Functions | if, coalesce, empty, present, selected. | if, coalesce, empty, present | Conditionals and emptiness |
+| S3.5.6 | 3.5.6 Type-Checking Functions | isNumber, isString, isDate, isNull, typeOf. | isNull, typeOf | Runtime type tests |
+| S3.5.7 | 3.5.7 Money Functions | money, moneyAmount, moneyCurrency, moneyAdd, moneySum, moneySumWhere. | moneySumWhere, same currency | Money |
+| S3.5.8 | 3.5.8 MIP-State Query Functions | valid, relevant, readonly, required for paths (after Recalculate). | valid($path), MIP query | Cross-field MIP queries |
+| S3.5.9 | 3.5.9 Repeat Navigation Functions | prev, next, parent within repeat context. | prev, next, parent | Row navigation |
+| S3.5.10 | 3.5.10 Locale, Runtime Metadata, and Instance Lookup | instance(name, path?), locale(), runtimeMeta, pluralCategory (CLDR). | locale, pluralCategory, BCP 47 | i18n and metadata |
+| S3.6 | 3.6 Dependency Tracking | Graph construction and incremental re-evaluation. | dependency graph, reactivity | Engine implementation |
+| S3.6.1 | 3.6.1 Reference Extraction | Parse-time reference extraction; G=(V,E). | reference extraction | Building the graph |
+| S3.6.2 | 3.6.2 Topological Ordering | DAG requirement; cycle diagnostics; topo order. | DAG, topological sort, cycle detection | Ordering and errors |
+| S3.6.3 | 3.6.3 Incremental Re-evaluation | Dirty closure; minimal recalculation guarantee. | affected set, minimal recalculation | Performance |
+| S3.6.4 | 3.6.4 Wildcard Dependencies | `[*]` depends on whole collection; collection-level dirtiness. | wildcard dependencies | Aggregate invalidation |
+| S3.7 | 3.7 Grammar (Informative) | PEG sketch; normative grammar is companion; `let...in` disambiguation note. | PEG grammar, let expressions | Parser implementation |
+| S3.8 | 3.8 Null Propagation | General propagation vs boolean-context defaults. | null propagation | Null debugging |
+| S3.8.1 | 3.8.1 General Rule | Defaults per relevant/required/readonly/constraint/if contexts. | relevant null→true, constraint null→true | Context-specific nulls |
+| S3.8.2 | 3.8.2 Functions with Special Null Handling | coalesce, empty, count, sum, casts, etc. | special null handling | Exceptions to propagation |
+| S3.8.3 | 3.8.3 Missing Field References | Missing value → null; undefined key → definition error. | undefined reference | Load-time vs runtime |
+| S3.9 | 3.9 Element-Wise Array Operations | Same-length element-wise ops; broadcast scalar; length mismatch error. | element-wise, broadcast | Vectorized repeat math |
+| S3.10 | 3.10 Error Handling | Definition vs evaluation errors. | definition errors, evaluation errors | Error classes |
+| S3.10.1 | 3.10.1 Definition Errors | Syntax, undefined ref/instance/function, cycles, arity, read-only write, etc. | circular dependency, arity mismatch | Load-time validation |
+| S3.10.2 | 3.10.2 Evaluation Errors | Type errors, div0, OOB, regex → null + diagnostic; not end-user facing. | diagnostic, graceful degradation | Runtime evaluator |
+| S3.11 | 3.11 Reserved Words | and, or, not, in, true, false, null; function namespace reserved. | reserved words | Naming collisions |
+| S3.12 | 3.12 Extension Functions | Pure, total, non-colliding extensions; definitions SHOULD declare `extensions`. | extension functions, pure, total | Extending FEL |
 
-### Validation (Lines 2601-2917)
-
-| Section | Heading | Description | Key Concepts | Consult When |
-|---------|---------|-------------|--------------|--------------|
-| S5 | 5. Validation | Comprehensive validation system specification. | validation system | Implementing the validation pipeline |
-| S5.1 | 5.1 Severity Levels | Three levels: error (blocks submission), warning (advisory), info (informational). Conformance rule VC-01: valid iff zero error-severity results. Differs from SHACL where any result indicates non-conformance. | VC-01, error/warning/info, submission blocking | Understanding when submission is allowed |
-| S5.2 | 5.2 Validation Shape Schema | Detailed Shape schema with all properties. | Shape schema | Authoring validation shapes |
-| S5.2.1 | 5.2.1 Shape Properties | Full property table: `id` (unique, `[a-zA-Z][a-zA-Z0-9_\-]*`), `target` (`#` for root), `severity` (default error), `constraint`, `message` (with `{{expression}}` interpolation), `code`, `context` (additional evaluated data), `activeWhen` (conditional activation, independent of relevance), `timing` (continuous/submit/demand). | shape properties, activeWhen, timing, message interpolation, context | Defining cross-field or conditional validation rules |
-| S5.2.2 | 5.2.2 Composition Operators | `and` (all pass), `or` (at least one), `not` (must fail), `xone` (exactly one). Elements can be shape id references or inline FEL expressions (looked up in shapes array first, treated as FEL if not found). Composition may be nested. Circular references = definition error. When both `constraint` and composition present, combined with implicit AND. | and, or, not, xone, inline FEL, shape composition, implicit AND | Composing complex validation rules from simpler ones |
-| S5.3 | 5.3 Validation Result Schema | Detailed ValidationResult schema with all properties. | ValidationResult schema | Producing or consuming validation results |
-| S5.3.1 | 5.3.1 ValidationResult Properties | Full property table: `path` (resolved instance path with concrete 0-based indexes), `severity`, `constraintKind`, `message` (interpolated), `code`, `shapeId` (MUST be absent for non-shape results), `value`, `constraint`, `context`. Five condition types that MUST produce results: type mismatch, required violation, bind constraint failure, bind constraint parse error, shape constraint failure, repeat cardinality violation. | ValidationResult properties, five result sources | Generating validation result entries |
-| S5.4 | 5.4 Validation Report Schema | ValidationReport aggregates all results for a Response. Contains `valid`, `results`, `counts` (by severity), `timestamp`. | ValidationReport | Producing the validation report |
-| S5.4.1 | 5.4.1 ValidationReport Properties | Generated schema-ref table: `$formspecValidationReport` (const "1.0"), `valid` (true iff counts.error=0), `results` (array), `counts` (error/warning/info), `timestamp`, `definitionUrl`, `definitionVersion`, `extensions`. Two invariants: counts sum = results length; valid = (counts.error === 0). | ValidationReport properties, invariants | Implementing validation report generation |
-| S5.5 | 5.5 Validation Modes | Three runtime modes: continuous (every change -- RECOMMENDED default), deferred (on request), disabled (skipped). Rule VE-05: saving MUST NEVER be blocked by validation. Per-shape `timing` interaction: disabled overrides all; deferred defers all; continuous respects individual timing. Optional `continuous-soft` variant (presentation concern). | validation modes, continuous, deferred, disabled, VE-05, continuous-soft | Configuring when validation runs; understanding save-vs-submit semantics |
-| S5.6 | 5.6 Non-Relevant Field Handling | Five rules: (1) validation suppression -- no results for non-relevant nodes, (2) submission behavior via `nonRelevantBehavior` (remove default/empty/keep), (3) required suppression -- never required when non-relevant, (4) calculation continuation -- calculate binds still evaluate, `excludedValue` controls downstream visibility, (5) re-relevance -- value restored, `default` applied if declared. | non-relevant handling, remove/empty/keep, excludedValue, re-relevance, calculation continuation | Implementing relevance transitions; understanding submission data shape |
-| S5.7 | 5.7 External Validation Results | External systems may inject validation results. Must have `source: "external"` and optional `sourceId`. Error severity blocks submission. | external validation, source: external, sourceId | Integrating server-side or third-party validation |
-| S5.7.1 | 5.7.1 External Result Requirements | Additional properties and constraints for external results. | external result schema | Producing external validation results |
-| S5.7.2 | 5.7.2 Merging Rules | Six rules for merging external results: merge alongside local, error blocks submission, include in counts, support injection at any time, idempotent by path+code (most recent replaces prior), clearable. | merging semantics, idempotent injection | Implementing external result injection |
-
-### Versioning and Evolution (Lines 2920-3202)
+### Definition Schema (Lines 2027-2762)
 
 | Section | Heading | Description | Key Concepts | Consult When |
 |---------|---------|-------------|--------------|--------------|
-| S6 | 6. Versioning & Evolution | Version management, identity, lifecycle, and migration. | versioning, evolution | Managing form versions and response compatibility |
-| S6.1 | 6.1 Identity Model | Definition identified by canonical `url` (stable across versions). Fully qualified reference: `url|version` (pipe syntax). Unversioned reference resolution is context-dependent (Response requires version; derivedFrom can be plain URI or object; `$ref` resolves to latest active). | canonical url, `url|version` pipe syntax, identity model | Referencing specific definition versions |
-| S6.2 | 6.2 Version Algorithms | Four algorithms: `semver` (default, MAJOR.MINOR.PATCH with pre-release), `date` (YYYY.MM.DD), `integer`, `natural` (equality only, no ordering). Non-conforming version string = definition error. | versionAlgorithm, semver, date, integer, natural | Choosing and implementing version comparison |
-| S6.2.1 | 6.2.1 Version Semantics for Form Definitions | Recommended (not required) semver guidance: patch = cosmetic (labels, help text), minor = additive (new optional fields, relaxed constraints), major = breaking (removed/renamed fields, tightened constraints). | patch/minor/major guidance | Planning version increments for definition changes |
-| S6.3 | 6.3 Status Lifecycle | Three statuses: draft -> active -> retired. No backward transitions for same version (active->draft and retired->active forbidden). Active content is immutable. Retired definitions remain processable for existing responses. draft->active SHOULD be gated by consistency validation. | draft, active, retired, status transitions, immutability | Managing definition lifecycle |
-| S6.4 | 6.4 Response Pinning | VP-01: Response always validated against its pinned version, even if newer exists. VP-02: Active definition content is immutable; any change requires new version. Authors MUST NOT alter active versions in place. | VP-01 pinning rule, VP-02 immutability rule | Understanding version binding between responses and definitions |
-| S6.5 | 6.5 Variant Derivation | `derivedFrom` property for year-over-year updates, long/short form variants, domain specialization. Informational only -- no behavioral inheritance or runtime linkage. Enables change analysis, pre-population from parent Responses, lineage tracking. | derivedFrom, informational lineage | Tracking form derivation and lineage |
-| S6.6 | 6.6 Modular Composition | `$ref` on Group items includes items from other Definitions. `keyPrefix` prevents key collisions. Assembly resolves all `$ref` at publish time to produce self-contained Definition. | $ref, keyPrefix, assembly, modular composition | Reusing common item sets across definitions |
-| S6.6.1 | 6.6.1 Composition Properties | `$ref` (URI with optional `#fragment` for single-item selection by key) and `keyPrefix` (prepended to all imported keys, must match `[a-zA-Z][a-zA-Z0-9_]*`). | $ref fragment selection, keyPrefix | Authoring composition references |
-| S6.6.2 | 6.6.2 Assembly | Six assembly rules: insert children, apply prefix to all keys (deeply nested), import binds/shapes/variables with path rewriting, detect key collisions (error and abort), recursive resolution, circular detection. `assembledFrom` metadata array. | assembly rules, path rewriting, collision detection, assembledFrom | Implementing the assembly process |
-| S6.7 | 6.7 Version Migrations | `migrations` section describes how to transform Responses from prior versions. Contains `from` map (version -> migration descriptor with `fieldMap` and `defaults`). Produces new Response pinned to target version; original preserved. | migrations, fieldMap, transform (preserve/drop/expression), defaults | Migrating responses between definition versions |
-| S6.7.1 | 6.7.1 Migration Map Structure | Property tables for migration descriptors and field mapping rules (source, target, transform, expression with `$` for source value and `@source` for entire source data). | migration map structure | Authoring migration declarations |
-| S6.7.2 | 6.7.2 Migration Semantics | Migration produces new Response (original preserved). Unmapped fields carried by path matching or dropped. Migrated response status reset to in-progress for respondent review. | migration semantics, status reset | Understanding migration behavior |
+| S4 | 4. Definition Schema | JSON shape for Definitions. | Definition schema | Authoring/validating definitions |
+| S4.0 | 4.0 Bottom Line Up Front | Minimum required top-level fields; schema is contract. | $formspec, url, version, status, title, items | Quick validity checklist |
+| S4.1 | 4.1 Top-Level Structure | Full property table from `definition.schema.json`; optional binds, shapes, instances, variables, optionSets, migrations, formPresentation, extensions, nonRelevantBehavior, etc. | top-level properties, nonRelevantBehavior | Complete definition authoring |
+| S4.1.1 | 4.1.1 Form Presentation | pageMode, labelPosition, density, defaultCurrency, direction, wizard/tabs options. | formPresentation, pageMode, wizard, tabs | Form-wide presentation defaults |
+| S4.1.2 | 4.1.2 Page Mode Processing | Wizard/tabs behavioral requirements; property applicability. | allowSkip, showProgress, defaultTab | Multi-page behavior |
+| S4.2 | 4.2 Item Schema | Items require key and type. | Item schema | Item nodes |
+| S4.2.1 | 4.2.1 Common Item Properties | Global key uniqueness; label required; hint, description, labels contexts. | key uniqueness, labels short/pdf/csv | Any item |
+| S4.2.2 | 4.2.2 Group Items | children, repeatable, minRepeat, maxRepeat. | minRepeat, maxRepeat | Sections and repeats |
+| S4.2.3 | 4.2.3 Field Items | dataType, options, optionSet, initialValue, prePopulate, semanticType, currency, precision, children on fields where allowed. | optionSet, initialValue, prePopulate | Data fields |
+| S4.2.4 | 4.2.4 Display Items | No data; only relevant bind meaningful. | display items | Static content |
+| S4.2.5 | 4.2.5 Presentation Hints | Advisory `presentation`; unknown top-level keys ignored. | presentation object | Per-item presentation |
+| S4.2.5.1 | 4.2.5.1 Widget Hint | widgetHint tables by type/dataType; `x-` custom. | widgetHint | Widget suggestions |
+| S4.2.5.2 | 4.2.5.2 Layout | flow, columns, page, colSpan, newRow; no parent→child cascade. | layout, colSpan, page | Layout hints |
+| S4.2.5.3 | 4.2.5.3 Style Hints | styleHints emphasis and size. | styleHints | Visual tokens |
+| S4.2.5.4 | 4.2.5.4 Accessibility | role, description, liveRegion. | accessibility, liveRegion | A11y hints |
+| S4.2.5.5 | 4.2.5.5 Precedence and Interaction | formPresentation defaults; widgetHint vs semanticType; disabledDisplay; no cascade. | presentation precedence | Conflict resolution |
+| S4.2.5.6 | 4.2.5.6 Forward Compatibility | presentation additionalProperties true at top; false nested. | forward compatibility | Schema evolution |
+| S4.3 | 4.3 Bind Schema | Binds attach behavior by path. | Bind schema | calculate, relevant, validation |
+| S4.3.1 | 4.3.1 Bind Properties | path, MIPs, constraintMessage, default, whitespace, excludedValue, nonRelevantBehavior, disabledDisplay. | whitespace, excludedValue, disabledDisplay | Full bind surface |
+| S4.3.2 | 4.3.2 Inheritance Rules | relevant AND; readonly OR; required/calculate/constraint not inherited. | relevance inheritance, readonly inheritance | Hierarchical behavior |
+| S4.3.3 | 4.3.3 Path Syntax | Dot paths, `[*]`, `[@index=N]`; 1-based FEL vs 0-based resolved paths in results. | FieldRef, resolved path, [@index=N] | Paths and indexing |
+| S4.4 | 4.4 Instance Schema | Secondary instances: source, static, data, schema, readonly. | instances, readonly scratchpad | External data |
+| S4.4.1 | 4.4.1 Instance Properties | Cardinality and semantics per property. | source, data fallback | Instance configuration |
+| S4.4.2 | 4.4.2 Referencing Instances in Expressions | @instance('name')...; unavailable → null. | @instance() | FEL access to instances |
+| S4.5 | 4.5 Variables | Top-level variables; @name; scope item or `#`; continuous recalc; no cycles. | variables, @name, scope | Shared subexpressions |
+| S4.5.1 | 4.5.1 Variable Properties | name, expression, scope table. | variable properties | Declaring variables |
+| S4.5.2 | 4.5.2 Evaluation Semantics | Dependency-ordered continuous evaluation; use initialValue for one-shot. | continuous recalculation | vs calculate/initialValue |
+| S4.6 | 4.6 Option Sets | Named reusable options; inline or external source with valueField/labelField. | optionSets | Shared choice lists |
+| S4.6.1 | 4.6.1 OptionSet Properties | options vs source shape. | valueField, labelField | Option set authoring |
+| S4.7 | 4.7 Screener Routing *(Deprecated)* | Embedded screener removed from Definition schema; use standalone `$formspecScreener` per Screener spec. | deprecated, $formspecScreener | **Use ../screener/screener-spec.md** -- not Definition `screener` |
 
-### Examples (Lines 3204-4244)
-
-| Section | Heading | Description | Key Concepts | Consult When |
-|---------|---------|-------------|--------------|--------------|
-| S7 | 7. Concrete Examples | Six normative examples demonstrating realistic scenarios. Processors MUST consume all examples correctly. | normative examples | Learning by example; conformance testing |
-| S7.1 | 7.1 Budget Line Items with Calculated Totals | Repeatable group, calculated grand total via `sum()`, pre-populated field from secondary instance using expression-based `initialValue`, cross-field validation (sum must equal award). Full definition, in-progress instance, and completed response. | repeatable group, sum(), cross-field shape, secondary instance, initialValue expression | Implementing calculated totals and cross-field validation |
-| S7.2 | 7.2 Conditional Section with Dependent Validation | Boolean field controlling group visibility via `relevant`. Required binds suspended when non-relevant. Non-relevant fields excluded from response (not set to null -- omitted entirely). | relevant bind, non-relevant exclusion, conditional required | Implementing conditional sections |
-| S7.3 | 7.3 Repeatable Rows with Per-Row Calculations | Per-row calculated totals within repeatable group, cross-row aggregate via sum(), percentage-based warning validation. Commentary on per-instance vs aggregate expression context -- unqualified refs in repeat bind resolve to current instance; `$repeat[*]` in aggregate functions spans all instances. | per-row calculate, aggregate context, warning shapes, expression scoping | Understanding repeat-context expression evaluation |
-| S7.4 | 7.4 Year-over-Year Comparison Warning | Secondary instance with external source, variables for intermediate calculations (`@prior_total`, `@yoy_change_pct`), cross-instance comparison, warning-severity shape with message interpolation. Shows `valid: false` from a required error, not the warning. | variables, cross-instance comparison, message interpolation, warning vs error | Implementing prior-year comparisons and computed variables |
-| S7.5 | 7.5 Screener Routing to Form Variants | Screener with items, binds, ordered routes. First-match-wins routing. Variant definitions with `derivedFrom`. Shows routing logic: final report OR award >= 500K OR has subawards -> full report; else abbreviated. | screener, ordered routes, form variants, derivedFrom | Implementing form routing/screening |
-| S7.6 | 7.6 External Validation Failure | Field passes local pattern constraint but fails external IRS database lookup. External result with `source: "external"` and `sourceId`. Combined local+external validation report. Demonstrates that absence of a constraint result means the constraint passed. | external validation, source: external, combined report, absence = pass | Implementing external validation injection |
-
-### Extension Points (Lines 4247-4424)
-
-| Section | Heading | Description | Key Concepts | Consult When |
-|---------|---------|-------------|--------------|--------------|
-| S8 | 8. Extension Points | Normative requirements for extending Formspec without modifying the core spec. All extension identifiers MUST be `x-` prefixed. Non-prefixed unrecognized identifiers are spec errors. | extension points, `x-` prefix | Extending Formspec for domain-specific needs |
-| S8.1 | 8.1 Custom Data Types, Functions, and Constraints | Declared/published through the Extension Registry system. Custom data types use item-level `extensions` object (e.g., `"extensions": { "x-formspec-email": true }`) while `dataType` remains core. Unsupported custom types fall back to `baseType`. Unsupported functions/constraints MUST raise errors (not silently skip). Custom functions must be pure. Custom constraints MUST NOT produce false-positive results when unsupported. | Extension Registry, custom types, custom functions, baseType fallback, item-level extensions | Adding domain-specific types, functions, or constraints |
-| S8.1.1 | 8.1.1 Concept and Vocabulary Registry Entries | Two metadata categories in the Extension Registry: `concept` (associates registry name with external concept URI/IRI, SKOS relationships -- exact/broader/narrower/related/close) and `vocabulary` (associates name with terminology system URI/version/filter). `semanticType` on fields may reference concept entries. These are pure metadata -- MUST NOT affect the processing model. Processors that do not understand them MUST ignore without error. | concept entries, vocabulary entries, SKOS relationships, semanticType resolution, terminology system | Publishing shared concept identity; cross-system interoperability; ontology-aware tooling |
-| S8.4 | 8.4 Extension Properties | `extensions` object on any Formspec document object. All keys `x-` prefixed. Processors MUST ignore unrecognized extensions. Extensions MUST NOT alter core semantics (required, relevant, readonly, calculate, validation, FEL). MUST preserve on round-trip. | extension properties, ignore unrecognized, preserve on round-trip | Adding custom metadata to definitions, responses, or items |
-| S8.5 | 8.5 Extension Namespaces | Convention: `x-{organization}-{domain}` or `x-{domain}` (lowercase ASCII + hyphens). Namespace objects SHOULD include `version`. Processors MUST treat unknown namespaces as opaque. Organizations SHOULD publish machine-readable schemas for their namespaces. | extension namespaces, versioning, opaque treatment | Organizing related extensions under a namespace |
-
-### Lineage (Lines 4426-4647)
+### Validation (Lines 2764-3081)
 
 | Section | Heading | Description | Key Concepts | Consult When |
 |---------|---------|-------------|--------------|--------------|
-| S9 | 9. Lineage -- What Was Borrowed and Why | Informative section documenting design heritage. Three purposes: intellectual honesty, onboarding, design rationale. | lineage, design heritage | Understanding design decisions and ancestry |
-| S9.1 | 9.1 From W3C XForms (2003) | Most significant ancestor. Borrowed: MIPs, reactive dependency graph, non-relevant exclusion, four-phase processing cycle, repeat, multiple instances, MVC separation, expression context scoping, submission pipeline. Not borrowed: XML Events, XPath/namespace dependency, action system, UI control vocabulary, sync/async submission modes. | XForms heritage | Understanding Formspec's XForms roots |
-| S9.2 | 9.2 From W3C SHACL (2017) | Validation system architecture. Borrowed: three severity levels, structured results, constraint composition (and/or/not/xone), shapes/data separation, custom constraint components, severity as metadata. Key divergence: only errors affect valid flag (SHACL: any result = non-conforming). | SHACL heritage, conformance divergence | Understanding validation architecture decisions |
-| S9.3 | 9.3 From HL7 FHIR R5 / SDC (2023) | Identity model and response architecture. Borrowed: canonical URL+version+status, response pinning, derivedFrom, linkId->key, item taxonomy (group/display/question->field), disabledDisplay, variable scoping, initialExpression vs calculatedExpression, modular composition ($ref), assembledFrom, versionAlgorithm. Not borrowed: FHIR resource model, FHIRPath, enableWhen simple syntax, terminology services, population mechanisms. | FHIR heritage | Understanding identity model and response design decisions |
-| S9.4 | 9.4 From Secondary Sources | ODK XLSForm (`$` reference syntax, `.` self-reference), SurveyJS (PEG grammar, rich operators, expression validation API), JSON Forms (data/UI separation, validation modes, external errors), CommonGrants (mapping DSL). | secondary sources | Understanding miscellaneous design influences |
-| S9.5 | 9.5 What Is Original to Formspec | Seven original contributions: (1) FEL as purpose-built expression language, (2) validation shapes as first-class composable objects, (3) modified SHACL conformance semantics, (4) bind paths with repeat notation, (5) three-layer separation for JSON forms, (6) cross-instance expressions with named instances (declaration model combining schema + URL + inline fallback), (7) extension namespace convention with fallback guarantees (`x-` prefix + baseType + round-trip preservation). | original contributions | Understanding what Formspec invented vs borrowed |
+| S5 | 5. Validation | Severity, shapes, results, report, modes, NRB, external merge. | validation system | Validation pipeline |
+| S5.1 | 5.1 Severity Levels | VC-01: valid iff zero errors; differs from SHACL. | VC-01, error/warning/info | Submission vs warnings |
+| S5.2 | 5.2 Validation Shape Schema | Named shapes with target, severity, message, activeWhen, timing. | Shape schema | Authoring shapes |
+| S5.2.1 | 5.2.1 Shape Properties | id, target, constraint, message interpolation, context, activeWhen, timing. | activeWhen, timing | Shape authoring |
+| S5.2.2 | 5.2.2 Composition Operators | and, or, not, xone; shape id or inline FEL; implicit AND with constraint; no cycles. | composition, inline FEL | Composed rules |
+| S5.3 | 5.3 Validation Result Schema | Per-failure ValidationResult; required producer cases including bind parse failure. | constraintKind, shapeId | Result entries |
+| S5.3.1 | 5.3.1 ValidationResult Properties | path, severity, constraintKind, message, code, shapeId, value, context. | five result sources | Full result shape |
+| S5.4 | 5.4 Validation Report Schema | Aggregates results; valid, counts, timestamp; `validation-report.schema.json`. | ValidationReport | Report document |
+| S5.4.1 | 5.4.1 ValidationReport Properties | $formspecValidationReport, invariants on counts and valid. | counts invariant, valid | Report generation |
+| S5.5 | 5.5 Validation Modes | continuous, deferred, disabled; VE-05; continuous-soft informative; per-shape timing vs global mode. | VE-05, continuous-soft | When validation runs |
+| S5.6 | 5.6 Non-Relevant Field Handling | Suppress validation; NRB remove/empty/keep; required off; calculate continues; excludedValue; re-relevance and default. | nonRelevantBehavior, excludedValue | NRB semantics |
+| S5.7 | 5.7 External Validation Results | Inject results; source external; merge and validity. | source: external, sourceId | Server-side validation |
+| S5.7.1 | 5.7.1 External Result Requirements | Required source field. | external schema | External result shape |
+| S5.7.2 | 5.7.2 Merging Rules | Merge, counts, idempotent path+code, clearable. | merging, idempotent injection | Injection semantics |
 
-### Appendix (Lines 4652-4729)
+### Versioning and Evolution (Lines 3083-3366)
 
 | Section | Heading | Description | Key Concepts | Consult When |
 |---------|---------|-------------|--------------|--------------|
-| App A | Appendix A: Requirements Traceability | Maps motivating requirements to spec sections. Categories: Field Definitions (FT-01..05, FM-01..02), Form Logic (FL-01..05), Validation (VR-01, VS-01..04, VE-01..06, VX-01..03), Versioning (VC-01..06), Authoring (AD-01..04), Presentation (PR-01..07). | requirements traceability, FT, FL, VR, VS, VE, VX, VC, AD, PR | Finding which spec section addresses a specific requirement |
+| S6 | 6. Versioning & Evolution | Identity, algorithms, lifecycle, pinning, derivation, composition, migrations. | versioning, migrations | Version management |
+| S6.1 | 6.1 Identity Model | url stable; `url|version`; unversioned resolution rules (Response, derivedFrom, $ref). | pipe syntax, identity | References |
+| S6.2 | 6.2 Version Algorithms | semver (default), date, integer, natural; malformed = definition error. | versionAlgorithm | Comparing versions |
+| S6.2.1 | 6.2.1 Version Semantics for Form Definitions | RECOMMENDED semver patch/minor/major guidance. | semver guidance | Release policy |
+| S6.3 | 6.3 Status Lifecycle | draft → active → retired; no backward transitions; immutability of active content. | draft, active, retired | Lifecycle gates |
+| S6.4 | 6.4 Response Pinning | VP-01 pin; VP-02 active immutable. | VP-01, VP-02 | Response–definition binding |
+| S6.5 | 6.5 Variant Derivation | derivedFrom informational only; tooling lineage and pre-pop hints. | derivedFrom | Lineage metadata |
+| S6.6 | 6.6 Modular Composition | Group `$ref` + keyPrefix; assembly at publish; path rewrite; collisions. | $ref, keyPrefix, assembledFrom | Reuse across definitions |
+| S6.6.1 | 6.6.1 Composition Properties | $ref with optional `#itemKey` fragment. | $ref fragment | Composition authoring |
+| S6.6.2 | 6.6.2 Assembly | Recursive resolution; circular $ref error; metadata informational. | assembly rules | Assembler implementation |
+| S6.7 | 6.7 Version Migrations | migrations.from map; fieldMap transforms; new Response, status reset. | fieldMap, transform | Upgrading responses |
+| S6.7.1 | 6.7.1 Migration Map Structure | from, fieldMap, defaults structure. | migration descriptor | Authoring migrations |
+| S6.7.2 | 6.7.2 Migration Semantics | Preserve original; path carry-forward rules. | migration semantics | Migration behavior |
+
+### Examples (Lines 3368-4294)
+
+| Section | Heading | Description | Key Concepts | Consult When |
+|---------|---------|-------------|--------------|--------------|
+| S7 | 7. Concrete Examples | Normative JSON examples processors MUST consume. | normative examples | Conformance fixtures |
+| S7.1 | 7.1 Budget Line Items with Calculated Totals | Repeat, sum, secondary instance, cross-field shape. | sum(), shape, instances | Totals and balance checks |
+| S7.2 | 7.2 Conditional Section with Dependent Validation | relevant group; non-relevant omitted from data. | relevant, non-relevant remove | Conditional sections |
+| S7.3 | 7.3 Repeatable Rows with Per-Row Calculations and Cross-Row Total | Per-instance vs aggregate context; warning shapes. | per-instance bind, sum wildcard | Repeat calculations |
+| S7.4 | 7.4 Year-over-Year Comparison Warning | Variables, cross-instance, interpolation; valid false from required not warning. | @prior_total, variables | YoY warnings |
+| S7.5 | 7.5 Screener Routing to Form Variants *(Deprecated)* | Pointer to standalone Screener spec for examples and Determination Records. | deprecated, screener-spec | **Screener examples → screener spec** |
+| S7.6 | 7.6 External Validation Failure | Local pass + external error; combined report; absence = constraint pass. | source external, combined report | External validation |
+
+### Extension Points (Lines 4296-4473)
+
+| Section | Heading | Description | Key Concepts | Consult When |
+|---------|---------|-------------|--------------|--------------|
+| S8 | 8. Extension Points | x- prefix mandatory for extensions; unknown non-prefixed = error. | x- prefix, extension points | Safe extension |
+| S8.1 | 8.1 Custom Data Types, Functions, and Constraints | Extension Registry; baseType fallback for types; fail on unsupported fn/constraint. | Extension Registry, baseType | Domain extensions |
+| S8.1.1 | 8.1.1 Concept and Vocabulary Registry Entries | concept and vocabulary metadata; SKOS; no processing-model effect. | semanticType, vocabulary, SKOS | Ontology/registry metadata |
+| S8.4 | 8.4 Extension Properties | extensions object; ignore unknown; preserve round-trip; must not alter core semantics. | extensions, round-trip | Custom metadata |
+| S8.5 | 8.5 Extension Namespaces | x-org-domain grouping; version; opaque if unsupported. | extension namespaces | Grouped extensions |
+
+### Lineage (Lines 4475-4700)
+
+| Section | Heading | Description | Key Concepts | Consult When |
+|---------|---------|-------------|--------------|--------------|
+| S9 | 9. Lineage -- What Was Borrowed and Why | Informative design ancestry and divergences. | lineage, informative | Onboarding and rationale |
+| S9.1 | 9.1 From W3C XForms (2003) | MIPs, reactive graph, four phases, repeat, instances; not XML Events/XPath UI. | XForms heritage | XForms comparison |
+| S9.2 | 9.2 From W3C SHACL (2017) | Shapes, severities, composition; Formspec valid-only-errors divergence. | SHACL heritage | Validation ancestry |
+| S9.3 | 9.3 From HL7 FHIR R5 / SDC (2023) | Identity, pinning, variables, composition, versionAlgorithm; not FHIRPath/resources. | FHIR heritage | Healthcare alignment |
+| S9.4 | 9.4 From Secondary Sources | ODK, SurveyJS, JSON Forms, Mapping DSL companion. | ODK, SurveyJS, mapping-spec.md | Miscellaneous influences |
+| S9.5 | 9.5 What Is Original to Formspec | FEL, composable shapes + modified SHACL semantics, bind paths, three-layer JSON, cross-instance model, x- extension contract. | original contributions | What is novel |
+
+### Appendix (Lines 4702-4778)
+
+| Section | Heading | Description | Key Concepts | Consult When |
+|---------|---------|-------------|--------------|--------------|
+| App A | Appendix A: Requirements Traceability | FT/FL/VR/VS/VE/VX/VC/AD/PR requirements mapped to sections; FL-05 → Screener spec. | requirements traceability | Finding normative home for a requirement |
 
 ## Cross-References
 
-| Reference | Target Spec | Context |
-|-----------|-------------|---------|
-| `theme-spec.md` | Theme Specification (Tier 2) | S2.3 Layer 3 -- theme documents override Tier 1 presentation hints with selector cascade, design tokens, widget configurations, page layout |
-| `theme-spec.md` | Theme Specification (Tier 2) | S4.2.5.5/S4.2.5.6 -- companion specification treating inline presentation hints as author-specified defaults overridable by higher tiers |
-| `component-spec.md` | Component Specification (Tier 3) | S4.2.5.6 -- component documents for full presentation-tree control, custom parameterized components, slot bindings |
-| `mapping-spec.md` | Mapping DSL Specification | S9.4 -- companion specification for bidirectional transforms between Formspec Responses and external schemas (JSON, XML, CSV) |
-| `schemas/definition.schema.json` | Definition JSON Schema | S4.1 -- canonical structural contract for Definition top-level properties |
-| `schemas/response.schema.json` | Response JSON Schema | S2.1.6 -- canonical structural contract for Response properties |
-| `schemas/validationReport.schema.json` | ValidationReport JSON Schema | S5.4.1 -- canonical structural contract for ValidationReport properties |
-| FEL Normative Grammar v1.0 | FEL Grammar companion doc | S3.7 -- normative grammar referenced from the informative PEG grammar section |
-| Extension Registry specification | Extension Registry spec | S8.1 -- where custom data types, functions, and constraints are declared and published |
-| Ontology specification | Ontology spec | S8.1.1 -- vocabulary entries complement ontology document vocabulary bindings |
-| RFC 2119, RFC 8174 | IETF | Conventions -- keyword interpretation |
-| RFC 8259 | IETF | Conventions -- JSON syntax and data types |
-| RFC 6901 | IETF | Conventions -- JSON Pointer syntax |
-| RFC 3986 | IETF | Conventions -- URI syntax |
-| Semantic Versioning 2.0.0 (semver.org) | External | S6.2 -- default version algorithm |
-| ISO 8601 | External | Date/time format throughout |
-| ISO 4217 | External | Currency codes for money type |
-| BCP 47 | External | S3.5.10 -- locale tag format for `locale()` function |
-| Unicode CLDR | External | S3.5.10 -- cardinal plural rules for `pluralCategory()` function |
-| W3C SKOS | External | S8.1.1 -- relationship types (exact, broader, narrower, related, close) for concept entries |
+| Reference | Target | Context |
+|-----------|--------|---------|
+| `theme-spec.md` | Theme Specification (Tier 2) | S2.3 Layer 3; S4.2.5.6 informative note -- cascade, tokens, layouts |
+| `component-spec.md` | Component Specification (Tier 3) | S4.2.5.6 -- presentation trees, slots |
+| `mapping-spec.md` | Mapping DSL Specification | S9.4 -- Response transforms to external formats |
+| `../screener/screener-spec.md` | Screener Specification | S1.4.2 Extended; S4.7 deprecated; S7.5 deprecated; Appendix FL-05 -- standalone `$formspecScreener`, Determination Records |
+| `schemas/definition.schema.json` | Definition JSON Schema | S4.0, S4.1 -- structural contract |
+| `schemas/response.schema.json` | Response JSON Schema | S2.1.6 -- Response envelope |
+| `schemas/intake-handoff.schema.json` | Intake Handoff JSON Schema | S2.1.6.1 -- handoff boundary document |
+| `schemas/validation-report.schema.json` | ValidationReport JSON Schema | S5.4.1 -- report envelope |
+| FEL Normative Grammar v1.0 | FEL Grammar companion | S3.7 -- normative grammar vs informative PEG |
+| Extension Registry specification | Extension Registry spec | S8.1 -- publishing custom types/functions/constraints |
+| Ontology specification | Ontology spec | S8.1.1 -- vocabulary bindings complement registry |
+| RFC 2119, RFC 8174 | IETF | Conventions -- normative keywords |
+| RFC 8259 | IETF | Conventions -- JSON |
+| RFC 6901 | IETF | Conventions -- JSON Pointer |
+| RFC 3986 | IETF | Conventions -- URI |
+| Semantic Versioning 2.0.0 | semver.org | S6.2 -- default version algorithm |
+| ISO 8601 | External | Dates/times |
+| ISO 4217 | External | money currency codes |
+| BCP 47 | External | S3.5.10 -- `locale()` |
+| Unicode CLDR | External | S3.5.10 -- `pluralCategory()` |
+| W3C SKOS | External | S8.1.1 -- concept relationships |
 
 ## Key Schemas Defined
 
 | Schema | Location | Purpose |
 |--------|----------|---------|
-| **FormDefinition** (top-level) | S4.1, `schemas/definition.schema.json` | The complete form specification document |
-| **Item** (field/group/display) | S4.2 | Structural nodes in the form tree |
-| **Bind** | S4.3 | Behavioral declarations (calculate, relevant, required, readonly, constraint, default, whitespace, excludedValue) |
-| **Instance** (secondary data source) | S4.4 | Named external/supplemental data available to FEL |
-| **Variable** | S4.5 | Named computed values with lexical scoping |
-| **OptionSet** | S4.6 | Reusable option lists for choice/multiChoice fields |
-| **Screener** (routing) | S4.7 | Pre-form routing with items, binds, and ordered routes |
-| **Validation Shape** | S5.2 | Named, composable validation rule sets |
-| **ValidationResult** | S5.3 | Individual structured validation finding |
-| **ValidationReport** | S5.4, `schemas/validationReport.schema.json` | Aggregated validation results for a Response |
-| **Response** | S2.1.6, `schemas/response.schema.json` | Completed or in-progress form data pinned to a Definition version |
-| **Migration Map** | S6.7 | Version migration descriptors for transforming Responses |
-| **Presentation** (hints) | S4.2.5 | Advisory widget, layout, style, and accessibility hints |
-| **FormPresentation** | S4.1.1 | Form-wide presentation defaults (pageMode, labelPosition, density, direction, etc.) |
+| **FormDefinition** | S4.1, `schemas/definition.schema.json` | Complete form specification |
+| **Item** | S4.2 | field / group / display nodes |
+| **Bind** | S4.3 | Behavioral MIPs by path |
+| **Instance** | S4.4 | Secondary data sources |
+| **Variable** | S4.5 | Scoped named expressions |
+| **OptionSet** | S4.6 | Reusable choice lists |
+| **Validation Shape** | S5.2 | Composable validation rules |
+| **ValidationResult** | S5.3 | Single finding |
+| **ValidationReport** | S5.4, `schemas/validation-report.schema.json` | Aggregated findings |
+| **Response** | S2.1.6, `schemas/response.schema.json` | Pinned in-progress or completed data |
+| **Intake Handoff** | S2.1.6.1, `schemas/intake-handoff.schema.json` | Intake-to-workflow boundary with evidence refs |
+| **Migration Map** | S6.7 | Response version transforms |
+| **Presentation** | S4.2.5 | Advisory per-item hints |
+| **FormPresentation** | S4.1.1 | Form-wide presentation defaults |
 
 ## Critical Behavioral Rules
 
-These are the non-obvious rules that trip up implementers:
+1. **Null propagation defaults differ by context (S3.8.1).** In `relevant`, null → true. In `required`, null → false. In `readonly`, null → false. In `constraint`, null → true (passes). In `if()` condition, null → evaluation error.
 
-1. **Null propagation defaults differ by context (S3.8.1).** In `relevant` context, null -> true (field stays visible). In `required` context, null -> false (field not required). In `readonly` context, null -> false (field editable). In `constraint` context, null -> true (constraint passes). In `if()` condition, null -> evaluation error. These asymmetric defaults are the single most common source of confusion.
+2. **`relevant` inherits via AND; `readonly` inherits via OR; `required` does not inherit (S4.3.2).**
 
-2. **`relevant` inherits via AND; `readonly` inherits via OR; `required` does NOT inherit (S4.3.2).** A child cannot be relevant if its parent is not. A child cannot be editable if its parent is readonly. But a required parent does NOT make children required.
+3. **Non-relevant fields: `calculate` still runs (S5.6 rule 4).** `excludedValue` controls what dependents see; `nonRelevantBehavior` controls serialized submission shape.
 
-3. **Non-relevant fields: calculate binds STILL evaluate (S5.6 rule 4).** Calculated values exist in the in-memory model even when non-relevant. The `excludedValue` bind property controls what downstream expressions see ("preserve" = last value, "null" = null). Submission behavior is controlled separately by `nonRelevantBehavior`.
+4. **Saving MUST NEVER be blocked by validation (VE-05, S5.5).** Only transition to `completed` requires zero error-severity results.
 
-4. **Saving MUST NEVER be blocked by validation (VE-05, S5.5).** Only the transition to "completed" status requires zero error-level results. In-progress responses with errors can always be saved.
+5. **Response pinning is absolute (VP-01, S6.4); active definitions are immutable (VP-02).**
 
-5. **Response pinning is absolute (VP-01, S6.4).** A Response is always validated against its pinned version, even if a newer version exists. Active definitions are immutable (VP-02) -- any change, however minor, requires a new version.
+6. **Empty string and null differ (S3.4.3); FEL has no implicit coercion** -- use explicit casts; only boolean `false` is false in logic.
 
-6. **Empty string and null are NOT the same (S3.4.3).** `null` = value absent (never set). `''` = value present but empty. `required` treats both as unsatisfied, but in all other contexts they differ.
+7. **`&` concatenates strings; `+` is numeric only (S3.3).**
 
-7. **FEL has NO implicit type coercion (S3.4.3).** `0` is not `false`, `''` is not `false`, `null` is not `false`. Only the boolean value `false` is `false`. Arithmetic requires numbers, `&` requires strings, logical operators require booleans. Use explicit cast functions.
+8. **Element-wise array ops with scalar broadcast (S3.9);** length mismatch is an error.
 
-8. **`&` is string concatenation, NOT `+` (S3.3).** The `+` operator is strictly numeric addition. String concatenation uses `&` to prevent ambiguity.
+9. **Evaluation errors yield null plus diagnostic, not user-visible throw (S3.10.2)** -- including division by zero.
 
-9. **Element-wise array operations with broadcast (S3.9).** Two equal-length arrays: element-wise. Different lengths: error. Scalar + array: scalar is broadcast. This is how `sum($items[*].qty * $items[*].price)` works.
+10. **Bind paths use FieldRef `[*]` and 1-based FEL indexes; ValidationResult paths use concrete 0-based array indexes (S4.3.3).**
 
-10. **Division by zero produces null, not Infinity/NaN (S3.3, S3.10.2).** All evaluation errors produce null + diagnostic. The form keeps working; authors see the diagnostic.
+11. **Item `key` MUST be globally unique in the Definition (S4.2.1).**
 
-11. **Bind paths use `[*]` wildcards; ValidationResult paths use concrete 0-based indexes (S4.3.3).** FieldRef syntax (definition-time) vs resolved instance paths (runtime). FEL expression indexes (`$repeat[n]`, `@index`) are 1-based. Never mix the conventions.
+12. **Processing phases MUST run in order: Rebuild → Recalculate → Revalidate → Notify (S2.4).**
 
-12. **`key` must be globally unique across the entire Definition, not just among siblings (S4.2.1).** This is stricter than many expect.
+13. **Shape `and`/`or`/`not`/`xone` may mix shape ids and inline FEL strings; lookup-first then treat as FEL (S5.2.2).**
 
-13. **Processing model phases MUST execute in order: Rebuild -> Recalculate -> Revalidate -> Notify (S2.4).** Recalculate iterates until stable (min 100 iterations). Only the affected subgraph is re-evaluated (minimal recalculation guarantee).
+14. **`initialValue` `=expr` runs once; `calculate` is continuous; `default` applies on non-relevant → relevant (S4.2.3, S4.3.1, S4.5.2).**
 
-14. **Shape composition operators can take inline FEL expressions, not just shape id references (S5.2.2).** An `or` array can contain `["present($email)", "present($phone)"]` directly. Resolution: look up in shapes array first; if not found, treat as inline FEL.
-
-15. **`initialValue` with `=` prefix is a one-time FEL expression; `calculate` is continuously reactive (S4.2.3, S4.5.2).** `initialValue: "=today()"` evaluates once at creation. A calculate bind re-evaluates whenever dependencies change.
-
-16. **`default` on a Bind applies on non-relevant -> relevant transitions, not at initial creation (S4.3.1).** `initialValue` is for creation time. `default` is for re-relevance.
-
-17. **Screener items are NOT part of the form's instance data (S4.7).** They exist only for routing purposes and have their own isolated bind scope that does NOT interact with the main form's binds.
-
-18. **`nonRelevantBehavior` controls serialized output; `excludedValue` controls the in-memory evaluation model (S4.3.1).** These are independent concerns. You can have `excludedValue: "null"` (expressions see null) with `nonRelevantBehavior: "keep"` (response keeps the value).
-
-19. **`optionSet` takes precedence over `options` when both are present on a field (S4.2.3).** The named reference wins.
-
-20. **Whitespace normalization (`whitespace` bind property) is applied BEFORE the value is stored and BEFORE any constraint/type validation (S4.3.1).** Integer and decimal fields always get whitespace trimmed regardless of this setting.
-
-21. **Constraint parse errors MUST be surfaced as validation errors, not silently passed (S2.4 Phase 3, S2.5.1).** A bind constraint expression that fails to parse produces a ValidationResult with code `CONSTRAINT_PARSE_ERROR` and severity `"error"`.
-
-22. **`number` type uses decimal (base-10) semantics, NOT IEEE 754 binary floating-point (S3.4.1).** `0.1 + 0.2 = 0.3` is guaranteed. Minimum precision: 18 significant decimal digits. This is critical for financial calculations.
+15. **Screener routing is defined in the standalone Screener specification (`$formspecScreener`); the Definition `screener` property is deprecated and not in the Definition schema (S4.7, S1.4.2).**

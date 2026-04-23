@@ -1,6 +1,6 @@
 # Ontology Specification Reference Map
 
-> specs/ontology/ontology-spec.md -- 782 lines, ~38K -- Companion: Semantic Binding, Concept Alignment, Vocabulary Mapping
+> specs/ontology/ontology-spec.md -- 782 lines, ~38KB -- Companion tier: semantic binding, concept alignment, vocabulary mapping (does not alter core processing)
 
 ## Overview
 
@@ -17,7 +17,7 @@ The Ontology specification defines a standalone JSON sidecar document for bindin
 | Conventions | Conventions and Terminology | Defines RFC 2119/8174 keyword interpretation, JSON/URI/IRI standards, and five new terms. Inherits terms from Formspec v1.0 including conformant processor, Definition document, extension, FEL expression, semanticType. | Ontology Document, Concept Binding, Vocabulary Binding, Alignment, Ontology-aware processor | Looking up what a term means |
 | BLUF | Bottom Line Up Front | Eight-bullet summary covering sidecar nature, concept URIs with SKOS equivalents, vocabulary bindings, alignments for cross-form data science, additive merge semantics, pure metadata constraint, OWL-integrative positioning, and governing schema. | BLUF, SKOS, OWL-integrative, additive merge, pure metadata | Quick orientation on what the spec requires |
 
-### Section 1: Purpose and Scope (Lines 87-174)
+### Section 1: Purpose and Scope (Lines 87-176)
 
 | Section | Heading | Description | Key Concepts | Consult When |
 |---------|---------|-------------|--------------|--------------|
@@ -83,7 +83,7 @@ The Ontology specification defines a standalone JSON sidecar document for bindin
 |---------|---------|-------------|--------------|--------------|
 | 8 | Conformance | Introduces conformance requirements for ontology document handling. | Conformance | Understanding processor requirements |
 | 8.1 | Core Processor Requirements | Three rules: Core processors MAY ignore ontology documents entirely; MUST NOT use ontology bindings to alter data capture/validation/processing; ontology metadata MUST NOT appear in Response data. | Core processor, ignore, pure metadata, Response data | Implementing a core processor that does not support ontology |
-| 8.2 | Extended Processor Requirements | Eleven rules for processors that support ontology documents: must validate against schema, must verify targetDefinition.url match (mismatch = must not apply + should error), should check compatibleVersions (mismatch = warn-and-continue), must resolve defaultSystem, missing path = warning not rejection, missing optionSet = warning not rejection, load order implementation-defined with last-loaded wins, unrecognized non-x type = warning + treat as related, must preserve x-prefixed properties on round-trip, ontology binding takes precedence over registry concept entry, ontology vocabulary binding takes precedence over registry vocabulary entry. | Extended processor, targetDefinition.url match, compatibleVersions, defaultSystem resolution, last-loaded wins, merge semantics, warning vs error, round-trip preservation, precedence over registry | Implementing a conformant ontology-aware processor |
+| 8.2 | Extended Processor Requirements | Eleven rules for processors that support ontology documents: validate against schema; verify `targetDefinition.url` matches loaded Definition `url` (on mismatch MUST NOT apply bindings, SHOULD error); SHOULD check `compatibleVersions` (warn-and-continue); MUST resolve `defaultSystem`; unknown concept path or unknown option set name MUST warn, MUST NOT reject; load order implementation-defined -- last-loaded wins for same-path concept bindings, vocabulary bindings merge with last-loaded override per option set name, alignments concatenate; unrecognized non-`x-` relationship `type` SHOULD warn and treat as `related`; MUST preserve `x-` properties on round-trip; ontology concept binding takes precedence over registry concept; ontology vocabulary binding takes precedence over registry vocabulary (ontology vocabulary `version` overrides registry version). | Extended processor, targetDefinition.url match, compatibleVersions, defaultSystem resolution, last-loaded wins, merge semantics, warning vs error, round-trip preservation, precedence over registry | Implementing a conformant ontology-aware processor |
 
 ### Section 9: Schema (Lines 592-598)
 
@@ -129,6 +129,7 @@ The Ontology specification defines a standalone JSON sidecar document for bindin
 | SKOS (W3C Recommendation) | Source of relationship type vocabulary (exactMatch, closeMatch, broadMatch, narrowMatch, relatedMatch). Referenced in Sections 3.2, Appendix B. |
 | JSON-LD 1.1 (W3C Recommendation) | Context fragment format and linked data bridge. Referenced in Section 6 and Appendix B. |
 | OWL / RDF / RDFS | Appendix B discusses the relationship: OWL-integrative not OWL-compatible. Tooling MAY generate derived OWL/RDFS. |
+| SPARQL, triple stores | Appendix B: JSON-LD responses can be queried with SPARQL and merged into RDF datasets once `@context` is applied. |
 | schema.org | Used in examples as a concept system (birthDate, gender, taxID). |
 | FHIR R4 (HL7) | Used in examples as a concept/alignment system (Patient.identifier, Patient.birthDate, Patient.gender). |
 | ICD-10 (WHO) | Used in examples as a vocabulary system for diagnosis codes. |
@@ -169,9 +170,9 @@ The Ontology specification defines a standalone JSON sidecar document for bindin
 
 1. **Ontology metadata is pure metadata -- it MUST NOT affect processing.** An Ontology Document MUST NOT alter data capture, validation, calculation, or any behavioral semantics. A processor that does not understand ontology documents MUST ignore them without error. Ontology metadata MUST NOT appear in Response data. (Sections 1.1 principle 5, 8.1)
 
-2. **Ontology Document binding takes precedence over registry concept entries.** When a field has both a registry concept entry (via semanticType match) and an Ontology Document binding for the same path, the ontology binding wins for concept identity. The registry entry MAY still provide supplementary metadata not overridden by the ontology binding. (Section 3.4, 8.2)
+2. **Ontology Document bindings take precedence over matching registry entries.** For concept identity, an Ontology Document path binding wins over a registry concept entry matched by `semanticType`; the registry entry MAY still supply supplementary metadata the ontology binding does not override (§3.4, §8.2). For vocabulary metadata, an Ontology Document vocabulary binding for an option set name wins over a registry vocabulary entry for that name; the ontology binding's `version` overrides the registry entry's version (§8.2).
 
-3. **Last-loaded document wins for same-path concept bindings.** Load order of multiple Ontology Documents is implementation-defined. When multiple documents bind the same path, the last-loaded binding takes precedence. Vocabulary bindings merge additively (last-loaded overrides for same option set name). Alignments concatenate. (Section 8.2)
+3. **Last-loaded document wins for same-path concept bindings.** Load order of multiple Ontology Documents is implementation-defined. When multiple documents bind the same path, the last-loaded binding takes precedence. Vocabulary bindings merge additively (last-loaded overrides for same option set name). Alignments concatenate. (Section 8.2, BLUF)
 
 4. **targetDefinition.url mismatch is a hard stop.** An Extended processor MUST verify that `targetDefinition.url` matches the loaded Definition's `url`. On mismatch, the processor MUST NOT apply the ontology bindings and SHOULD emit an error. This is stricter than version mismatch, which is warn-and-continue. (Section 8.2)
 

@@ -1,6 +1,6 @@
 # Component Schema Reference Map
 
-> schemas/component.schema.json -- 1490 lines -- Tier 3 component tree document
+> schemas/component.schema.json -- 1505 lines -- Tier 3 component tree document
 
 ## Overview
 
@@ -21,10 +21,11 @@ The Component Schema defines the structure of a Formspec Component Document -- a
 | `tokens` | `$ref: Tokens` | No | Flat key-value map of design tokens, referenced via `$token.key` syntax; Tier 3 tokens override Tier 2 theme tokens. |
 | `components` | `object` (patternProperties: `^[A-Z][a-zA-Z0-9]*$`) | No | Registry of custom component templates; keys are PascalCase names that MUST NOT collide with built-in names. |
 | `tree` | `$ref: AnyComponent` | Yes | Root component node of the presentation tree; MUST be a single component object. |
+| `extensions` | `object` (propertyNames: pattern `^x-`) | No | Document-level extension properties nested under a single object; all keys MUST be prefixed with `x-`. |
 
 **`additionalProperties`: false** -- only the listed properties and `^x-` extensions are allowed at the top level.
 
-**`patternProperties`**: `"^x-": {}` -- allows arbitrary extension properties prefixed with `x-`.
+**`patternProperties`**: `"^x-": true` -- allows arbitrary extension properties prefixed with `x-` directly on the document root (alongside named properties).
 
 ## Key Type Definitions ($defs)
 
@@ -73,15 +74,15 @@ All components inherit these properties from `ComponentBase`:
 
 | Component | Type String | Category | Level | Key Properties | Required Props | Compatible Data Types | Fallback |
 |---|---|---|---|---|---|---|---|
-| TextInput | `"TextInput"` | input | core | `bind`, `placeholder`, `maxLines`, `inputMode`, `prefix`, `suffix` | `component`, `bind` | string | -- |
-| NumberInput | `"NumberInput"` | input | core | `bind`, `step`, `min`, `max`, `showStepper`, `locale` | `component`, `bind` | integer, number | -- |
-| DatePicker | `"DatePicker"` | input | core | `bind`, `format`, `minDate`, `maxDate`, `showTime` | `component`, `bind` | date, dateTime, time | -- |
+| TextInput | `"TextInput"` | input | core | `bind`, `placeholder`, `maxLines`, `inputMode`, `prefix`, `suffix`, `variant` | `component`, `bind` | string | -- |
+| NumberInput | `"NumberInput"` | input | core | `bind`, `placeholder`, `step`, `min`, `max`, `showStepper`, `locale` | `component`, `bind` | integer, number | -- |
+| DatePicker | `"DatePicker"` | input | core | `bind`, `placeholder`, `format`, `minDate`, `maxDate`, `showTime` | `component`, `bind` | date, dateTime, time | -- |
 | Select | `"Select"` | input | core | `bind`, `searchable`, `multiple`, `placeholder`, `clearable` | `component`, `bind` | choice, multiChoice | -- |
 | CheckboxGroup | `"CheckboxGroup"` | input | core | `bind`, `columns`, `selectAll` | `component`, `bind` | multiChoice | -- |
 | Toggle | `"Toggle"` | input | core | `bind`, `onLabel`, `offLabel` | `component`, `bind` | boolean | -- |
 | FileUpload | `"FileUpload"` | input | core | `bind`, `accept`, `maxSize`, `multiple`, `dragDrop` | `component`, `bind` | attachment | -- |
 | RadioGroup | `"RadioGroup"` | input | progressive | `bind`, `columns`, `orientation` | `component`, `bind` | choice | Select |
-| MoneyInput | `"MoneyInput"` | input | progressive | `bind`, `step`, `min`, `max`, `showStepper`, `currency`, `showCurrency`, `locale` | `component`, `bind` | money | NumberInput |
+| MoneyInput | `"MoneyInput"` | input | progressive | `bind`, `placeholder`, `step`, `min`, `max`, `showStepper`, `currency`, `showCurrency`, `locale` | `component`, `bind` | money | NumberInput |
 | Slider | `"Slider"` | input | progressive | `bind`, `min`, `max`, `step`, `showValue`, `showTicks` | `component`, `bind` | integer, number | NumberInput |
 | Rating | `"Rating"` | input | progressive | `bind`, `max`, `icon`, `allowHalf` | `component`, `bind` | integer | NumberInput |
 | Signature | `"Signature"` | input | progressive | `bind`, `strokeColor`, `height`, `penWidth`, `clearable` | `component`, `bind` | attachment | FileUpload |
@@ -168,28 +169,34 @@ All components inherit these properties from `ComponentBase`:
 - `header`
 - `bind`
 
-## Enumerations
+## Enums and Patterns
 
-| Enum | Allowed Values | Used By |
-|---|---|---|
-| Stack direction | `"vertical"`, `"horizontal"` | `Stack.direction` |
-| Stack align | `"start"`, `"center"`, `"end"`, `"stretch"` | `Stack.align` |
-| TextInput inputMode | `"text"`, `"email"`, `"tel"`, `"url"`, `"search"` | `TextInput.inputMode` |
-| Text format | `"plain"`, `"markdown"` | `Text.format` |
-| Tabs position | `"top"`, `"bottom"`, `"left"`, `"right"` | `Tabs.position` |
-| RadioGroup orientation | `"horizontal"`, `"vertical"` | `RadioGroup.orientation` |
-| Rating icon | `"star"`, `"heart"`, `"circle"` | `Rating.icon` |
-| Alert severity | `"info"`, `"success"`, `"warning"`, `"error"` | `Alert.severity` |
-| Badge variant | `"default"`, `"primary"`, `"success"`, `"warning"`, `"error"` | `Badge.variant` |
-| AccessibilityBlock liveRegion | `"off"`, `"polite"`, `"assertive"` | `AccessibilityBlock.liveRegion` |
-| SubmitButton mode | `"continuous"`, `"submit"` | `SubmitButton.mode` |
-| ValidationSummary source | `"live"`, `"submit"` | `ValidationSummary.source` |
-| ValidationSummary mode | `"continuous"`, `"submit"` | `ValidationSummary.mode` |
-| Panel position | `"left"`, `"right"` | `Panel.position` |
-| Modal size | `"sm"`, `"md"`, `"lg"`, `"xl"`, `"full"` | `Modal.size` |
-| Modal trigger | `"button"`, `"auto"` | `Modal.trigger` |
-| Modal placement | `"top"`, `"right"`, `"bottom"`, `"left"` | `Modal.placement` |
-| Popover placement | `"top"`, `"right"`, `"bottom"`, `"left"` | `Popover.placement` |
+| Property Path | Type | Values / Pattern | Description |
+|---|---|---|---|
+| `Stack.direction` | enum | `vertical`, `horizontal` | Stack axis (default `vertical`). |
+| `Stack.align` | enum | `start`, `center`, `end`, `stretch` | Cross-axis alignment. |
+| `TextInput.inputMode` | enum | `text`, `email`, `tel`, `url`, `search` | Input mode hint for virtual keyboards. |
+| `TextInput.variant` | enum | `plain`, `richtext`, `markdown`, `latex` | Content-type variant (default `plain`); formatted variants MUST bind to `string` or `text` dataType per schema description. |
+| `Text.format` | enum | `plain`, `markdown` | Static or bound text rendering; Markdown MUST be sanitized. |
+| `Tabs.position` | enum | `top`, `bottom`, `left`, `right` | Tab bar position (default `top`). |
+| `RadioGroup.orientation` | enum | `horizontal`, `vertical` | Radio button layout direction. |
+| `Rating.icon` | enum | `star`, `heart`, `circle` | Icon type; renderers MAY support more. |
+| `Alert.severity` | enum | `info`, `success`, `warning`, `error` | Visual styling and ARIA role. |
+| `Badge.variant` | enum | `default`, `primary`, `success`, `warning`, `error` | Visual variant. |
+| `AccessibilityBlock.liveRegion` | enum | `off`, `polite`, `assertive` | `aria-live` on root; MUST NOT apply unless set. |
+| `SubmitButton.mode` | enum | `continuous`, `submit` | Validation mode for response/report when clicked. |
+| `ValidationSummary.source` | enum | `live`, `submit` | Validation source (default `live`). |
+| `ValidationSummary.mode` | enum | `continuous`, `submit` | Mode when `source` is `live` (default `continuous`). |
+| `Panel.position` | enum | `left`, `right` | Panel side (default `left`). |
+| `Modal.size` | enum | `sm`, `md`, `lg`, `xl`, `full` | Modal width preset. |
+| `Modal.trigger` | enum | `button`, `auto` | Open behavior: dedicated button vs `when`-driven auto. |
+| `Modal.placement` | enum | `top`, `right`, `bottom`, `left` | Anchored dialog placement (optional). |
+| `Popover.placement` | enum | `top`, `right`, `bottom`, `left` | Popover placement (default `bottom`). |
+| `ComponentBase.id` | pattern | `^[a-zA-Z][a-zA-Z0-9_\-]*$` | Optional node id (unique in tree). |
+| `components` keys | pattern | `^[A-Z][a-zA-Z0-9]*$` | PascalCase custom template names. |
+| `MoneyInput.currency` | pattern | `^[A-Z]{3}$` | ISO 4217 currency code. |
+| Top-level extension keys | pattern | `^x-` | Via `patternProperties` on the document root. |
+| `extensions` property names | pattern | `^x-` | Nested extension object keys. |
 
 ### Const Values (component type discriminators)
 
@@ -198,15 +205,6 @@ Every built-in component definition constrains its `component` property to a `co
 `"Page"`, `"Stack"`, `"Grid"`, `"Spacer"`, `"TextInput"`, `"NumberInput"`, `"DatePicker"`, `"Select"`, `"CheckboxGroup"`, `"Toggle"`, `"FileUpload"`, `"Heading"`, `"Text"`, `"Divider"`, `"Card"`, `"Collapsible"`, `"ConditionalGroup"`, `"Columns"`, `"Tabs"`, `"SubmitButton"`, `"Accordion"`, `"RadioGroup"`, `"MoneyInput"`, `"Slider"`, `"Rating"`, `"Signature"`, `"Alert"`, `"Badge"`, `"ProgressBar"`, `"Summary"`, `"ValidationSummary"`, `"DataTable"`, `"Panel"`, `"Modal"`, `"Popover"`
 
 `CustomComponentRef` uses `"not": { "enum": [...] }` to match any string that is NOT one of the 35 built-in names.
-
-### Patterns
-
-| Property Path | Pattern | Description |
-|---|---|---|
-| `ComponentBase.id` | `^[a-zA-Z][a-zA-Z0-9_\-]*$` | Alphanumeric + underscore/hyphen, must start with a letter |
-| `components` keys | `^[A-Z][a-zA-Z0-9]*$` | PascalCase enforcement for custom component names |
-| `MoneyInput.currency` | `^[A-Z]{3}$` | ISO 4217 three-letter uppercase currency code |
-| Top-level `patternProperties` | `^x-` | Extension namespace |
 
 ## Cross-References
 
@@ -219,6 +217,7 @@ Every built-in component definition constrains its `component` property to a `co
 | `tokens` | `#/$defs/Tokens` |
 | `components.*` | `#/$defs/CustomComponentDef` |
 | `tree` | `#/$defs/AnyComponent` |
+| `extensions` | (inline object; keys must match `^x-`; not a `$ref`) |
 | `ComponentBase.responsive` | `#/$defs/ResponsiveOverrides` |
 | `ComponentBase.style` | `#/$defs/StyleMap` |
 | `ComponentBase.accessibility` | `#/$defs/AccessibilityBlock` |
@@ -232,6 +231,11 @@ Every built-in component definition constrains its `component` property to a `co
 
 None. The component schema is self-contained and does not reference other schema files.
 
+### Specification documents
+
+- Normative prose: `specs/component/component-spec.md` (Component Specification v1.0).
+- Skill summary: `.claude-plugin/skills/formspec-specs/references/component-spec.md`.
+
 ### `x-lm` Cross-References
 
 The `x-lm` annotations reference concepts from Tier 1 (Definition) and Tier 2 (Theme) but do not use `$ref` for those links. Semantic links include:
@@ -242,7 +246,8 @@ The `x-lm` annotations reference concepts from Tier 1 (Definition) and Tier 2 (T
 ## Extension Points
 
 ### Top-Level Extensions
-- **`patternProperties: "^x-": {}`** -- The top-level document accepts any property prefixed with `x-` with no schema constraints. This is the primary extension point for vendor-specific metadata.
+- **`patternProperties: "^x-": true`** -- The root document accepts any additional property whose name matches `^x-` (alongside the fixed `properties` list and `additionalProperties: false` for non-extension keys).
+- **`extensions`** -- Optional object bag for document-level extensions: `propertyNames` pattern `^x-` so every key is `x-`-prefixed. Use this when grouping vendor metadata under one property instead of scattering root-level `x-*` keys.
 
 ### Custom Component Registry
 - **`components`** -- Object keyed by PascalCase names (`^[A-Z][a-zA-Z0-9]*$`) where each value is a `CustomComponentDef`. Custom component names MUST NOT collide with built-in component names.
@@ -352,7 +357,7 @@ The `$ref` to `ComponentBase` brings in the shared properties (`id`, `component`
 
 | Location | Effect |
 |---|---|
-| Top-level document | Only declared properties + `^x-` extensions allowed |
+| Top-level document | Only declared `properties`, root `patternProperties` keys matching `^x-`, and no other keys |
 | `TargetDefinition` | Only `url` and `compatibleVersions` |
 | `AccessibilityBlock` | Only `role`, `description`, `liveRegion` |
 | `CustomComponentDef` | Only `params` and `tree` |
@@ -381,7 +386,8 @@ All 36 concrete component definitions use this to seal allowed properties after 
 | Pattern: `^[a-zA-Z][a-zA-Z0-9_\-]*$` | ComponentBase.id | Node identifier format |
 | Pattern: `^[A-Z][a-zA-Z0-9]*$` | `components` keys | PascalCase enforcement for custom component names |
 | Pattern: `^[A-Z]{3}$` | MoneyInput.currency | ISO 4217 currency code |
-| Pattern: `^x-` | Top-level `patternProperties` | Extension namespace |
+| Pattern: `^x-` | Top-level `patternProperties`; `extensions.propertyNames` | Root-level and nested extension key namespace |
+| `enum` | `TextInput.variant` | `plain`, `richtext`, `markdown`, `latex` |
 | `not: { enum: [...] }` | CustomComponentRef.component | Excludes all 35 built-in names |
 
 ### Default Values
@@ -390,6 +396,7 @@ All 36 concrete component definitions use this to seal allowed properties after 
 |---|---|
 | `Stack.direction` | `"vertical"` |
 | `TextInput.maxLines` | `1` |
+| `TextInput.variant` | `"plain"` |
 | `Tabs.position` | `"top"` |
 | `Panel.position` | `"left"` |
 | `Popover.placement` | `"bottom"` |

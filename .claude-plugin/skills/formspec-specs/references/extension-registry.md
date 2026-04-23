@@ -1,160 +1,163 @@
 # Extension Registry Specification Reference Map
 
-> specs/registry/extension-registry.md -- 584 lines, ~24K -- Companion: Extension Publishing, Discovery, Lifecycle
+> specs/registry/extension-registry.md -- 591 lines, ~32K -- Companion: Extension Publishing, Discovery, Lifecycle (registry tier)
 
 ## Overview
 
-The Extension Registry specification defines a static JSON document format for publishing, discovering, and validating Formspec extensions and semantic metadata. It is a companion to the Formspec v1.0 core specification Section 8, which defines extension categories with `x-` prefixed identifiers but deliberately leaves publication and discovery out of scope. This spec fills that gap with a machine-readable catalog format, naming rules, a well-known URL discovery mechanism, a four-state lifecycle model, and conformance requirements for registry-aware processors. It covers seven entry categories: the five original extension categories (dataType, function, constraint, property, namespace) plus two ontology-tier categories (concept, vocabulary) that carry pure metadata without affecting the processing model.
+The Extension Registry specification defines a static JSON catalog format for publishing, discovering, and validating Formspec extensions and semantic metadata. It complements Formspec v1.0 §8, which defines extension categories and the `x-` prefix but leaves publication and discovery unspecified. The spec normativizes Registry Documents and Registry Entries, naming rules, optional well-known URL discovery, a four-state lifecycle, and processor conformance. The abstract enumerates seven entry kinds (including concept identities and vocabulary bindings); the normative entry table in §3 lists five `category` enum values, while §3.2 additionally documents `concept` and `vocabulary` whose shapes are aligned with the Ontology specification -- Appendix A’s JSON Schema `category` enum still lists only the five processing-model extension categories.
 
 ## Section Map
 
-### Front Matter (Lines 1-63)
+### Title, YAML Front Matter, and Introductory Sections (Lines 1-71)
 
 | Section | Heading | Description | Key Concepts | Consult When |
 |---------|---------|-------------|--------------|--------------|
-| Abstract | Abstract | Defines what a Registry Document is: a JSON catalog of named entries with metadata, version history, compatibility bounds, and schemas. Clarifies this is a static document format, not a runtime service. Enumerates all seven entry categories including concept identities and vocabulary bindings. | Registry Document, extension categories (dataType, function, constraint, property, namespace, concept, vocabulary), machine-readable schemas, semantic metadata | Understanding the purpose and scope of the registry spec |
-| Status | Status of This Document | Draft status disclaimer. States this is a companion to core v1.0 and does not modify core extension mechanisms from Section 8. | Draft specification, companion document | Checking spec maturity level |
-| Conventions | Conventions and Terminology | Defines RFC 2119/8174 keyword interpretation, JSON/URI/Semver standards, and three new terms. Inherits terms from Formspec v1.0. | Registry Document, Registry Entry, Registry-aware processor, conformant processor | Looking up what a term means |
-| BLUF | Bottom Line Up Front | Four-bullet summary: defines registry format, required top-level fields, purpose of entries, and governing schema. | `$formspecRegistry`, `publisher`, `published`, `entries` | Quick orientation on what the spec requires |
+| (front) | YAML front matter | Machine metadata: title, version, date, status for the spec document itself (not the Registry JSON format). | title, version, date, status, draft | Identifying the spec revision you are reading |
+| (title) | Formspec Extension Registry v1.0 | Human-facing title block: spec version line, date, editors, companion relationship to Formspec v1.0. | v1.0.0-draft.1, companion | Citation and version alignment with core |
+| Abstract | Abstract | Defines Registry Documents as JSON catalogs of named entries (data types, functions, constraints, properties, namespaces, concepts, vocabularies) with metadata, compatibility, and schemas; explicitly not a runtime service -- static format for HTTPS, packages, or repos. | Registry Document, static format, interoperability | Understanding purpose and non-goals |
+| Status | Status of This Document | Draft disclaimer; companion to core v1.0 and does not modify §8 extension mechanisms; implementors MUST NOT treat as stable until 1.0.0. | draft, companion, feedback | Checking maturity and production use |
+| Conventions | Conventions and Terminology | BCP 14 / RFC 2119 / RFC 8174 keywords; JSON (RFC 8259), URI (RFC 3986), Semver 2.0.0; inherits Formspec v1.0 terms; defines Registry Document, Registry Entry, registry-aware processor. | MUST, Registry-aware processor, conformant processor | Interpreting normative language and defined terms |
+| BLUF | Bottom Line Up Front | Four bullets: registry role, required top-level fields (`$formspecRegistry`, `publisher`, `published`, `entries`), entry concerns, structural contract from `schemas/registry.schema.json`. | `$formspecRegistry`, BLUF, schema contract | Quick orientation |
 
-### 1. Purpose and Scope (Lines 66-86)
-
-| Section | Heading | Description | Key Concepts | Consult When |
-|---------|---------|-------------|--------------|--------------|
-| 1 | Purpose and Scope | Enumerates the six things this spec defines (entry format, document format, naming rules, discovery, lifecycle, conformance) and what it explicitly does NOT define (centralized service, governance board). Any organization MAY publish its own Registry Document; interoperability comes from the common format, not centralized authority. | Decentralized publishing, organizational autonomy, six deliverables | Understanding what is and is not in scope |
-
-### 2. Registry Document Format (Lines 89-117)
+### 1. Purpose and Scope (Lines 73-92)
 
 | Section | Heading | Description | Key Concepts | Consult When |
 |---------|---------|-------------|--------------|--------------|
-| 2 | Registry Document Format | Defines the top-level JSON structure with six properties via a schema-ref generated table as the canonical structural contract. Four required fields: `$formspecRegistry` (must be "1.0"), `publisher`, `published` (ISO 8601), `entries` (array). Two optional: `$schema`, `extensions` (vendor metadata, x-prefixed keys). Within a document, the (name, version) tuple MUST be unique. | `$formspecRegistry`, `$schema`, `entries`, `publisher`, `published`, `extensions`, (name,version) uniqueness | Building or validating a registry document's top-level structure |
-| 2.1 | Publisher Object | Defines the publisher sub-object schema: `name` (required, string), `url` (required, URI), `contact` (optional, email or URI). Used at both document and entry level. | Publisher, name, url, contact | Constructing or validating publisher metadata |
+| 1 | Purpose and Scope | States core §8 defines five categories and `x-` prefix while leaving publication/discovery out of scope; this spec supplies six deliverables (entry format, document format, naming, discovery, lifecycle, conformance) and explicitly excludes centralized registry service, governance board, or approval. | five categories, decentralized publishing, six deliverables | Scoping what the spec does and does not require |
 
-### 3. Registry Entry Format (Lines 119-213)
-
-| Section | Heading | Description | Key Concepts | Consult When |
-|---------|---------|-------------|--------------|--------------|
-| 3 | Registry Entry Format | Defines the full property set for each entry in the `entries` array. Thirteen properties covering identity, lifecycle, compatibility, documentation, and extensibility. Entry-level `publisher` overrides document-level publisher for that entry only. `deprecationNotice` is conditionally required when status is "deprecated". | name, category, version, status, publisher (override), description, specUrl, schemaUrl, compatibility, license (SPDX), deprecationNotice, examples, extensions | Creating or validating a single registry entry |
-| 3.1 | Compatibility Object | Defines the version compatibility bounds sub-object: `formspecVersion` (required, semver range) and `mappingDslVersion` (optional, semver range). | formspecVersion, mappingDslVersion, semver range | Specifying or checking which Formspec versions an extension supports |
-| 3.2 | Category-Specific Properties | Defines additional required/optional properties per category for all seven categories. `dataType`: baseType (required), constraints, metadata. `function`: parameters (required), returns (required). `constraint`: parameters (required). `property`: no additional required (schemaUrl recommended). `namespace`: members (optional, array of x-prefixed names). `concept`: conceptUri (required), conceptSystem (recommended), conceptCode, equivalents (with SKOS relationship types), metadata. `vocabulary`: vocabularySystem (required), vocabularyVersion (recommended), filter (subset constraints), metadata. Concept and vocabulary entries MUST NOT affect the processing model. | baseType, constraints, metadata, parameters, returns, members, conceptUri, conceptSystem, conceptCode, equivalents, SKOS semantics, vocabularySystem, vocabularyVersion, filter, semanticType | Adding category-specific fields to an entry, understanding what is required per category, building ontology-tier entries |
-
-### 4. Naming Rules (Lines 216-249)
+### 2. Registry Document Format (Lines 96-124)
 
 | Section | Heading | Description | Key Concepts | Consult When |
 |---------|---------|-------------|--------------|--------------|
-| 4 | Naming Rules | Six normative rules: (1) all identifiers must start with `x-`, (2) regex pattern `^x-[a-z][a-z0-9]*(-[a-z][a-z0-9]*)*$`, (3) `x-formspec-` prefix reserved for future core promotion, (4) (name,version) uniqueness within a document, (5) cross-registry collision avoidance via `x-{org}-{domain}` pattern, (6) concept entries SHOULD use `x-onto-` prefix and vocabulary entries SHOULD use `x-vocab-` prefix (advisory). | x- prefix, naming regex, x-formspec- reservation, uniqueness constraint, org-domain pattern, x-onto- prefix, x-vocab- prefix | Choosing extension names, validating identifiers, resolving naming conflicts, naming concept/vocabulary entries |
+| 2 | Registry Document Format | Top-level JSON object; schema-ref generated table is the canonical structural contract for `$formspecRegistry` (const `"1.0"`), optional `$schema`, required `entries` with per-document unique `(name, version)`, optional registry-level `extensions` (keys `x-`-prefixed), required `published` (ISO 8601), required `publisher` ($ref Publisher). | `$formspecRegistry`, `entries`, `published`, uniqueness | Authoring or validating top-level registry JSON |
+| 2.1 | Publisher Object | Sub-object at document or entry level: `name` and `url` (URI) required; `contact` optional (email or URI). | Publisher, name, url, contact | Building publisher metadata |
 
-### 5. Discovery (Lines 252-273)
-
-| Section | Heading | Description | Key Concepts | Consult When |
-|---------|---------|-------------|--------------|--------------|
-| 5 | Discovery | Defines the well-known URL convention `https://{host}/.well-known/formspec-extensions.json`. Four requirements: Content-Type must be application/json, must be valid Registry Document, should support conditional GET, processors may also accept URIs from config/CLI/Definition metadata. The well-known URL is OPTIONAL (SHOULD-level). | Well-known URL, .well-known/formspec-extensions.json, conditional GET, Content-Type | Implementing automated extension discovery, serving a registry document |
-
-### 6. Extension Lifecycle (Lines 276-297)
+### 3. Registry Entry Format (Lines 126-220)
 
 | Section | Heading | Description | Key Concepts | Consult When |
 |---------|---------|-------------|--------------|--------------|
-| 6 | Extension Lifecycle | Defines four lifecycle states (draft, stable, deprecated, retired) and normative transition rules. Includes ASCII state diagram. Key rules: transitions must not skip states, deprecated requires deprecationNotice, retired triggers processor warnings, new major version may re-enter draft. The draft-to-stable transition means the interface is frozen for the given major version. | draft, stable, deprecated, retired, deprecationNotice, state transitions, no-skip rule, interface freeze | Managing extension maturity, deprecating or retiring extensions, understanding what warnings processors must emit |
+| 3 | Registry Entry Format | Per-`entries` element: `name`, `category` (table lists five enum strings -- see §3.2 for concept/vocabulary), `version` (semver), `status`, optional entry `publisher` override, required `description`, `compatibility`, optional docs/schemas/license/examples/extensions; `deprecationNotice` conditional on deprecated status. | name, category, version, status, deprecationNotice | Creating or validating one entry row |
+| 3.1 | Compatibility Object | Required `formspecVersion` (semver range); optional `mappingDslVersion` when extension interacts with mappings. | formspecVersion, mappingDslVersion | Declaring supported Formspec / Mapping DSL versions |
+| 3.2 | Category-Specific Properties | Additional required/optional fields per category: dataType (`baseType`, optional `constraints`, `metadata`); function (`parameters`, `returns`); constraint (`parameters`); property (no extra required; `schemaUrl` recommended); namespace (optional `members`); concept (`conceptUri` required; conceptSystem, conceptCode, equivalents with SKOS types, metadata) with semanticType resolution note; vocabulary (`vocabularySystem` required; version, filter, metadata) complementing Ontology Document bindings. Note: concept/vocabulary MUST NOT affect processing model (core §2.4). | baseType, parameters, returns, members, conceptUri, vocabularySystem, filter, semanticType, SKOS | Category-specific authoring; ontology-tier vs extension-tier |
 
-### 7. Conformance (Lines 299-349)
-
-| Section | Heading | Description | Key Concepts | Consult When |
-|---------|---------|-------------|--------------|--------------|
-| 7 | Conformance | Eight numbered conformance requirements for registry-aware processors: (1) Loading/parsing against Appendix A schema, (2) Resolution by name+category from configured Registry Documents, (3) Compatibility version check (mismatch = warning unless x-formspec-strict), (4) Status enforcement (retired = warning, deprecated = info), (5) Schema validation via schemaUrl, (6) Unresolved extensions must emit UNRESOLVED_EXTENSION error (enabled only, disabled extensions exempt), (7) Concept resolution: semanticType matching loaded concept entries makes concept metadata available to downstream tooling (unresolved semanticType is NOT an error), (8) Vocabulary resolution: vocabulary entries complement Ontology Document bindings with shared terminology metadata, Ontology Document values take precedence when both present. | Registry-aware processor, resolution, compatibility check, status enforcement, schema validation, UNRESOLVED_EXTENSION, x-formspec-strict, enabled vs disabled extensions, concept resolution, semanticType, vocabulary resolution, Ontology Document precedence | Implementing a conformant registry-aware processor, understanding error/warning emission rules, handling concept and vocabulary resolution |
-
-### 8. Examples (Lines 351-430)
+### 4. Naming Rules (Lines 223-256)
 
 | Section | Heading | Description | Key Concepts | Consult When |
 |---------|---------|-------------|--------------|--------------|
-| 8 | Examples | Introductory heading for worked examples. | -- | -- |
-| 8.1 | Registry Document with Two Entries | Complete JSON example: a `namespace` entry (x-gov-grants, stable, with members array) and a `dataType` entry (x-currency-usd, stable, extending decimal with constraints and metadata). Demonstrates publisher, compatibility, license, examples fields. | x-gov-grants, x-currency-usd, namespace members, dataType baseType/constraints/metadata | Understanding how a real registry document looks, using as a template |
+| 4 | Naming Rules | Six normative rules: all identifiers `x-` prefixed; regex `^x-[a-z][a-z0-9]*(-[a-z][a-z0-9]*)*$`; `x-formspec-` reserved for future core promotion; `(name, version)` unique within document; cross-registry collisions resolved by publisher authority with `x-{org}-{domain}` SHOULD pattern (§8.5); concept SHOULD use `x-onto-`, vocabulary SHOULD use `x-vocab-` (advisory). | x- prefix, regex, x-formspec-, uniqueness, x-onto-, x-vocab- | Naming extensions and avoiding collisions |
 
-### Appendices (Lines 434-585)
+### 5. Discovery (Lines 259-280)
 
 | Section | Heading | Description | Key Concepts | Consult When |
 |---------|---------|-------------|--------------|--------------|
-| Appendix A | Registry Entry JSON Schema | Full JSON Schema for a single Registry Entry. Defines all properties, the naming regex, category-conditional requirements via `allOf`/`if`/`then` (dataType requires baseType; function requires parameters+returns; constraint requires parameters; deprecated status requires deprecationNotice), the Publisher `$def`, and `additionalProperties: false`. This is the machine-readable contract. Note: the Appendix A schema covers the five original extension categories; concept and vocabulary category-specific properties are defined by the Ontology specification. | JSON Schema, allOf conditional requirements, $defs/publisher, additionalProperties:false, category enum (5 values in schema) | Programmatic validation of registry entries, understanding exact type constraints and conditional requirements |
-| Appendix B | References | Normative and informative references: RFC 2119, RFC 8174, RFC 8259 (JSON), RFC 3986 (URI), Semver 2.0.0, SPDX License List, RFC 8615 (Well-Known URIs). | RFC references, Semver, SPDX, Well-Known URIs | Looking up underlying standards |
+| 5 | Discovery | SHOULD serve registry at `https://{host}/.well-known/formspec-extensions.json`; response MUST be `application/json` and valid Registry Document (§2); SHOULD support conditional GET; processors MAY accept registry URIs from config, CLI, or Definition metadata -- well-known is optional. | well-known, Content-Type, conditional GET, OPTIONAL | Automated discovery and alternate distribution |
+
+### 6. Extension Lifecycle (Lines 283-302)
+
+| Section | Heading | Description | Key Concepts | Consult When |
+|---------|---------|-------------|--------------|--------------|
+| 6 | Extension Lifecycle | Four states with ASCII diagram: draft → stable → deprecated → retired; rules for each transition; `(any) → draft` allowed via new major version; transitions MUST NOT skip states (no draft→deprecated, no stable→retired). | draft, stable, deprecated, retired, deprecationNotice, interface freeze | Lifecycle policy and processor-visible status |
+
+### 7. Conformance (Lines 306-355)
+
+| Section | Heading | Description | Key Concepts | Consult When |
+|---------|---------|-------------|--------------|--------------|
+| 7 | Conformance | Eight behaviors for registry-aware processors (extends conformant processor per core §1): load/parse against Appendix A schema; resolution by name+category; compatibility warning (strict flag); retired MUST warn, deprecated SHOULD inform; optional schemaUrl validation; UNRESOLVED_EXTENSION error for enabled missing extensions; concept resolution for semanticType (non-match not an error); vocabulary defaults with Ontology Document precedence. | UNRESOLVED_EXTENSION, x-formspec-strict, semanticType, vocabularySystem | Implementing registry-aware tooling |
+
+### 8. Examples (Lines 358-437)
+
+| Section | Heading | Description | Key Concepts | Consult When |
+|---------|---------|-------------|--------------|--------------|
+| 8 | Examples | Introduces worked JSON. | examples | Finding sample material |
+| 8.1 | Registry Document with Two Entries | Full document with `x-gov-grants` namespace (members, nested extensions in examples) and `x-currency-usd` dataType (baseType, constraints, metadata, field example). | x-gov-grants, x-currency-usd | Copy-paste template for real registries |
+
+### Appendices (Lines 441-591)
+
+| Section | Heading | Description | Key Concepts | Consult When |
+|---------|---------|-------------|--------------|--------------|
+| Appendix A | Registry Entry JSON Schema | Draft 2020-12 schema for a single entry: required core fields; `category` enum **five values only** (no `concept`/`vocabulary` in schema); naming pattern; conditional `allOf` for dataType/baseType, function/parameters+returns, constraint/parameters, deprecated/deprecationNotice; `additionalProperties: false`; `$defs.publisher`. Document-level wrapper described in prose only. | JSON Schema, allOf, additionalProperties, $defs/publisher | Machine validation of the five core categories; note gap vs §3.2 ontology categories |
+| Appendix B | References | Normative/informative citations: BCP 14, RFC 8174, RFC 8259, RFC 3986, Semver, SPDX License List, RFC 8615 (well-known URIs). | RFC 2119, RFC 8615, SPDX | Tracing spec dependencies |
 
 ## Cross-References
 
-| Referenced Spec / Resource | Context |
-|----------------------------|---------|
-| Formspec v1.0 Section 8 | Core extension mechanism: defines the extension categories and the `x-` prefix requirement. This registry spec is explicitly a companion to Section 8. |
-| Formspec v1.0 Section 8.1 | Custom data types -- referenced in category-specific properties for `dataType` entries (baseType, constraints, metadata). |
-| Formspec v1.0 Section 8.2 | Custom functions -- referenced in category-specific properties for `function` entries (parameters, returns). |
-| Formspec v1.0 Section 8.3 | Custom validation constraints -- referenced in category-specific properties for `constraint` entries (parameters). |
-| Formspec v1.0 Section 8.4 | Extension properties -- referenced in category-specific properties for `property` entries. |
-| Formspec v1.0 Section 8.5 | Extension namespaces -- referenced for namespace entries (members) and the `x-{org}-{domain}` naming pattern. |
-| Formspec v1.0 Section 1 | Defines "conformant processor" -- reused in Section 7 conformance requirements. |
-| Formspec v1.0 Section 2.4 | Referenced in the note on concept/vocabulary entries: they MUST NOT affect the processing model defined in Section 2.4. |
-| Ontology specification | Concept entries (category `concept`) and vocabulary entries (category `vocabulary`) are defined by the Ontology specification. Section 3.2 references it for both category-specific property sets. |
-| Ontology Document vocabulary bindings | Section 7 rule 8 states vocabulary registry entries complement Ontology Document vocabulary bindings. Ontology Document values take precedence when both are present. |
-| schemas/registry.schema.json | Governs the structural contract for registry documents. Referenced in the BLUF and Section 2 schema-ref block. |
-| Mapping DSL | Referenced in compatibility object (Section 3.1) -- `mappingDslVersion` allows declaring compatibility with Mapping DSL versions. |
-| SKOS semantics | Concept entry `equivalents` relationship types follow SKOS semantics: exact, close, broader, narrower, related. Custom types MUST be `x-`-prefixed. (Section 3.2, concept category) |
+- **Formspec v1.0 §8** -- Core extension categories and `x-` prefix; companion relationship; naming pattern `x-{org}-{domain}` (§8.5) in §4 rule 5.
+- **Formspec v1.0 §8.1–§8.5** -- Referenced from §3.2 for dataType, function, constraint, property, namespace category semantics.
+- **Formspec v1.0 §1** -- Conformant processor definition reused in §7 opening.
+- **Formspec v1.0 §2.4** -- Processing model; concept/vocabulary entries MUST NOT affect it (§3.2 Note).
+- **Ontology specification** -- Defines concept and vocabulary entry semantics referenced in §3.2; vocabulary complements Ontology Document bindings (§3.2, §7 rule 8).
+- **Ontology Document** -- Vocabulary bindings vs registry vocabulary entries; document values take precedence (§7 rule 8).
+- **`schemas/registry.schema.json`** -- Governs full Registry Document structure (BLUF, §2 schema-ref).
+- **Mapping DSL** -- `mappingDslVersion` in compatibility (§3.1).
+- **SKOS** -- Equivalence `type` values for concept `equivalents` (§3.2).
+- **BCP 14 / RFC 2119 / RFC 8174** -- Keyword interpretation (§Conventions, Appendix B).
+- **RFC 8259, RFC 3986** -- JSON and URI (Conventions, Appendix B).
+- **Semantic Versioning 2.0.0** -- Version and range syntax (Conventions, Appendix B).
+- **SPDX License List** -- License field (§3, Appendix B).
+- **RFC 8615** -- Well-known URIs for discovery (§5, Appendix B as [well-known]).
 
-## Key Schemas Defined
+## Key Schemas and Tables
 
-| Schema | Location | Purpose |
-|--------|----------|---------|
-| Registry Document (top-level) | Section 2 (schema-ref generated table) + `schemas/registry.schema.json` | Top-level structure: `$formspecRegistry`, `$schema`, `publisher`, `published`, `entries`, `extensions` |
-| Publisher | Section 2.1 + Appendix A `$defs/publisher` | Reusable sub-object: `name` (required), `url` (required), `contact` (optional) |
-| Registry Entry | Section 3 + Appendix A (full JSON Schema) | Per-entry structure: identity, category, version, status, compatibility, documentation, category-specific fields |
-| Compatibility | Section 3.1 + Appendix A | Version bounds: `formspecVersion` (required semver range), `mappingDslVersion` (optional) |
-| Category-specific conditional schemas | Section 3.2 + Appendix A `allOf` | `dataType` requires `baseType`; `function` requires `parameters` + `returns`; `constraint` requires `parameters`; `deprecated` status requires `deprecationNotice` |
+| Artifact | Location | Purpose |
+|----------|----------|---------|
+| Registry Document | §2 schema-ref + `schemas/registry.schema.json` | Top-level catalog: `$formspecRegistry`, `$schema`, `publisher`, `published`, `entries`, `extensions` |
+| Publisher | §2.1 + Appendix A `$defs.publisher` | Reusable publisher object |
+| Registry Entry | §3 + Appendix A | Per-entry validation for five `category` values in schema |
+| Compatibility | §3.1 + Appendix A | `formspecVersion`, optional `mappingDslVersion` |
+| Conditional requirements | Appendix A `allOf` | dataType → `baseType`; function → `parameters`, `returns`; constraint → `parameters`; deprecated → `deprecationNotice` |
 
 ## Extension Categories Quick Reference
 
-| Category | Required Category Properties | Optional Category Properties | Source Spec |
-|----------|------------------------------|------------------------------|-------------|
-| `dataType` | `baseType` | `constraints`, `metadata` | Core v1.0 Section 8.1 |
-| `function` | `parameters`, `returns` | -- | Core v1.0 Section 8.2 |
-| `constraint` | `parameters` | -- | Core v1.0 Section 8.3 |
-| `property` | -- | `schemaUrl` (recommended) | Core v1.0 Section 8.4 |
-| `namespace` | -- | `members` | Core v1.0 Section 8.5 |
-| `concept` | `conceptUri` | `conceptSystem`, `conceptCode`, `equivalents`, `metadata` | Ontology spec |
-| `vocabulary` | `vocabularySystem` | `vocabularyVersion`, `filter`, `metadata` | Ontology spec |
+| Category | Required category-specific | Optional / recommended | Spec anchor |
+|----------|---------------------------|-------------------------|--------------|
+| `dataType` | `baseType` | `constraints`, `metadata` | Core §8.1 |
+| `function` | `parameters`, `returns` | -- | Core §8.2 |
+| `constraint` | `parameters` | -- | Core §8.3 |
+| `property` | -- | `schemaUrl` recommended | Core §8.4 |
+| `namespace` | -- | `members` | Core §8.5 |
+| `concept` | `conceptUri` | `conceptSystem`, `conceptCode`, `equivalents`, `metadata` | Ontology spec; **not** in Appendix A enum |
+| `vocabulary` | `vocabularySystem` | `vocabularyVersion`, `filter`, `metadata` | Ontology spec; **not** in Appendix A enum |
 
 ## Lifecycle State Transitions
 
 | From | To | Rule |
-|------|----|------|
-| draft | stable | Publisher asserts interface is frozen for the given major version |
-| stable | deprecated | Publisher MUST provide `deprecationNotice`; SHOULD identify replacement |
-| deprecated | retired | Publisher asserts extension SHOULD NOT be used; MAY stop supporting it |
-| (any) | draft | New version with incremented major version MAY re-enter draft |
-| draft | ~~deprecated~~ | FORBIDDEN -- transitions MUST NOT skip states |
-| stable | ~~retired~~ | FORBIDDEN -- transitions MUST NOT skip states |
+|------|-----|------|
+| draft | stable | Publisher asserts interface frozen for that major version |
+| stable | deprecated | MUST include `deprecationNotice`; SHOULD name replacement |
+| deprecated | retired | SHOULD NOT use; processors SHOULD warn on retired |
+| (any) | draft | New `version` with incremented major MAY re-enter draft |
+| draft | deprecated | **FORBIDDEN** (no skipped states) |
+| stable | retired | **FORBIDDEN** (no skipped states) |
 
 ## Critical Behavioral Rules
 
-1. **UNRESOLVED_EXTENSION is an error, not a warning.** When an item declares `"extensions": { "x-example": true }` and no matching registry entry is found, processors MUST emit an error with code `UNRESOLVED_EXTENSION`. This is the strictest enforcement in the spec. Disabled extensions (`false`) are exempt. (Section 7, rule 6)
+1. **UNRESOLVED_EXTENSION is an error.** Enabled extension reference (`"extensions": { "x-example": true }`) with no matching registry entry → MUST emit error code `UNRESOLVED_EXTENSION`; disabled (`false`) does not trigger. (§7.6)
 
-2. **Lifecycle transitions must not skip states.** An extension cannot jump from `draft` to `deprecated` or from `stable` to `retired`. The only valid transitions are: draft->stable, stable->deprecated, deprecated->retired, and any state can re-enter draft with a new major version. (Section 6)
+2. **Lifecycle transitions must not skip states.** No draft→deprecated or stable→retired. (§6)
 
-3. **`deprecationNotice` is conditionally required.** When `status` is `"deprecated"`, the `deprecationNotice` string is REQUIRED (enforced via JSON Schema `allOf`/`if`/`then`). (Section 3, Section 6)
+3. **`deprecationNotice` is required when `status` is `deprecated`.** (§3, §6, Appendix A conditional)
 
-4. **Compatibility mismatch is a warning, not an error** -- unless `"x-formspec-strict": true` is present in the entry's `extensions`, in which case it SHOULD be a hard error. (Section 7, rule 3)
+4. **Compatibility mismatch → warning by default; strict mode is opt-in.** Unless entry `extensions` contains `"x-formspec-strict": true`, mismatch SHOULD NOT be a hard error. (§7.3)
 
-5. **`x-formspec-` prefix is reserved.** Third-party publishers must not register identifiers starting with `x-formspec-`. This prefix is reserved for extensions that may be promoted into future core versions. (Section 4, rule 3)
+5. **`x-formspec-` is reserved** for identifiers that might be promoted into core; third parties MUST NOT use that prefix. (§4.3)
 
-6. **Name+version uniqueness is per-document.** Within a single Registry Document, no two entries may share the same `(name, version)` tuple. Cross-document conflicts are resolved by publisher authority, not by any global uniqueness rule. (Section 4, rules 4-5)
+6. **`(name, version)` unique within one Registry Document.** Cross-registry collisions are publisher-authority problems; use `x-{org}-{domain}` to reduce risk. (§4.4–4.5)
 
-7. **Extension identifier regex is strict.** Names must match `^x-[a-z][a-z0-9]*(-[a-z][a-z0-9]*)*$` -- lowercase ASCII only, hyphen-separated segments, each segment starts with a letter. No uppercase, no underscores, no dots. (Section 4, rule 2)
+7. **Identifier regex is strict lowercase hyphenated segments** after `x-`. (§4.2)
 
-8. **Entry-level publisher overrides document-level.** Each entry may include its own `publisher` object, which overrides the document-level publisher for that entry only. (Section 3)
+8. **Entry-level `publisher` overrides document-level** for that entry. (§3)
 
-9. **`retired` status triggers a warning; `deprecated` triggers an informational notice.** These are distinct severity levels with different conformance requirements (MUST vs SHOULD). (Section 7, rule 4)
+9. **`retired` → MUST warn; `deprecated` → SHOULD informational notice.** (§7.4)
 
-10. **Discovery is optional.** The well-known URL `/.well-known/formspec-extensions.json` is a SHOULD-level recommendation. Processors may accept registry URIs from any source (config, CLI, Definition metadata). (Section 5, rule 4)
+10. **Well-known URL is optional**; other URIs MAY come from config, CLI, or Definition metadata. (§5.4)
 
-11. **`additionalProperties: false` on the entry schema.** The Appendix A schema disallows unrecognized properties on registry entries. All vendor-specific data must go in the `extensions` sub-object with x-prefixed keys. (Appendix A)
+11. **Appendix A uses `additionalProperties: false` on entries**; vendor keys live under `extensions` with `x-` property names pattern where specified. (Appendix A)
 
-12. **Concept and vocabulary entries MUST NOT affect the processing model.** They are pure metadata consumed by ontology-aware tooling, data science pipelines, and interoperability layers -- not by the core form processing engine. (Section 3.2 note, referencing Formspec v1.0 Section 2.4)
+12. **Concept and vocabulary entries MUST NOT affect the core processing model** (pure metadata). (§3.2 Note, core §2.4)
 
-13. **Unresolved semanticType is NOT an error.** When a field's `semanticType` does not match any loaded concept entry, the processor does not emit an error -- `semanticType` remains a freeform string for processors that do not support concept resolution. This is the opposite of the UNRESOLVED_EXTENSION rule. (Section 7, rule 7)
+13. **Unresolved `semanticType` (no matching concept entry) is not an error**--string remains opaque for non–concept-aware processors. (§7.7)
 
-14. **Ontology Document values take precedence over registry vocabulary entries.** When both an Ontology Document vocabulary binding and a registry vocabulary entry provide metadata for the same system, the Ontology Document's values win. Registry entries provide defaults only. (Section 7, rule 8)
+14. **Ontology Document overrides registry vocabulary defaults** when both define the same `vocabularySystem`. (§7.8)
 
-15. **Concept entries SHOULD use `x-onto-` prefix; vocabulary entries SHOULD use `x-vocab-` prefix.** This is advisory (SHOULD-level), not enforced by the naming regex. It distinguishes ontology-tier entries from extension entries by convention. (Section 4, rule 6)
+15. **`x-onto-` / `x-vocab-` prefixes are SHOULD-level naming hints** for concept vs vocabulary entries, not enforced by the regex. (§4.6)
+
+16. **Schema vs prose gap:** §7.1 requires validation against Appendix A (entry schema); full-document validation remains tied to `schemas/registry.schema.json` (BLUF/§2). Implementors should validate **document** against registry schema and **each entry** against Appendix A; ontology categories may need Ontology-supplied or extended schemas until Appendix A enum catches up.
