@@ -1,48 +1,58 @@
-# WOS Advanced Governance Schema Reference Map
+# WOS Advanced Governance Document — Schema Reference Map
 
-> `wos-spec/schemas/advanced/wos-advanced.schema.json` -- 582 lines -- WOS Advanced Governance v1.0 (Layer 3)
+> `wos-spec/schemas/advanced/wos-advanced.schema.json` — 863 lines — JSON Schema property index
 
 ## Overview
 
-The WOS Advanced Governance Schema describes Layer 3: Verification & Adaptive Management. It targets a WOS Kernel workflow and declares equity guardrails, adaptive Constraint Zones (DCR-style), multi-step session policies, and formal verification hooks (SMT). It provides operational resilience patterns like shadow mode and circuit breakers.
+A WOS Advanced Governance Document per the WOS Advanced Governance Specification v1.0 (Layer 3). Targets a WOS Kernel Document and declares verifiable constraint subsets (SMT), equity guardrails, constraint zones (DCR-style), multi-step sessions, tool use governance, agent lifecycle state machines, calibration methods, drift detection methods, shadow mode, and circuit breaker patterns. These capabilities serve any complex workflow -- DCR constraint zones model compliance rules for human case man
 
-## Top-Level Structure
+## Top-Level Properties
 
-| Property | Type | Required | Description |
-|---|---|---|---|
-| `$wosAdvancedGovernance` | `string` (const `"1.0"`) | Yes | Specification version pin. |
-| `targetWorkflow` | `string` (format: `uri`) | Yes | Registry URI of the Kernel Document this document targets. |
-| `version` | `string` | No | Version of this advanced governance document. |
-| `equityGuardrails` | `array` of `EquityGuardrail` | No | Asynchronous monitors for statistical outcome disparity. |
-| `constraintZones` | `array` of `ConstraintZone` | No | Declarative, adaptive case management phases (DCR-style). |
-| `multiStepSessions` | `array` of `MultiStepSession` | No | Checkpoints and intervention points for compound agent sessions. |
-| `toolGovernance` | `$ref: ToolGovernance` | No | Registry and side-effect policies for agent tool use. |
-| `agentLifecycle` | `$ref: AgentLifecycleConfig` | No | Multi-state management (Active/Degraded/Suspended). |
-| `verifiableConstraints` | `array` of `VerifiableConstraint` | No | Annotations for SMT verification of deontic constraints. |
-| `calibration` | `$ref: CalibrationConfig` | No | Methods for reported-vs-actual probability alignment. |
-| `shadowMode` | `$ref: ShadowMode` | No | Side-by-side agent validation before production commit. |
-| `circuitBreaker` | `$ref: CircuitBreaker` | No | Automatic fallback triggering on high error rates. |
+| Property | Type / shape | Notes |
+|----------|--------------|-------|
+| `$schema` | JsonSchemaUri | See schema for constraints. |
+| `$wosAdvancedGovernance` | string | See schema for constraints. |
+| `agentLifecycle` | AgentLifecycleConfig | See schema for constraints. |
+| `calibration` | CalibrationConfig | See schema for constraints. |
+| `circuitBreaker` | CircuitBreaker | See schema for constraints. |
+| `constraintZones` | array | See schema for constraints. |
+| `description` | string | See schema for constraints. |
+| `driftDetection` | DriftDetectionConfig | See schema for constraints. |
+| `equityGuardrails` | array | See schema for constraints. |
+| `extensions` | ExtensionsMap | See schema for constraints. |
+| `multiStepSessions` | array | See schema for constraints. |
+| `shadowMode` | ShadowMode | See schema for constraints. |
+| `targetWorkflow` | string | See schema for constraints. |
+| `title` | string | See schema for constraints. |
+| `toolGovernance` | ToolGovernance | See schema for constraints. |
+| `verifiableConstraints` | array | See schema for constraints. |
+| `version` | string | See schema for constraints. |
 
-## Key Type Definitions ($defs)
+## Key `$defs` (sample)
 
-| Definition | Description | Key Properties |
-|---|---|---|
-| **EquityGuardrail** | Disparity monitor. | `metric`, `groupBy` (path), `maxDisparity`, `onViolation` |
-| **ConstraintZone** | DCR activity graph. | `id`, `activities` (included/pending), `relations` (condition/response/etc.) |
-| **ZoneActivity** | Activity with markings. | `id`, `initialIncluded`, `initialPending` |
-| **ZoneRelation** | DCR constraint. | `type`, `source` (id), `target` (id) |
-| **VerifiableConstraint** | SMT verification hook. | `constraintRef` (L2 ID), `verifiable: true`, `expression` |
-| **CircuitBreaker** | Resilience pattern. | `enabled`, `errorRateThreshold`, `cooldownDuration` |
+| Definition |
+|------------|
+| **AgentLifecycleConfig** |
+| **CalibrationConfig** |
+| **CircuitBreaker** |
+| **ConstraintZone** |
+| **DriftDetectionConfig** |
+| **DriftDimension** |
+| **DriftMethod** |
+| **EquityGuardrail** |
+| **ExtensionsMap** |
+| **JsonSchemaUri** |
+| **LifecycleTransition** |
+| **MultiStepSession** |
+| **RateLimit** |
+| **SessionStep** |
+| **ShadowMode** |
+| **ToolDefinition** |
+| **ToolGovernance** |
+| **VerifiableConstraint** |
+| **ZoneActivity** |
+| **ZoneRelation** |
 
-## x-lm Annotations (Critical)
+## Cross-References
 
-| Property Path | Intent |
-|---|---|
-| `$wosAdvancedGovernance` | Version pin for schema compatibility. |
-| `targetWorkflow` | Binding to a specific kernel identity. |
-| `constraintZones` | Adaptive case management phases where actions are governed by DCR relations. |
-| `equity.metric` | The workflow outcome being monitored for statistical disparity. |
-| `equity.groupBy` | The demographic or categorical dimension across which disparity is measured. |
-| `activity.id` | Identifies the activity within the adaptive case management phase. |
-| `relation.type` | Determines the constraint semantics between two activities (e.g. condition, response). |
-| `verifiable.constraintRef` | Identifies which deontic constraint is subject to formal SMT verification. |
+Resolve `$ref` targets inside the schema file for full nested structures. Sidecar schemas typically declare a `targetWorkflow`, `targetGovernance`, or `targetAgent` binding to a parent document.

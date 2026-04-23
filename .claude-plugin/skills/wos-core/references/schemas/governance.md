@@ -1,48 +1,65 @@
-# WOS Workflow Governance Schema Reference Map
+# WOS Workflow Governance Document — Schema Reference Map
 
-> `wos-spec/schemas/governance/wos-workflow-governance.schema.json` -- 1050 lines -- WOS Workflow Governance v1.0 (Layer 1)
+> `wos-spec/schemas/governance/wos-workflow-governance.schema.json` — 1698 lines — JSON Schema property index
 
 ## Overview
 
-The WOS Workflow Governance Schema describes Layer 1: Human Governance. It targets a WOS Kernel workflow and declares due process, review protocols, validation pipelines, and audit requirements. Layer 1 ensures procedural fairness and evidentiary standards for high-stakes human workflows.
+A WOS Workflow Governance Document per the WOS Workflow Governance Specification v1.0 (Layer 1). Targets a WOS Kernel Document and declares due process requirements, review protocols, data validation pipelines with assertion gates, structured audit (Reasoning and Counterfactual tiers), quality controls (review sampling, separation of duties, override authority), rejection and remediation policies, task catalog with verifiability matrix, delegation of authority, and typed hold policies. Layer 1 e
 
-## Top-Level Structure
+## Top-Level Properties
 
-| Property | Type | Required | Description |
-|---|---|---|---|
-| `$wosWorkflowGovernance` | `string` (const `"1.0"`) | Yes | Specification version pin. |
-| `targetWorkflow` | `string` (format: `uri`) | Yes | Registry URI of the Kernel Document this governance document targets. |
-| `version` | `string` | No | Version of this governance document. |
-| `title` / `description` | `string` | No | Human-readable metadata. |
-| `dueProcess` | `$ref: DueProcess` | No | Notice, explanation, and appeal rules (rights-impacting). |
-| `reviewProtocols` | `array` of `ReviewProtocolBinding` | No | Cognitive forcing functions (independentFirst, etc.). |
-| `pipelines` | `array` of `Pipeline` | No | Multi-stage data validation with assertion gates. |
-| `audit` | `$ref: AuditConfig` | No | Reasoning and Counterfactual tier requirements. |
-| `qualityControls` | `$ref: QualityControls` | No | Sampling, separation of duties, and override authority. |
-| `taskCatalog` | `array` of `TaskPattern` | No | Verifiability matrix for task types. |
-| `delegations` | `array` of `Delegation` | No | Authorization chains for determination signing (determination, signing). |
-| `holdPolicies` | `array` of `HoldPolicy` | No | Semantics for typed case holds (e.g. pending-applicant). |
+| Property | Type / shape | Notes |
+|----------|--------------|-------|
+| `$schema` | JsonSchemaUri | See schema for constraints. |
+| `$wosWorkflowGovernance` | string | See schema for constraints. |
+| `audit` | AuditConfig | See schema for constraints. |
+| `delegations` | array | See schema for constraints. |
+| `description` | string | See schema for constraints. |
+| `dueProcess` | DueProcess | See schema for constraints. |
+| `extensions` | ExtensionsMap | See schema for constraints. |
+| `holdPolicies` | array | See schema for constraints. |
+| `maxDelegationDepth` | integer | See schema for constraints. |
+| `pipelines` | array | See schema for constraints. |
+| `qualityControls` | QualityControls | See schema for constraints. |
+| `reviewProtocols` | array | See schema for constraints. |
+| `schemaUpgrade` | object | See schema for constraints. |
+| `targetWorkflow` | string | See schema for constraints. |
+| `taskCatalog` | array | See schema for constraints. |
+| `title` | string | See schema for constraints. |
+| `version` | string | See schema for constraints. |
 
-## Key Type Definitions ($defs)
+## Key `$defs` (sample)
 
-| Definition | Description | Key Properties |
-|---|---|---|
-| **DueProcess** | High-level fairness policy. | `scope` (FEL), `adverseDecisionPolicy` |
-| **ReviewProtocolBinding** | Attaches protocols to tags. | `tags`, `protocols`, `scope` |
-| **Pipeline** | Staged data validation. | `id`, `stages` (contract-validation / assertion-gate) |
-| **Assertion** | Individual gate check. | `type` (source-grounded/arithmetic/etc.), `expression` |
-| **Delegation** | Formal authorization. | `delegator`, `delegate`, `authority`, `legalInstrument` |
-| **HoldPolicy** | Case suspension logic. | `holdType`, `expectedDuration`, `resumeTrigger` |
+| Definition |
+|------------|
+| **AdverseDecisionPolicy** |
+| **AppealMechanism** |
+| **Assertion** |
+| **AuditConfig** |
+| **BreachPolicy** |
+| **CounterfactualTierConfig** |
+| **Delegation** |
+| **DelegationScope** |
+| **DueProcess** |
+| **EscalationStep** |
+| **EvidenceReference** |
+| **ExtensionsMap** |
+| **HoldPolicy** |
+| **JsonSchemaUri** |
+| **OverrideAuthority** |
+| **OverrideRecord** |
+| **Pipeline** |
+| **PipelineStage** |
+| **QualityControls** |
+| **ReasoningTierConfig** |
+| **ReviewProtocolBinding** |
+| **ReviewSampling** |
+| **RuleReference** |
+| **SeparationOfDuties** |
+| **SlaDefinition** |
+| **TaskPattern** |
+| **WarningThreshold** |
 
-## x-lm Annotations (Critical)
+## Cross-References
 
-| Property Path | Intent |
-|---|---|
-| `$wosWorkflowGovernance` | Version pin for schema compatibility. |
-| `targetWorkflow` | Binding to a specific kernel identity. |
-| `dueProcess` | Procedural fairness for individuals affected by decisions. |
-| `reviewProtocols` | Empirically grounded review procedures to ensure cognitive engagement. |
-| `delegations` | Chain of authority for legally binding determinations. |
-| `holdPolicies` | Semantic definitions for case suspension and timeout behavior. |
-| `protocol.tags` | Declares which transitions are governed by which protocols. |
-| `stage.type` | Determines the fundamental verification logic of a pipeline stage. |
+Resolve `$ref` targets inside the schema file for full nested structures. Sidecar schemas typically declare a `targetWorkflow`, `targetGovernance`, or `targetAgent` binding to a parent document.

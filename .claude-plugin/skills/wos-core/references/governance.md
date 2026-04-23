@@ -1,29 +1,62 @@
-# WOS Workflow Governance Reference Map
+# WOS Workflow Governance Specification v1.0 — Reference Map
 
-> `wos-spec/specs/governance/workflow-governance.md` -- 589 lines -- Layer 1: Human Governance
+> `wos-spec/specs/governance/workflow-governance.md` — 727 lines — machine-oriented section index
 
 ## Overview
 
-The WOS Workflow Governance Specification defines Layer 1: the controls human workflows require (due process, protocols, audit). It exists independently of AI. Layer 2 (AI) extends these human-centric structures.
+The WOS Workflow Governance Specification defines Layer 1 of the Workflow Orchestration Standard: the governance structures that complex, regulated, and high-stakes human workflows require. A Workflow Governance Document -- itself a JSON document -- targets a WOS Kernel Document and declares due process requirements, review protocols, data validation pipelines with assertion gates, structured audit (Reasoning and Cou…
 
 ## Section Map
 
-| Section | Heading | Description | Key Concepts | Consult When |
-|---------|---------|-------------|--------------|--------------|
-| S3 | Due Process | Notice, Explanation, Appeal, Continuation of Service. | `adverse-decision` tag, notice period | Handling rights-impacting decisions |
-| S4 | Review Protocols | Cognitive forcing functions for manual review. | `independentFirst`, `considerOpposite` | Designing high-stakes review steps |
-| S5 | Data Validation | Pipelines with assertion gates for untrusted data. | `assertion-gate`, `contract-validation` | Integrating external data feeds |
-| S6 | Structured Audit | Reasoning and Counterfactual tiers. | `RuleReference`, `Counterfactual` | Generating legal/regulatory audit trails |
-| S7 | Quality Controls | Review sampling and Separation of Duties. | `samplingRate`, `excludeRoles` | Implementing institutional quality assurance |
-| S8 | Rejection | Remediation policies for validation failure. | `retryWithCorrections`, `escalate` | Handling errors in processing chains |
-| S9-S10 | Tasks | Catalog and management (lifecycle, roles, SLA). | `nominee`, `breachPolicy`, `owner` | Managing human work queues |
-| S11 | Delegation | Authorized chains of determination authority. | `authorizedActor`, `legalInstrument` | Verifying authority for signings |
-| S12 | Hold Policies | Typed suspension (applicant response, legal). | `holdType`, `expectedDuration` | Implementing state machine "freezes" |
-| S13 | Temporal Parameters | Date-effective rule values (income thresholds). | `effectiveDate`, `lookup` | Resolving rules that change over time |
+| Line | Heading | Pointer |
+|------|---------|---------|
+| L8 | WOS Workflow Governance Specification v1.0 | Navigate here for this subsection. |
+| L17 |   Abstract | Navigate here for this subsection. |
+| L27 |   Status of This Document | Navigate here for this subsection. |
+| L33 |   1. Introduction | Navigate here for this subsection. |
+| L35 |     1.1 Background | Navigate here for this subsection. |
+| L48 |     1.2 Design Goals | Navigate here for this subsection. |
+| L54 |     1.3 Scope | Navigate here for this subsection. |
+| L60 |     1.4 Relationship to the Kernel | Navigate here for this subsection. |
+| L68 |     1.6 Section Numbering Note | Navigate here for this subsection. |
+| L72 |     1.5 Notational Conventions | Navigate here for this subsection. |
+| L78 |   2. Conformance | Navigate here for this subsection. |
+| L80 |     2.1 Conformance Profiles | Navigate here for this subsection. |
+| L88 |     2.9 Schema Upgrade as Named Lifecycle Operation | Navigate here for this subsection. |
+| L104 |   3. Due Process | Navigate here for this subsection. |
+| L108 |     3.1 Adverse Decision Policy | Navigate here for this subsection. |
+| L112 |     3.2 Notice | Navigate here for this subsection. |
+| L127 |     3.3 Explanation | Navigate here for this subsection. |
+| L135 |     3.4 Counterfactual Explanation | Navigate here for this subsection. |
+| L144 |     3.5 Appeal | Navigate here for this subsection. |
+| L150 |     3.6 Continuation of Service | Navigate here for this subsection. |
+| L156 |     3.7 Governance Attachment | Navigate here for this subsection. |
+| L164 |   4. Review Protocols | Navigate here for this subsection. |
+| L170 |     4.1 Protocol Definitions | Navigate here for this subsection. |
+| L180 |     4.2 Protocol Combination | Navigate here for this subsection. |
+| L184 |     4.3 Governance Attachment | Navigate here for this subsection. |
+| L190 |   5. Data Validation Pipelines | Navigate here for this subsection. |
+| L194 |     5.1 Overview | Navigate here for this subsection. |
+| L198 |     5.2 Pipeline Structure | Navigate here for this subsection. |
+| L206 |     5.3 Stage Types | Navigate here for this subsection. |
+| L215 |     5.4 Assertion Gates | Navigate here for this subsection. |
+| L229 |     5.5 Pipeline Provenance | Navigate here for this subsection. |
+| L233 |     5.6 Governance Attachment | Navigate here for this subsection. |
+| L239 |   6. Structured Audit | Navigate here for this subsection. |
+| L243 |     6.1 Overview | Navigate here for this subsection. |
+| L249 |     6.2 Reasoning Tier | Navigate here for this subsection. |
+| L271 |     6.3 Decision Requirements | Navigate here for this subsection. |
+| L281 |     6.4 Counterfactual Tier | Navigate here for this subsection. |
+| L292 |     6.5 Governance Attachment | Navigate here for this subsection. |
+| L298 |   7. Quality Controls | Navigate here for this subsection. |
+| L302 |     7.1 Review Sampling | Navigate here for this subsection. |
+| L312 |     7.2 Separation of Duties | Navigate here for this subsection. |
+| L321 |     7.3 Override Authority | Navigate here for this subsection. |
+| L331 |     7.4 Governance Attachment | Navigate here for this subsection. |
+| L337 |   8. Rejection and Remediation | Navigate here for this subsection. |
+| L341 |     8.1 Rejection Policy | Navigate here for this subsection. |
+| … | *(additional subsections omitted)* | |
 
-## Key Rules
+## How to Use This Map
 
-1. **Tag-based Attachment (S4.3):** Governance rules attach via semantic tags (e.g., `determintion`), not transition IDs.
-2. **Impact-Level Enforcement (S3.1):** Due process is NORMATIVE for `rights-impacting` or `safety-impacting` workflows.
-3. **Independent-First Ordering (S4.1):** The interface MUST hide recommendations until the assessment is recorded.
-4. **Counterfactual Requirement (S6.4):** REQUIRED for adverse decisions in `rights-impacting` cases.
+Open the canonical spec at the path above and jump to the listed line for the authoritative definition. Prefer `.llm.md` distillations in the same directory when you only need retrieval-oriented summaries.

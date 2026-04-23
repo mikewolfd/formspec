@@ -1,53 +1,53 @@
-# WOS Case Instance Schema Reference Map
+# WOS Case Instance — Schema Reference Map
 
-> `wos-spec/schemas/companions/wos-case-instance.schema.json` -- 682 lines -- WOS Case Instance v1.0
+> `wos-spec/schemas/companions/wos-case-instance.schema.json` — 892 lines — JSON Schema property index
 
 ## Overview
 
-The WOS Case Instance Schema describes the serialization format for a running workflow instance. It captures the complete runtime state needed to resume processing, migrate between processors, or audit past behavior. It is a runtime artifact produced by WOS Processors.
+A WOS CaseInstance document per the WOS Runtime Companion v1.0. A CaseInstance is the serialization format for a running workflow instance -- it captures the complete runtime state needed to resume processing after a crash, migrate between processors, or audit past behavior. This is a runtime artifact, not a WOS document type: it has no $wos* marker because it is produced and consumed by processors, not authored by workflow designers. The instance shape is normatively defined so that instances c
 
-## Top-Level Structure
+## Top-Level Properties
 
-| Property | Type | Required | Description |
-|---|---|---|---|
-| `instanceId` | `string` (URI) | Yes | Globally unique identifier for this instance. |
-| `definitionUrl` | `string` (URI) | Yes | URL of the governing Kernel Document. |
-| `definitionVersion` | `string` | Yes | Pinned version of the Kernel Document. |
-| `configuration` | `array` of `string` | Yes | Current active leaf states (statechart config). |
-| `caseState` | `object` | Yes | Current case file field values (business data). |
-| `status` | `string` (enum) | Yes | `active`, `suspended`, `migrating`, `completed`, `terminated`. |
-| `provenancePosition` | `integer` | Yes | Cursor index into the append-only provenance log. |
-| `timers` | `array` of `TimerState` | Yes | Pending durable timer state. |
-| `activeTasks` | `array` of `ActiveTask` | Yes | Durable nonterminal task state. |
-| `pendingEvents` | `array` of `PendingEvent` | No | FIFO queue of events enqueued but not yet processed. |
-| `governanceState` | `$ref: GovernanceState` | No | Active delegations, holds, and review protocol status. |
-| `volumeCounters` | `$ref: VolumeCounters` | No | AI invocation counters for rate-limiting. |
-| `historyStore` | `object` | No | Saved history state configurations for compound reentry. |
-| `compensationLogs` | `object` | No | Active recovery logs for compensable scopes. |
-| `createdAt` / `updatedAt` | `dateTime` | Yes | Lifecycle timestamps. |
+| Property | Type / shape | Notes |
+|----------|--------------|-------|
+| `$schema` | JsonSchemaUri | See schema for constraints. |
+| `activeTasks` | array | See schema for constraints. |
+| `caseState` | object | See schema for constraints. |
+| `compensationLogs` | object | See schema for constraints. |
+| `configuration` | array | See schema for constraints. |
+| `createdAt` | string | See schema for constraints. |
+| `definitionUrl` | string | See schema for constraints. |
+| `definitionVersion` | string | See schema for constraints. |
+| `extensions` | ExtensionsMap | See schema for constraints. |
+| `governanceState` | GovernanceState | See schema for constraints. |
+| `historyStore` | object | See schema for constraints. |
+| `instanceId` | string | See schema for constraints. |
+| `pendingEvents` | array | See schema for constraints. |
+| `provenancePosition` | integer | See schema for constraints. |
+| `status` | enum(active, suspended, migrating, completed, terminated) | See schema for constraints. |
+| `timers` | array | See schema for constraints. |
+| `updatedAt` | string | See schema for constraints. |
+| `volumeCounters` | VolumeCounters | See schema for constraints. |
 
-## Key Type Definitions ($defs)
+## Key `$defs` (sample)
 
-| Definition | Description | Key Properties |
-|---|---|---|
-| **TimerState** | Resumable timer. | `timerId`, `deadline`, `event`, `scopeState` |
-| **ActiveTask** | Resumable task. | `taskId`, `taskRef`, `status`, `assignedActor`, `contractRef` |
-| **PendingEvent** | Queued trigger. | `event`, `actorId`, `data`, `timestamp` |
-| **ActiveDelegation** | Operational authority. | `delegatorId`, `delegateId`, `scope`, `authority` |
-| **ActiveHold** | Operational suspension. | `holdType`, `startedAt`, `resumeTrigger` |
-| **VolumeCounter** | Rate limit bucket. | `count`, `windowStart` |
+| Definition |
+|------------|
+| **ActiveDelegation** |
+| **ActiveHold** |
+| **ActiveTask** |
+| **CompensationEntry** |
+| **CompensationLog** |
+| **ExtensionsMap** |
+| **FormspecTaskContext** |
+| **GovernanceState** |
+| **JsonSchemaUri** |
+| **PendingEvent** |
+| **TimerState** |
+| **ValidationOutcome** |
+| **VolumeCounter** |
+| **VolumeCounters** |
 
-## x-lm Annotations (Critical)
+## Cross-References
 
-| Property Path | Intent |
-|---|---|
-| `instanceId` | Unique identity for routing and cross-case relationships. |
-| `definitionUrl` | Immutable link to the governing specification. |
-| `definitionVersion` | Immutable version pin for behavioral consistency. |
-| `configuration` | The current "you are here" marker in the statechart. |
-| `caseState` | The authoritative snapshot of business data. |
-| `status` | Determines whether the instance accepts new events. |
-| `provenancePosition` | Ensures audit-sync and idempotent recovery from crashes. |
-| `timers` | Ensures time-based logic (SLAs, timeouts) survives restarts. |
-| `activeTasks` | Ensures human/agent work-in-progress is not lost. |
-| `context.contractRef` | Stable handoff shape for Formspec-backed task rendering. |
+Resolve `$ref` targets inside the schema file for full nested structures. Sidecar schemas typically declare a `targetWorkflow`, `targetGovernance`, or `targetAgent` binding to a parent document.

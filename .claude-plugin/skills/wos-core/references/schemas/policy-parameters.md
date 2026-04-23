@@ -1,43 +1,36 @@
-# WOS Policy Parameters Schema Reference Map
+# WOS Policy Parameter Config — Schema Reference Map
 
-> `wos-spec/schemas/governance/wos-policy-parameters.schema.json` -- 279 lines -- WOS Policy Parameter Config v1.0
+> `wos-spec/schemas/governance/wos-policy-parameters.schema.json` — 344 lines — JSON Schema property index
 
 ## Overview
 
-The WOS Policy Parameters Schema describes a sidecar document providing date-indexed parameter values. Government workflows apply rules effective at specific dates (e.g., application date), not today's date. This sidecar enables temporal parameter resolution following the OpenFisca model.
+A WOS Policy Parameter Config sidecar document. Provides date-indexed parameter values for temporal parameter resolution in WOS workflows. Government workflows apply rules effective at specific dates, not today's date. Each parameter declares its effective-date schedule and a resolution date reference -- the case state field that determines which date-effective value applies. Follows the OpenFisca model of date-indexed parameter values.
 
-## Top-Level Structure
+## Top-Level Properties
 
-| Property | Type | Required | Description |
-|---|---|---|---|
-| `$wosPolicyParameters` | `string` (const `"1.0"`) | Yes | Specification version pin. |
-| `targetWorkflow` | `string` (format: `uri`) | Yes | Registry URI of the Kernel Document these parameters target. |
-| `version` | `string` | No | Version of this parameter document. |
-| `title` / `description` | `string` | No | Human-readable metadata. |
-| `parameters` | `object` of `ParameterDefinition` | Yes | Named parameters with date-indexed value schedules. |
-| `bindings` | `object` of `RegulatoryBinding` | No | Named document version bindings with date-indexed URI schedules. |
+| Property | Type / shape | Notes |
+|----------|--------------|-------|
+| `$schema` | JsonSchemaUri | See schema for constraints. |
+| `$wosPolicyParameters` | string | See schema for constraints. |
+| `bindings` | object | See schema for constraints. |
+| `description` | string | See schema for constraints. |
+| `extensions` | ExtensionsMap | See schema for constraints. |
+| `parameters` | object | See schema for constraints. |
+| `targetWorkflow` | string | See schema for constraints. |
+| `title` | string | See schema for constraints. |
+| `version` | string | See schema for constraints. |
 
-## Key Type Definitions ($defs)
+## Key `$defs` (sample)
 
-| Definition | Description | Key Properties |
-|---|---|---|
-| **ParameterDefinition** | Single temporal parameter. | `type`, `resolutionDateRef` (path), `values` (array) |
-| **RegulatoryBinding** | Single temporal document link. | `bindingType`, `resolutionDateRef`, `values` (array) |
-| **DateValue** | Single point on the timeline. | `effectiveDate`, `value` |
+| Definition |
+|------------|
+| **BindingDateValue** |
+| **DateValue** |
+| **ExtensionsMap** |
+| **JsonSchemaUri** |
+| **ParameterDefinition** |
+| **RegulatoryBinding** |
 
-## Resolution Logic
+## Cross-References
 
-1. **Resolution Date:** The processor looks up the value of the `resolutionDateRef` path in the case state (e.g., `caseFile.applicationDate`).
-2. **Value Lookup:** The processor identifies the most recent entry in the `values` array where `effectiveDate <= Resolution Date`.
-3. **Availability:** Resolved values are injected into the evaluation context under `parameters.[name]`.
-
-## x-lm Annotations (Critical)
-
-| Property Path | Intent |
-|---|---|
-| `$wosPolicyParameters` | Version pin for schema/processor compatibility. |
-| `targetWorkflow` | Binding to a specific kernel identity. |
-| `parameters` | Core declarative map of date-indexed business rules. |
-| `bindings` | Core declarative map of date-indexed document version links (e.g. correct form version for date). |
-| `resolutionDateRef` | Determines WHICH case date is used for lookup -- essential for the temporal logic. |
-| `values` | The chronological schedule of values that drives the temporal resolution. |
+Resolve `$ref` targets inside the schema file for full nested structures. Sidecar schemas typically declare a `targetWorkflow`, `targetGovernance`, or `targetAgent` binding to a parent document.
