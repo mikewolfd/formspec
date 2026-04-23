@@ -29,7 +29,7 @@ build-wasm:
 	npm run build:wasm --workspace=@formspec/engine
 
 # Full compile: Rust workspace + npm workspaces (WASM via formspec-engine) + formspec_rust into active Python.
-# Also builds wos-spec and trellis submodules when their Makefiles are present (submodules may be uninitialized).
+# Also builds wos-spec and trellis submodules; these are auto-initialized on demand (see submodule rule below).
 build: build-rust build-js build-python build-wos-spec build-trellis
 
 build-rust:
@@ -38,24 +38,36 @@ build-rust:
 build-js:
 	npm run build
 
-# Submodule delegation — no-ops silently when the submodule is not initialized.
-build-wos-spec:
-	@if [ -f wos-spec/Makefile ]; then $(MAKE) -C wos-spec build; else echo "wos-spec submodule not initialized — skipping build"; fi
+# Submodule delegation — auto-initializes submodules when missing.
+# The file-target rule below clones/populates the submodule on demand via
+# `git submodule update --init --recursive`, so `make build` / `make test`
+# work on a fresh checkout without a separate bootstrap step.
 
-build-trellis:
-	@if [ -f trellis/Makefile ]; then $(MAKE) -C trellis build; else echo "trellis submodule not initialized — skipping build"; fi
+wos-spec/Makefile trellis/Makefile:
+	@echo "Initializing $(@D) submodule..."
+	git submodule update --init --recursive $(@D)
 
-test-wos-spec:
-	@if [ -f wos-spec/Makefile ]; then $(MAKE) -C wos-spec test; else echo "wos-spec submodule not initialized — skipping test"; fi
+# Explicit bootstrap target for callers who want to init everything up front.
+submodules:
+	git submodule update --init --recursive
 
-test-trellis:
-	@if [ -f trellis/Makefile ]; then $(MAKE) -C trellis test; else echo "trellis submodule not initialized — skipping test"; fi
+build-wos-spec: wos-spec/Makefile
+	$(MAKE) -C wos-spec build
 
-clean-wos-spec:
-	@if [ -f wos-spec/Makefile ]; then $(MAKE) -C wos-spec clean; else echo "wos-spec submodule not initialized — skipping clean"; fi
+build-trellis: trellis/Makefile
+	$(MAKE) -C trellis build
 
-clean-trellis:
-	@if [ -f trellis/Makefile ]; then $(MAKE) -C trellis clean; else echo "trellis submodule not initialized — skipping clean"; fi
+test-wos-spec: wos-spec/Makefile
+	$(MAKE) -C wos-spec test
+
+test-trellis: trellis/Makefile
+	$(MAKE) -C trellis test
+
+clean-wos-spec: wos-spec/Makefile
+	$(MAKE) -C wos-spec clean
+
+clean-trellis: trellis/Makefile
+	$(MAKE) -C trellis clean
 
 # Builds the Rust extension and places the .so into the source tree for editable installs.
 # Uses maturin develop so the in-tree _native.so stays current (pip install writes to
@@ -81,8 +93,8 @@ test-rust:
 	cargo test --workspace
 
 # After pulling, if `git status` shows trellis/ or wos-spec/ submodule drift, run
-# `git submodule update --init --recursive` so local `make test` matches CI SHAs.
-# Submodule test suites run when their Makefiles are present.
+# `git submodule update --init --recursive` (or `make submodules`) so local
+# `make test` matches CI SHAs. Missing submodules are auto-initialized on first use.
 test: test-unit test-python test-rust test-e2e test-studio-e2e test-wos-spec test-trellis
 
 check: docs-check test
@@ -178,4 +190,4 @@ clean: clean-wos-spec clean-trellis
 	      packages/formspec-mcp/API.llm.md \
 	      packages/formspec-studio-core/API.llm.md
 
-.PHONY: all spec-artifacts docs-check check docs html-docs api-docs build build-rust build-js build-python rebuild-python build-wasm build-wos-spec build-trellis test test-unit test-python test-rust test-e2e test-studio-e2e test-wos-spec test-trellis setup serve clean clean-wos-spec clean-trellis
+.PHONY: all spec-artifacts docs-check check docs html-docs api-docs build build-rust build-js build-python rebuild-python build-wasm submodules build-wos-spec build-trellis test test-unit test-python test-rust test-e2e test-studio-e2e test-wos-spec test-trellis setup serve clean clean-wos-spec clean-trellis
