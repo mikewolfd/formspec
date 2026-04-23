@@ -62,6 +62,7 @@ export interface ItemRowActions {
   /** SI-4: Revert inline summary to original value and close. */
   onCancelInlineSummary: () => void;
   onUpdateSummaryValue: (label: string, rawValue: string) => void;
+  onHandleIdentityKeyDown: (field: 'label' | 'key') => (event: React.KeyboardEvent<HTMLInputElement>) => void;
 }
 
 /** `identity` | `summary` = fragments; `combined` = identity then summary stacked (used while editing identity). */
@@ -99,38 +100,13 @@ function IdentityColumn({ identity, editState, actions, layout }: ItemRowContent
     onCommitIdentityField,
     onCancelIdentityField,
     onOpenIdentityField,
+    onHandleIdentityKeyDown,
   } = actions;
 
   // KN-5: When layout='identity', we're inside a <button> — role="heading" is invalid there.
   const insideButton = layout === 'identity';
   // SM-6: Only show edit affordances when handlers are available.
   const showEditMark = selected && editable;
-
-  const handleIdentityKeyDown =
-    (field: 'label' | 'key') => (event: KeyboardEvent<HTMLInputElement>) => {
-      if (event.key === 'Enter') {
-        event.preventDefault();
-        onCommitIdentityField(field);
-      }
-      if (event.key === 'Escape') {
-        event.preventDefault();
-        onCancelIdentityField();
-      }
-      // IE-3: Tab in identity input cycles between key and label fields.
-      if (event.key === 'Tab' && !event.altKey && !event.ctrlKey && !event.metaKey) {
-        if (isField) {
-          if (field === 'key' && !event.shiftKey) {
-            event.preventDefault();
-            onCommitIdentityField('key');
-            onOpenIdentityField('label');
-          } else if (field === 'label' && event.shiftKey) {
-            event.preventDefault();
-            onCommitIdentityField('label');
-            onOpenIdentityField('key');
-          }
-        }
-      }
-    };
 
   return (
     <div className='flex min-w-0 gap-3'>
@@ -166,7 +142,7 @@ function IdentityColumn({ identity, editState, actions, layout }: ItemRowContent
                   onDraftKeyChange(event.currentTarget.value)
                 }
                 onBlur={() => onCommitIdentityField('key')}
-                onKeyDown={handleIdentityKeyDown('key')}
+                onKeyDown={onHandleIdentityKeyDown('key')}
               />
             ) : (
               <div className='flex flex-wrap items-center gap-x-2 gap-y-1 text-[17px] font-semibold leading-6 md:text-[18px]'>
@@ -208,7 +184,7 @@ function IdentityColumn({ identity, editState, actions, layout }: ItemRowContent
                       onDraftLabelChange(event.currentTarget.value)
                     }
                     onBlur={() => onCommitIdentityField('label')}
-                    onKeyDown={handleIdentityKeyDown('label')}
+                    onKeyDown={onHandleIdentityKeyDown('label')}
                   />
                 ) : (
                   <div
@@ -248,7 +224,7 @@ function IdentityColumn({ identity, editState, actions, layout }: ItemRowContent
                   onDraftLabelChange(event.currentTarget.value)
                 }
                 onBlur={() => onCommitIdentityField('label')}
-                onKeyDown={handleIdentityKeyDown('label')}
+                onKeyDown={onHandleIdentityKeyDown('label')}
               />
             ) : (
               <>
@@ -289,7 +265,7 @@ function IdentityColumn({ identity, editState, actions, layout }: ItemRowContent
                         onDraftKeyChange(event.currentTarget.value)
                       }
                       onBlur={() => onCommitIdentityField('key')}
-                      onKeyDown={handleIdentityKeyDown('key')}
+                      onKeyDown={onHandleIdentityKeyDown('key')}
                     />
                   ) : (
                     <span className='inline-flex items-center gap-1.5'>

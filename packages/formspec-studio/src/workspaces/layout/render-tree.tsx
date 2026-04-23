@@ -1,10 +1,16 @@
-/** @filedesc Recursive Layout canvas renderer for authored Page sections, layout containers, and bound nodes. Passes layout context (parentContainerType, parentGridColumns) to children. */
-import type { Key, KeyboardEvent, MouseEvent, ReactNode } from 'react';
+/** @filedesc Recursive Layout canvas renderer for authored Page sections, layout containers, and bound nodes. */
+import React, { type Key, type ReactNode } from 'react';
 import type { CompNode, ContainerLayoutProps, DefLookupEntry } from '@formspec-org/studio-core';
 import { LayoutPageSection } from './LayoutPageSection';
 import { LayoutContainer } from './LayoutContainer';
 import { FieldBlock, type LayoutContext } from './FieldBlock';
 import { DisplayBlock } from './DisplayBlock';
+import {
+  resolveDefPathMaps,
+  parseColSpan,
+  parseRowSpan,
+  buildContainerLayoutProps,
+} from './layout-tree-utils';
 
 interface Item {
   key: string;
@@ -19,7 +25,7 @@ type DisplayNode = CompNode & {
 };
 
 /** Pointer / keyboard events from layout row clicks — drives modifier multi-select in LayoutCanvas. */
-export type LayoutRowSelectEvent = MouseEvent<Element> | KeyboardEvent<Element>;
+export type LayoutRowSelectEvent = React.MouseEvent<Element> | React.KeyboardEvent<Element>;
 
 export interface LayoutRenderContext {
   defLookup: Map<string, DefLookupEntry>;
@@ -49,8 +55,7 @@ export interface LayoutRenderContext {
   /** Resize a node's grid row span. */
   onResizeRowSpan?: (selectionKey: string, newSpan: number) => void;
   /**
-   * Persist display item body copy for Tier 1 definition `display` items (updates `label`, which
-   * syncs to the component tree on rebuild). Layout-added notes use this — they are not on the Editor list.
+   * Persist display item body copy for Tier 1 definition `display` items.
    */
   onCommitDisplayLabel?: (defPath: string, text: string | null) => void;
   /** Rename key + sync label on a definition item (field or display), then re-select `nextPath`. */
@@ -72,25 +77,6 @@ const ROOT_CONTEXT: ParentLayoutContext = {
   parentContainerType: null,
   parentGridColumns: 0,
 };
-
-/**
- * Pragmatic list collision uses **higher** `collisionPriority` first. `LayoutContainer` uses `depth * 10`,
- * so a Stack/Accordion shell wraps its children in the DOM and would otherwise **beat** inner
- * `FieldBlock` / `DisplayBlock` rows (same rect stack) — breaking in-container reorder and cross-parent drags.
- */
-
-function resolveDefPathMaps(
-  key: string,
-  defPathPrefix: string,
-  defLookup: Map<string, DefLookupEntry>,
-  bindKeyMap: Map<string, string>,
-  definitionItemPath?: string,
-): string | null {
-  const candidate = defPathPrefix ? `${defPathPrefix}.${key}` : key;
-  if (defLookup.has(candidate)) return candidate;
-  if (definitionItemPath && defLookup.has(definitionItemPath)) return definitionItemPath;
-  return bindKeyMap.get(key) ?? candidate;
-}
 
 function resolveDefPath(
   key: string,
@@ -202,54 +188,8 @@ export function collectLayoutFlatSelectionKeys(
   return keys;
 }
 
-/** Parse column span from a style.gridColumn value like "span 2". */
-function parseColSpan(gridColumn: unknown): number {
-  if (typeof gridColumn !== 'string') return 1;
-  const m = gridColumn.match(/span\s+(\d+)/i);
-  return m ? parseInt(m[1], 10) : 1;
-}
-
-/** Parse row span from a style.gridRow value like "span 2". */
-function parseRowSpan(gridRow: unknown): number {
-  if (typeof gridRow !== 'string') return 1;
-  const m = gridRow.match(/span\s+(\d+)/i);
-  return m ? parseInt(m[1], 10) : 1;
-}
-
 function nodePropsRecord(node: CompNode): Record<string, unknown> {
   return node as unknown as Record<string, unknown>;
-}
-
-function resolveContainerColumns(columns: CompNode['columns'] | undefined): number | undefined {
-  return typeof columns === 'number' ? columns : undefined;
-}
-
-function resolveContainerGap(gap: CompNode['gap'] | undefined): string | undefined {
-  return typeof gap === 'string' ? gap : undefined;
-}
-
-function resolveContainerWidth(width: CompNode['width'] | undefined): string | undefined {
-  return typeof width === 'string' ? width : undefined;
-}
-
-function resolveContainerDefaultOpen(defaultOpen: CompNode['defaultOpen'] | undefined): boolean | undefined {
-  return typeof defaultOpen === 'boolean' ? defaultOpen : undefined;
-}
-
-function buildContainerLayoutProps(node: CompNode): ContainerLayoutProps {
-  return {
-    columns: resolveContainerColumns(node.columns),
-    gap: resolveContainerGap(node.gap),
-    direction: node.direction,
-    wrap: node.wrap,
-    align: node.align,
-    elevation: typeof node.elevation === 'number' ? node.elevation : undefined,
-    width: resolveContainerWidth(node.width),
-    position: node.position,
-    title: node.title,
-    defaultOpen: resolveContainerDefaultOpen(node.defaultOpen),
-    nodeStyle: node.style,
-  };
 }
 
 /** Render a LayoutContainer with shared props. */
@@ -305,34 +245,21 @@ export function renderLayoutTree(
   defPathPrefix: string,
   parentCtx: ParentLayoutContext = ROOT_CONTEXT,
   containerDepth = 0,
-  /** True when nodes live on the active wizard page or single-page canvas (see LayoutCanvas). */
   pageSectionActive = false,
-  /**
-   * Reorder list id for direct children (`root`, a parent `nodeId`, or `bind:` + definition key).
-   */
   sortableGroupId = 'root',
 ): ReactNode[] {
   const result: ReactNode[] = [];
-  /** Contiguous index among rendered reorder siblings (loop index `i` skips nodes → must stay aligned with drag payloads). */
   let siblingSortIndex = 0;
 
   for (let i = 0; i < nodes.length; i++) {
     const node = nodes[i];
-    // Authored Page node — render as a titled section in the Layout workspace.
+    
+    // Authored Page node
     if (node._layout && node.component === 'Page') {
       const pageId = node.nodeId ?? 'page';
       const activePageSection = ctx.activePageId == null || ctx.activePageId === pageId;
-      const pageSortGroup = node.nodeId ?? pageId;
       const children = node.children
-        ? renderLayoutTree(
-            node.children,
-            ctx,
-            defPathPrefix,
-            ROOT_CONTEXT,
-            containerDepth,
-            activePageSection,
-            pageSortGroup,
-          )
+        ? renderLayoutTree(node.children, ctx, defPathPrefix, ROOT_CONTEXT, containerDepth, activePageSection, node.nodeId ?? pageId)
         : null;
       result.push(
         <LayoutPageSection
@@ -348,19 +275,11 @@ export function renderLayoutTree(
       continue;
     }
 
-    // Tier 3 display-only nodes (Heading, Divider) — _layout:true but no children
+    // Tier 3 display-only nodes (Heading, Divider)
     if (node._layout && (node.component === 'Heading' || node.component === 'Divider')) {
       if (!node.nodeId) continue;
       const displayNode = node as DisplayNode;
       const label = (node.component === 'Divider' ? displayNode.label : displayNode.text) || node.component;
-      const displayLayoutCtx: LayoutContext | undefined = parentCtx.parentContainerType
-        ? {
-            parentContainerType: parentCtx.parentContainerType,
-            parentGridColumns: parentCtx.parentGridColumns,
-            currentColSpan: parseColSpan(node.style?.gridColumn),
-            currentRowSpan: parseRowSpan(node.style?.gridRow),
-          }
-        : undefined;
       const nodeSelKey = `__node:${node.nodeId!}`;
       result.push(
         <DisplayBlock
@@ -372,7 +291,12 @@ export function renderLayoutTree(
           selected={ctx.isSelected(nodeSelKey)}
           layoutPrimaryKey={ctx.layoutPrimaryKey}
           onSelect={(e, sk) => ctx.onSelect(e, sk, 'layout')}
-          layoutContext={displayLayoutCtx}
+          layoutContext={parentCtx.parentContainerType ? {
+            parentContainerType: parentCtx.parentContainerType,
+            parentGridColumns: parentCtx.parentGridColumns,
+            currentColSpan: parseColSpan(node.style?.gridColumn),
+            currentRowSpan: parseRowSpan(node.style?.gridRow),
+          } : undefined}
           nodeStyle={node.style as Record<string, unknown> | undefined}
           onResizeColSpan={ctx.onResizeColSpan ? (n) => ctx.onResizeColSpan!(nodeSelKey, n) : undefined}
           onResizeRowSpan={ctx.onResizeRowSpan ? (n) => ctx.onResizeRowSpan!(nodeSelKey, n) : undefined}
@@ -384,108 +308,41 @@ export function renderLayoutTree(
       continue;
     }
 
-    // Layout container (Card, Grid, Panel, Stack, Collapsible, Accordion, etc.)
+    // Layout container
     if (node._layout) {
       if (!node.nodeId) continue;
-      const childCtx: ParentLayoutContext = {
-        parentContainerType: node.component.toLowerCase(),
-        parentGridColumns: resolveContainerColumns(node.columns) ?? 2,
-      };
       const innerSortGroup = node.nodeId!;
       const children = node.children
-        ? renderLayoutTree(
-            node.children,
-            ctx,
-            defPathPrefix,
-            childCtx,
-            containerDepth + 1,
-            pageSectionActive,
-            innerSortGroup,
-          )
+        ? renderLayoutTree(node.children, ctx, defPathPrefix, {
+            parentContainerType: node.component.toLowerCase(),
+            parentGridColumns: (typeof node.columns === 'number' ? node.columns : undefined) ?? 2,
+          }, containerDepth + 1, pageSectionActive, innerSortGroup)
         : null;
       const nodeSelKey = `__node:${node.nodeId!}`;
-      result.push(
-        renderContainer(
-          `node:${node.nodeId}`,
-          node,
-          'layout',
-          nodeSelKey,
-          ctx,
-          children,
-          buildContainerLayoutProps(node),
-          pageSectionActive,
-          sortableGroupId,
-          siblingSortIndex++,
-          { nodeId: node.nodeId! },
-        ),
-      );
+      result.push(renderContainer(`node:${node.nodeId}`, node, 'layout', nodeSelKey, ctx, children, buildContainerLayoutProps(node), pageSectionActive, sortableGroupId, siblingSortIndex++, { nodeId: node.nodeId! }));
       continue;
     }
 
-    // Bound node — field or group
+    // Bound node
     if (node.bind) {
       const defPath = resolveDefPath(node.bind, defPathPrefix, ctx, node.definitionItemPath);
       const defEntry = defPath ? ctx.defLookup.get(defPath) : null;
       if (!defPath || !defEntry) continue;
-
       const item = defEntry.item as Item;
 
       if (item.type === 'group') {
-        const childCtx: ParentLayoutContext = {
-          parentContainerType: node.component.toLowerCase(),
-          parentGridColumns: resolveContainerColumns(node.columns) ?? 2,
-        };
         const innerSortGroup = node.nodeId ? node.nodeId : `bind:${node.bind}`;
         const children = node.children
-          ? renderLayoutTree(
-              node.children,
-              ctx,
-              defPath,
-              childCtx,
-              containerDepth + 1,
-              pageSectionActive,
-              innerSortGroup,
-            )
+          ? renderLayoutTree(node.children, ctx, defPath, {
+              parentContainerType: node.component.toLowerCase(),
+              parentGridColumns: (typeof node.columns === 'number' ? node.columns : undefined) ?? 2,
+            }, containerDepth + 1, pageSectionActive, innerSortGroup)
           : null;
-        const groupSelKey = defPath;
-        result.push(
-          renderContainer(
-            defPath,
-            node,
-            'group',
-            groupSelKey,
-            ctx,
-            children,
-            buildContainerLayoutProps(node),
-            pageSectionActive,
-            sortableGroupId,
-            siblingSortIndex++,
-            {
-              bind: item.key,
-              bindPath: defPath,
-              ...(node.nodeId ? { nodeId: node.nodeId } : {}),
-            },
-          ),
-        );
+        result.push(renderContainer(defPath, node, 'group', defPath, ctx, children, buildContainerLayoutProps(node), pageSectionActive, sortableGroupId, siblingSortIndex++, { bind: item.key, bindPath: defPath, ...(node.nodeId ? { nodeId: node.nodeId } : {}) }));
         continue;
       }
 
-      const fieldLayoutCtx: LayoutContext | undefined = parentCtx.parentContainerType
-        ? {
-            parentContainerType: parentCtx.parentContainerType,
-            parentGridColumns: parentCtx.parentGridColumns,
-            currentColSpan: parseColSpan(node.style?.gridColumn),
-            currentRowSpan: parseRowSpan(node.style?.gridRow),
-          }
-        : undefined;
-
-      const groupPathPrefix = defPath.includes('.')
-        ? `${defPath.slice(0, defPath.lastIndexOf('.'))}.`
-        : null;
       const itemRec = item as unknown as Record<string, unknown>;
-      const description = typeof itemRec.description === 'string' ? itemRec.description : null;
-      const hint = typeof itemRec.hint === 'string' ? itemRec.hint : null;
-
       result.push(
         <FieldBlock
           key={defPath}
@@ -498,16 +355,16 @@ export function renderLayoutTree(
           selected={ctx.isSelected(defPath)}
           layoutPrimaryKey={ctx.layoutPrimaryKey}
           onSelect={(e, sk) => ctx.onSelect(e, sk, 'field')}
-          groupPathPrefix={groupPathPrefix}
-          description={description}
-          hint={hint}
-          onRenameDefinitionItem={
-            ctx.onRenameDefinitionItem
-              ? (nextKey, nextLabel) =>
-                  ctx.onRenameDefinitionItem!(defPath, nextKey, nextLabel, 'field')
-              : undefined
-          }
-          layoutContext={fieldLayoutCtx}
+          groupPathPrefix={defPath.includes('.') ? `${defPath.slice(0, defPath.lastIndexOf('.'))}.` : null}
+          description={typeof itemRec.description === 'string' ? itemRec.description : null}
+          hint={typeof itemRec.hint === 'string' ? itemRec.hint : null}
+          onRenameDefinitionItem={ctx.onRenameDefinitionItem ? (nextKey, nextLabel) => ctx.onRenameDefinitionItem!(defPath, nextKey, nextLabel, 'field') : undefined}
+          layoutContext={parentCtx.parentContainerType ? {
+            parentContainerType: parentCtx.parentContainerType,
+            parentGridColumns: parentCtx.parentGridColumns,
+            currentColSpan: parseColSpan(node.style?.gridColumn),
+            currentRowSpan: parseRowSpan(node.style?.gridRow),
+          } : undefined}
           nodeStyle={node.style}
           nodeProps={nodePropsRecord(node)}
           onSetProp={ctx.onSetNodeProp ? (k, v) => ctx.onSetNodeProp!(defPath, k, v) : undefined}
@@ -519,7 +376,7 @@ export function renderLayoutTree(
           onStyleRemove={ctx.onStyleRemove ? (k) => ctx.onStyleRemove!(defPath, k) : undefined}
           sortableGroup={sortableGroupId}
           sortableIndex={siblingSortIndex++}
-        />,
+        />
       );
       continue;
     }
@@ -529,28 +386,12 @@ export function renderLayoutTree(
       const defPath = resolveDefPath(node.nodeId, defPathPrefix, ctx, node.definitionItemPath);
       const defEntry = defPath ? ctx.defLookup.get(defPath) : null;
       const displayNode = node as DisplayNode;
-      const label = (defEntry?.item as Item | undefined)?.label
-        || displayNode.text
-        || node.nodeId;
-      const displayLayoutCtx2: LayoutContext | undefined = parentCtx.parentContainerType
-        ? {
-            parentContainerType: parentCtx.parentContainerType,
-            parentGridColumns: parentCtx.parentGridColumns,
-            currentColSpan: parseColSpan(node.style?.gridColumn),
-            currentRowSpan: parseRowSpan(node.style?.gridRow),
-          }
-        : undefined;
-      const displaySelKey = defPath || node.nodeId;
+      const label = (defEntry?.item as Item | undefined)?.label || displayNode.text || node.nodeId;
       const defItem = defEntry?.item as Item | undefined;
       const isDefinitionDisplay = defItem?.type === 'display' && !!defPath;
-      const displayGroupPrefix =
-        defPath && defPath.includes('.')
-          ? `${defPath.slice(0, defPath.lastIndexOf('.'))}.`
-          : null;
       const defRec = defItem ? (defItem as unknown as Record<string, unknown>) : null;
-      const displayDescription =
-        defRec && typeof defRec.description === 'string' ? defRec.description : null;
-      const displayHint = defRec && typeof defRec.hint === 'string' ? defRec.hint : null;
+      const displaySelKey = defPath || node.nodeId;
+      
       result.push(
         <DisplayBlock
           key={displaySelKey}
@@ -561,29 +402,25 @@ export function renderLayoutTree(
           selected={ctx.isSelected(displaySelKey)}
           layoutPrimaryKey={ctx.layoutPrimaryKey}
           onSelect={(e, sk) => ctx.onSelect(e, sk, 'display')}
-          groupPathPrefix={displayGroupPrefix}
-          description={displayDescription}
-          hint={displayHint}
-          onRenameDefinitionItem={
-            isDefinitionDisplay && ctx.onRenameDefinitionItem && defPath
-              ? (nextKey, nextLabel) =>
-                  ctx.onRenameDefinitionItem!(defPath, nextKey, nextLabel, 'display')
-              : undefined
-          }
+          groupPathPrefix={defPath && defPath.includes('.') ? `${defPath.slice(0, defPath.lastIndexOf('.'))}.` : null}
+          description={defRec && typeof defRec.description === 'string' ? defRec.description : null}
+          hint={defRec && typeof defRec.hint === 'string' ? defRec.hint : null}
+          onRenameDefinitionItem={isDefinitionDisplay && ctx.onRenameDefinitionItem && defPath ? (nextKey, nextLabel) => ctx.onRenameDefinitionItem!(defPath, nextKey, nextLabel, 'display') : undefined}
           definitionCopyPath={isDefinitionDisplay && defPath ? defPath : null}
-          layoutContext={displayLayoutCtx2}
+          layoutContext={parentCtx.parentContainerType ? {
+            parentContainerType: parentCtx.parentContainerType,
+            parentGridColumns: parentCtx.parentGridColumns,
+            currentColSpan: parseColSpan(node.style?.gridColumn),
+            currentRowSpan: parseRowSpan(node.style?.gridRow),
+          } : undefined}
           nodeStyle={node.style as Record<string, unknown> | undefined}
           onResizeColSpan={ctx.onResizeColSpan ? (n) => ctx.onResizeColSpan!(displaySelKey, n) : undefined}
           onResizeRowSpan={ctx.onResizeRowSpan ? (n) => ctx.onResizeRowSpan!(displaySelKey, n) : undefined}
-          onCommitDisplayLabel={
-            isDefinitionDisplay && ctx.onCommitDisplayLabel
-              ? (text) => ctx.onCommitDisplayLabel!(defPath!, text)
-              : undefined
-          }
+          onCommitDisplayLabel={isDefinitionDisplay && ctx.onCommitDisplayLabel ? (text) => ctx.onCommitDisplayLabel!(defPath!, text) : undefined}
           sortableGroup={sortableGroupId}
           sortableIndex={siblingSortIndex++}
           treeDragNodeRef={{ nodeId: node.nodeId }}
-        />,
+        />
       );
     }
   }

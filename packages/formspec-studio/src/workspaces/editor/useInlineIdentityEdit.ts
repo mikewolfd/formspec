@@ -109,6 +109,34 @@ export function useInlineIdentityEdit({
     queueMicrotask(() => selectButtonRef?.current?.focus());
   }, [itemKey, label, selectButtonRef]);
 
+  const handleIdentityKeyDown = useCallback(
+    (field: 'label' | 'key') => (event: React.KeyboardEvent<HTMLInputElement>) => {
+      if (event.key === 'Enter') {
+        event.preventDefault();
+        commitIdentityField(field);
+      }
+      if (event.key === 'Escape') {
+        event.preventDefault();
+        cancelIdentityField();
+      }
+      // IE-3: Tab in identity input cycles between key and label fields.
+      if (event.key === 'Tab' && !event.altKey && !event.ctrlKey && !event.metaKey) {
+        if (isField) {
+          if (field === 'key' && !event.shiftKey) {
+            event.preventDefault();
+            commitIdentityField('key');
+            openIdentityField('label');
+          } else if (field === 'label' && event.shiftKey) {
+            event.preventDefault();
+            commitIdentityField('label');
+            openIdentityField('key');
+          }
+        }
+      }
+    },
+    [commitIdentityField, cancelIdentityField, openIdentityField, isField],
+  );
+
   return {
     activeIdentityField,
     draftKey,
@@ -120,5 +148,7 @@ export function useInlineIdentityEdit({
     commitIdentityField,
     cancelIdentityField,
     resetIdentityEditors,
+    handleIdentityKeyDown,
   };
 }
+

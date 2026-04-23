@@ -1,5 +1,5 @@
 /** @filedesc Main Layout workspace canvas — renders the component tree with page sections, layout containers, and field/display blocks. */
-import { useCallback, useMemo, useState, useEffect, useRef } from 'react';
+import React, { useCallback, useMemo, useState, useEffect } from 'react';
 import { useDefinition } from '../../state/useDefinition';
 import { useComponent } from '../../state/useComponent';
 import { useProject } from '../../state/useProject';
@@ -8,15 +8,11 @@ import { useLayoutPageStructure } from './useLayoutPageStructure';
 import {
   buildDefLookup,
   buildBindKeyMap,
-  isLayoutId,
-  resolveLayoutSelectionNodeRef,
   type CompNode,
 } from '@formspec-org/studio-core';
 import { WorkspacePage, WorkspacePageSection } from '../../components/ui/WorkspacePage';
-import { AddItemPalette, type FieldTypeOption } from '../../components/AddItemPalette';
+import { AddItemPalette } from '../../components/AddItemPalette';
 import { ConfirmDialog } from '../../components/ConfirmDialog';
-import { ModeSelector } from './ModeSelector';
-import { LayoutStepNav } from './LayoutStepNav';
 import {
   collectLayoutFlatSelectionKeys,
   renderLayoutTree,
@@ -29,39 +25,12 @@ import { ThemeOverridePopover } from './ThemeOverridePopover';
 import { useOptionalLayoutMode } from './LayoutModeContext';
 import { useLayoutPreviewNav } from './LayoutPreviewNavContext';
 import { setThemeOverride, clearThemeOverride } from '@formspec-org/studio-core';
-import { isPlainObject } from '../shared/runtime-guards';
 import { useLayoutCanvasContextMenu } from './useLayoutCanvasContextMenu';
 import { useLayoutNodeOperations } from './useLayoutNodeOperations';
 import { useLayoutAddOperations } from './useLayoutAddOperations';
-
-function synthesizePagedLayoutTree(nodes: CompNode[], definition: ReturnType<typeof useDefinition>): CompNode[] {
-  const formPresentation = isPlainObject(definition?.formPresentation) ? definition.formPresentation : undefined;
-  const pageMode = formPresentation?.pageMode;
-  if (pageMode !== 'wizard' && pageMode !== 'tabs') return nodes;
-
-  const items = Array.isArray(definition?.items) ? definition.items : [];
-  const topLevelGroupLabels = new Map<string, string>();
-  for (const item of items) {
-    if (!isPlainObject(item) || item.type !== 'group' || typeof item.key !== 'string') continue;
-    topLevelGroupLabels.set(item.key, typeof item.label === 'string' && item.label.trim() ? item.label : item.key);
-  }
-
-  return nodes.map((node) => {
-    if (node.component === 'Page') return node;
-    if (typeof node.bind !== 'string') return node;
-    const title = topLevelGroupLabels.get(node.bind);
-    if (!title) return node;
-    return {
-      component: 'Page',
-      nodeId: `layout-page-${node.bind}`,
-      title,
-      _layout: true,
-      syntheticPage: true,
-      groupPath: node.bind,
-      children: [node],
-    };
-  });
-}
+import { useLayoutPageMaterializer } from './useLayoutPageMaterializer';
+import { LayoutCanvasHeader } from './LayoutCanvasHeader';
+import { synthesizePagedLayoutTree } from './layout-tree-utils';
 
 export function LayoutCanvas() {
   const definition = useDefinition();
@@ -121,36 +90,11 @@ export function LayoutCanvas() {
     [pagedTreeChildren],
   );
 
-  // Track whether synthetic pages have already been materialized into real
-  // component-doc pages.  After the first materialization the synthetic list
-  // is empty, so subsequent calls are no-ops — the ref lets us skip the
-  // filter + loop entirely on every subsequent user interaction.
-  const materialized = useRef<boolean>(false);
-
-  // Reset the flag when the page nav items change (e.g. new synthetic pages
-  // appear after a definition change).
-  useEffect(() => { materialized.current = false; }, [pageNavItems]);
-
-  const materializePagedLayout = () => {
-    const pageIdMap = new Map<string, string>();
-    if (materialized.current) return pageIdMap;
-
-    const syntheticPages = pageNavItems.filter((page) => !page.pageId && page.groupPath);
-    if (syntheticPages.length === 0) {
-      materialized.current = true;
-      return pageIdMap;
-    }
-
-    for (const page of syntheticPages) {
-      const result = project.addPage(page.title, undefined, page.id);
-      const createdPageId = result.createdId!;
-      project.placeOnPage(page.groupPath!, createdPageId);
-      pageIdMap.set(page.id, createdPageId);
-    }
-
-    materialized.current = true;
-    return pageIdMap;
-  };
+  const {
+    materializePagedLayout,
+    syncActivePageAfterMaterialize,
+    resolvePageNavToComponentId,
+  } = useLayoutPageMaterializer(project, pageNavItems, activePageId, setActivePageId);
 
   useEffect(() => {
     if (pageNavItems.length === 0) {
@@ -274,26 +218,6 @@ export function LayoutCanvas() {
   );
   const { handleAddPage, handleRenamePage, handleAddItem } = addOps;
 
-  const resolvePageNavToComponentId = useCallback(
-    (navId: string, pageIdMap: Map<string, string>) => {
-      const entry = pageNavItems.find((p) => p.id === navId);
-      if (!entry) return null;
-      return entry.pageId ?? pageIdMap.get(entry.id) ?? entry.id;
-    },
-    [pageNavItems],
-  );
-
-  const syncActivePageAfterMaterialize = useCallback(
-    (pageIdMap: Map<string, string>) => {
-      if (!activePageId || pageIdMap.size === 0) return;
-      const mapped = pageIdMap.get(activePageId);
-      if (mapped && mapped !== activePageId) {
-        setActivePageId(mapped);
-      }
-    },
-    [activePageId],
-  );
-
   const handlePageNavReorder = useCallback(
     (navId: string, direction: 'up' | 'down') => {
       const pageIdMap = materializePagedLayout();
@@ -315,10 +239,6 @@ export function LayoutCanvas() {
     },
     [materializePagedLayout, project, resolvePageNavToComponentId, syncActivePageAfterMaterialize],
   );
-
-  const handleRequestRemovePage = useCallback((navId: string) => {
-    setPendingRemovePageNavId(navId);
-  }, []);
 
   const handleConfirmRemovePage = useCallback(() => {
     if (!pendingRemovePageNavId || pageNavItems.length <= 1) {
@@ -372,50 +292,20 @@ export function LayoutCanvas() {
   return (
     <LayoutDndProvider activePageId={activePageId}>
     <div className="flex min-h-full w-full flex-col">
-      <div className="sticky top-0 z-20 w-full shrink-0 border-b border-border/40 bg-bg-default/85 py-4 backdrop-blur-md">
-        <div className="mx-auto w-full max-w-[980px] px-7">
-          <div className="space-y-3">
-            <div className="flex flex-wrap items-center justify-between gap-3">
-              <div className="flex items-center gap-3">
-                <ModeSelector mode={structure.mode} onSetMode={(mode) => project.setFlow(mode)} />
-              </div>
-              {structure.mode !== 'single' && !isMultiPage ? (
-                <button
-                  type="button"
-                  data-testid="layout-add-page"
-                  aria-label="Add page to layout"
-                  className="min-h-11 rounded-full border border-transparent px-3 py-2 text-[12px] font-medium text-muted transition-colors hover:border-border/60 hover:bg-bg-default/50 hover:text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/70"
-                  onClick={handleAddPage}
-                >
-                  + Page
-                </button>
-              ) : null}
-            </div>
-            {isMultiPage && (
-              <LayoutStepNav
-                pages={pageNavItems}
-                activePageId={activePageId ?? pageNavItems[0]?.id ?? null}
-                onSelectPage={setActivePageId}
-                onRenamePage={handleRenamePage}
-                onReorderPage={handlePageNavReorder}
-                onMovePageToIndex={handlePageNavMoveToIndex}
-                onRequestRemovePage={handleRequestRemovePage}
-                trailing={
-                  <button
-                    type="button"
-                    data-testid="layout-add-page"
-                    aria-label="Add page to layout"
-                    className="min-h-11 rounded-full border border-transparent px-3 py-2 text-[12px] font-medium text-muted transition-colors hover:border-border/60 hover:bg-bg-default/50 hover:text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/70"
-                    onClick={handleAddPage}
-                  >
-                    + Page
-                  </button>
-                }
-              />
-            )}
-          </div>
-        </div>
-      </div>
+      <LayoutCanvasHeader
+        mode={structure.mode}
+        onSetMode={(mode) => project.setFlow(mode)}
+        isMultiPage={isMultiPage}
+        showAddPageButton={structure.mode !== 'single' && !isMultiPage}
+        onAddPage={handleAddPage}
+        pageNavItems={pageNavItems}
+        activePageId={activePageId}
+        onSelectPage={setActivePageId}
+        onRenamePage={handleRenamePage}
+        onReorderPage={handlePageNavReorder}
+        onMovePageToIndex={handlePageNavMoveToIndex}
+        onRequestRemovePage={(navId) => setPendingRemovePageNavId(navId)}
+      />
 
     <div className="min-h-0 flex-1 overflow-y-auto relative w-full">
     <WorkspacePage maxWidth="max-w-[980px]" className="relative">

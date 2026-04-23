@@ -155,6 +155,7 @@ export function GroupNode({
     openIdentityField,
     commitIdentityField,
     cancelIdentityField,
+    handleIdentityKeyDown,
   } = useInlineIdentityEdit({
     itemKey,
     label,
@@ -210,17 +211,6 @@ export function GroupNode({
     setEditingBehavior(false);
     setEditingRepeats(false);
     setActiveInlineSummary(null);
-  };
-
-  const handleIdentityKeyDown = (field: 'label' | 'key') => (event: KeyboardEvent<HTMLInputElement>) => {
-    if (event.key === 'Enter') {
-      event.preventDefault();
-      commitIdentityField(field);
-    }
-    if (event.key === 'Escape') {
-      event.preventDefault();
-      cancelIdentityField();
-    }
   };
 
   const editingGroupSummaryContent =

@@ -405,6 +405,7 @@ export function ItemRow({
     onCloseInlineSummary: closeInlineSummary,
     onCancelInlineSummary: cancelInlineSummary,
     onUpdateSummaryValue: updateSummaryValue,
+    onHandleIdentityKeyDown: handleIdentityKeyDown,
   } satisfies ItemRowActions;
 
   const categoryPanelEl = expandedCategory ? (

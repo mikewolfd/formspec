@@ -18,6 +18,7 @@ import { GroupNode } from './GroupNode';
 import { EditorDndProvider } from './EditorDndProvider';
 import { SortableItemWrapper } from './dnd/SortableItemWrapper';
 import { clampContextMenuPosition, type ContextMenuState, type ContextMenuItem } from '../../components/ui/context-menu-utils';
+import { WrapInGroupDialog } from './WrapInGroupDialog';
 
 import type { FormItem, FormBind } from '@formspec-org/types';
 
@@ -516,88 +517,23 @@ export function ItemListEditor({ config }: { config: ItemListEditorConfig }) {
       />
 
       {allowWrapInGroup && wrapGroupDraft && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4 backdrop-blur-[2px]"
-          onClick={(event) => {
-            if (event.target === event.currentTarget) setWrapGroupDraft(null);
+        <WrapInGroupDialog
+          draft={wrapGroupDraft}
+          onCancel={() => setWrapGroupDraft(null)}
+          onConfirm={(key, label) => {
+            if (!onWrapInGroup) return;
+            const result = onWrapInGroup(
+              [wrapGroupDraft.itemPath],
+              key,
+              label,
+            );
+            const groupPath = result.affectedPaths?.[0];
+            if (groupPath) {
+              select(groupPath, 'group', { tab: selectionTab });
+            }
+            setWrapGroupDraft(null);
           }}
-        >
-          <div
-            role="dialog"
-            aria-modal="true"
-            aria-label={`Wrap ${wrapGroupDraft.itemLabel} in group`}
-            className="w-full max-w-md rounded-xl border border-border bg-surface shadow-xl"
-          >
-            <div className="border-b border-border px-5 py-4">
-              <h2 className="text-[15px] font-semibold text-ink">
-                Wrap {wrapGroupDraft.itemLabel} in group
-              </h2>
-            </div>
-            <div className="space-y-4 px-5 py-4">
-              <p className="text-[13px] leading-6 text-muted">
-                Choose the new group key and label before wrapping the selected item.
-              </p>
-              <div className="space-y-2">
-                <label className="block text-[12px] font-medium text-muted" htmlFor="wrap-group-key">
-                  Group Key
-                </label>
-                <input
-                  id="wrap-group-key"
-                  type="text"
-                  value={wrapGroupDraft.key}
-                  onChange={(event) => {
-                    const nextKey = event.currentTarget.value;
-                    setWrapGroupDraft((current) => current ? { ...current, key: nextKey } : current);
-                  }}
-                  className="w-full rounded-[6px] border border-border/80 bg-surface px-3 py-2 text-[13px] font-mono outline-none transition-shadow focus:border-accent focus:ring-2 focus:ring-accent/30"
-                />
-              </div>
-              <div className="space-y-2">
-                <label className="block text-[12px] font-medium text-muted" htmlFor="wrap-group-label">
-                  Group Label
-                </label>
-                <input
-                  id="wrap-group-label"
-                  type="text"
-                  value={wrapGroupDraft.label}
-                  onChange={(event) => {
-                    const nextLabel = event.currentTarget.value;
-                    setWrapGroupDraft((current) => current ? { ...current, label: nextLabel } : current);
-                  }}
-                  className="w-full rounded-[6px] border border-border/80 bg-surface px-3 py-2 text-[13px] outline-none transition-shadow focus:border-accent focus:ring-2 focus:ring-accent/30"
-                />
-              </div>
-            </div>
-            <div className="flex justify-end gap-2 border-t border-border px-5 py-4">
-              <button
-                type="button"
-                className="rounded-[6px] border border-border/80 bg-surface px-3 py-2 text-[11px] font-mono font-semibold uppercase tracking-[0.18em] text-ink transition-colors hover:bg-surface-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/35"
-                onClick={() => setWrapGroupDraft(null)}
-              >
-                Cancel Wrap
-              </button>
-              <button
-                type="button"
-                className="rounded-[6px] border border-accent/30 bg-accent/8 px-3 py-2 text-[11px] font-mono font-semibold uppercase tracking-[0.18em] text-accent transition-colors hover:bg-accent/12 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/35"
-                onClick={() => {
-                  if (!wrapGroupDraft?.key.trim() || !onWrapInGroup) return;
-                  const result = onWrapInGroup(
-                    [wrapGroupDraft.itemPath],
-                    wrapGroupDraft.key.trim(),
-                    wrapGroupDraft.label.trim() || 'Group',
-                  );
-                  const groupPath = result.affectedPaths?.[0];
-                  if (groupPath) {
-                    select(groupPath, 'group', { tab: selectionTab });
-                  }
-                  setWrapGroupDraft(null);
-                }}
-              >
-                Create Group
-              </button>
-            </div>
-          </div>
-        </div>
+        />
       )}
 
       {contextMenu && (

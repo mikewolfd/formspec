@@ -16,135 +16,43 @@ import {
 import { Header } from './Header';
 import { StatusBar } from './StatusBar';
 import { Blueprint } from './Blueprint';
-import { StructureTree } from './blueprint/StructureTree';
-import { DefinitionTreeEditor } from '../workspaces/editor/DefinitionTreeEditor';
-import { LayoutCanvas as LayoutWorkspace } from '../workspaces/layout/LayoutCanvas';
-import { ManageView } from '../workspaces/editor/ManageView';
-import { ScreenerWorkspace } from '../workspaces/editor/ScreenerWorkspace';
+
 import { FormHealthPanel } from '../workspaces/editor/FormHealthPanel';
-import { BuildManageToggle, type EditorView } from '../workspaces/editor/BuildManageToggle';
-import { MappingTab } from '../workspaces/mapping/MappingTab';
-import { PreviewTab } from '../workspaces/preview/PreviewTab';
 import { LayoutLivePreviewSection } from '../workspaces/layout/LayoutLivePreviewSection';
 import { LayoutPreviewNavProvider } from '../workspaces/layout/LayoutPreviewNavContext';
-import { CommandPalette } from './CommandPalette';
-import { ImportDialog } from './ImportDialog';
 import { ChatPanel } from './ChatPanel';
-import { AppSettingsDialog } from './AppSettingsDialog';
 import { ResizeHandle } from './ui/ResizeHandle';
 import { CanvasTargetsProvider } from '../state/useCanvasTargets';
-import { LayoutModeProvider, useOptionalLayoutMode } from '../workspaces/layout/LayoutModeContext';
+import { LayoutModeProvider } from '../workspaces/layout/LayoutModeContext';
 import { useProject } from '../state/useProject';
 import { useSelection } from '../state/useSelection';
 import {
   OpenDefinitionInEditorProvider,
   type DefinitionEditorItemKind,
 } from '../state/OpenDefinitionInEditorContext';
-import { ComponentTree } from './blueprint/ComponentTree';
-import { ScreenerSummary } from './blueprint/ScreenerSummary';
-import { VariablesList } from './blueprint/VariablesList';
-import { DataSourcesList } from './blueprint/DataSourcesList';
-import { OptionSetsList } from './blueprint/OptionSetsList';
-import { MappingsList } from './blueprint/MappingsList';
 
-import { SettingsSection } from './blueprint/SettingsSection';
-import { SettingsDialog } from './SettingsDialog';
-import { ThemeOverview } from './blueprint/ThemeOverview';
-import { ColorPalette } from '../workspaces/theme/ColorPalette';
-import { TypographySpacing } from '../workspaces/theme/TypographySpacing';
-import { DefaultFieldStyle } from '../workspaces/theme/DefaultFieldStyle';
-import { FieldTypeRules } from '../workspaces/theme/FieldTypeRules';
-import { ScreenSizes } from '../workspaces/theme/ScreenSizes';
-import { AllTokens } from '../workspaces/theme/AllTokens';
-
-const WORKSPACES: Record<string, React.FC> = {
-  Layout: LayoutWorkspace,
-  Mapping: MappingTab,
-  Preview: PreviewTab,
-};
-
-const SIDEBAR_COMPONENTS: Record<string, React.FC> = {
-  'Structure': StructureTree,
-  'Component Tree': ComponentTree,
-  'Screener': ScreenerSummary,
-  'Variables': VariablesList,
-  'Data Sources': DataSourcesList,
-  'Option Sets': OptionSetsList,
-  'Mappings': MappingsList,
-  'Settings': SettingsSection,
-  'Theme': ThemeOverview,
-  'Colors': ColorPalette,
-  'Typography': TypographySpacing,
-  'Field Defaults': DefaultFieldStyle,
-  'Field Rules': FieldTypeRules,
-  'Breakpoints': ScreenSizes,
-  'All Tokens': AllTokens,
-};
-
-const THEME_MODE_BLUEPRINT_SECTIONS = ['Colors', 'Typography', 'Field Defaults', 'Field Rules', 'Breakpoints', 'All Tokens', 'Settings'];
-
-const BLUEPRINT_SECTIONS_BY_TAB: Record<string, string[]> = {
-  Editor: ['Structure', 'Variables', 'Data Sources', 'Option Sets', 'Screener', 'Settings'],
-  Layout: ['Structure', 'Component Tree', 'Screener', 'Variables', 'Data Sources', 'Option Sets', 'Mappings', 'Settings', 'Theme'],
-  Mapping: ['Mappings', 'Structure', 'Data Sources', 'Option Sets', 'Settings'],
-  Preview: ['Structure', 'Component Tree', 'Theme', 'Settings'],
-};
+import { BlueprintSidebar } from './shell/BlueprintSidebar';
+import { WorkspaceContent } from './shell/WorkspaceContent';
+import { ShellDialogs } from './shell/ShellDialogs';
+import { useBlueprintSectionResolution } from './shell/useBlueprintSectionResolution';
 
 interface ShellProps {
   colorScheme?: ColorScheme;
 }
 
-function BlueprintSidebarInner({
-  activeTab,
-  activeSection,
-  onSectionChange,
-  activeEditorView,
-  compactLayout,
-  leftWidth,
-}: {
-  activeTab: string;
-  activeSection: string;
-  onSectionChange: (section: string) => void;
-  activeEditorView: EditorView | undefined;
-  compactLayout: boolean;
-  leftWidth: number;
-}) {
-  const layoutModeCtx = useOptionalLayoutMode();
-
-  useEffect(() => {
-    if (activeTab !== 'Layout' || !layoutModeCtx) return;
-    const first = THEME_MODE_BLUEPRINT_SECTIONS[0] ?? 'Colors';
-    if (!THEME_MODE_BLUEPRINT_SECTIONS.includes(activeSection)) {
-      onSectionChange(first);
-      return;
-    }
-    layoutModeCtx.setThemeModeSection(activeSection);
-  }, [activeTab, activeSection, layoutModeCtx, onSectionChange]);
-
-  const visibleSections =
-    activeTab === 'Layout'
-      ? THEME_MODE_BLUEPRINT_SECTIONS
-      : (BLUEPRINT_SECTIONS_BY_TAB[activeTab] ?? Object.keys(SIDEBAR_COMPONENTS));
-
-  const resolvedSection = visibleSections.includes(activeSection)
-    ? activeSection
-    : (visibleSections[0] ?? 'Structure');
-
-  const SidebarComponent = SIDEBAR_COMPONENTS[resolvedSection];
-
-  return (
-    <aside
-      data-testid="blueprint-sidebar"
-      className={`overflow-y-auto flex flex-col shrink-0 border-r border-border/70 bg-[linear-gradient(180deg,rgba(255,252,247,0.94),rgba(248,241,231,0.88))] dark:bg-[linear-gradient(180deg,rgba(26,35,47,0.94),rgba(32,44,59,0.92))] backdrop-blur-sm ${compactLayout ? 'hidden' : ''}`}
-      style={{ width: `clamp(140px, ${leftWidth}px, calc(50vw - 340px))` }}
-      aria-label="Blueprint sidebar"
-    >
-      <Blueprint activeSection={resolvedSection} onSectionChange={onSectionChange} sections={visibleSections} activeEditorView={activeEditorView} activeTab={activeTab} />
-      <div className="flex-1 overflow-y-auto px-3 py-4">
-        {SidebarComponent && <SidebarComponent />}
-      </div>
-    </aside>
-  );
+function getShellBackgroundImage(theme: 'light' | 'dark') {
+  if (theme === 'dark') {
+    return [
+      'radial-gradient(circle at 0% 0%, rgba(123,161,255,0.13), transparent 26%)',
+      'radial-gradient(circle at 100% 0%, rgba(131,216,219,0.11), transparent 28%)',
+      'linear-gradient(180deg, rgba(19,24,33,0.96), rgba(23,32,46,0.98) 34%, rgba(27,38,54,0.94) 100%)',
+    ].join(', ');
+  }
+  return [
+    'radial-gradient(circle at 0% 0%, rgba(183,121,31,0.12), transparent 26%)',
+    'radial-gradient(circle at 100% 0%, rgba(47,107,126,0.12), transparent 28%)',
+    'linear-gradient(180deg, rgba(255,249,241,0.8), rgba(246,240,232,0.96) 34%, rgba(241,232,220,0.82) 100%)',
+  ].join(', ');
 }
 
 export function Shell({ colorScheme }: ShellProps = {}) {
@@ -243,22 +151,17 @@ export function Shell({ colorScheme }: ShellProps = {}) {
 
   const activePanelId = `studio-panel-${activeTab.toLowerCase()}`;
   const activeTabId = `studio-tab-${activeTab.toLowerCase()}`;
-  const visibleBlueprintSections =
-    activeTab === 'Layout'
-      ? THEME_MODE_BLUEPRINT_SECTIONS
-      : (BLUEPRINT_SECTIONS_BY_TAB[activeTab] ?? Object.keys(SIDEBAR_COMPONENTS));
-  const resolvedActiveSection = visibleBlueprintSections.includes(activeSection)
-    ? activeSection
-    : (visibleBlueprintSections[0] ?? 'Structure');
-  const SidebarComponent = SIDEBAR_COMPONENTS[resolvedActiveSection];
+  
+  const { visibleSections, resolvedSection, SidebarComponent } = useBlueprintSectionResolution(activeTab, activeSection);
+
   const selectedItemLabel = selectedKey
     ? ((definitionLookup.get(selectedKey)?.item?.label as string | undefined) || selectedKey.split('.').pop() || selectedKey)
     : null;
 
   useEffect(() => {
-    if (resolvedActiveSection === activeSection) return;
-    setActiveSection(resolvedActiveSection);
-  }, [activeSection, resolvedActiveSection, setActiveSection]);
+    if (resolvedSection === activeSection) return;
+    setActiveSection(resolvedSection);
+  }, [activeSection, resolvedSection, setActiveSection]);
 
   useEffect(() => {
     if (!compactLayout || activeTab !== 'Editor') return;
@@ -277,61 +180,26 @@ export function Shell({ colorScheme }: ShellProps = {}) {
   }, [project]);
 
   const hasScreener = project.state.screener !== null;
-  const shellBackgroundImage = colorScheme?.resolvedTheme === 'dark'
-    ? [
-        'radial-gradient(circle at 0% 0%, rgba(123,161,255,0.13), transparent 26%)',
-        'radial-gradient(circle at 100% 0%, rgba(131,216,219,0.11), transparent 28%)',
-        'linear-gradient(180deg, rgba(19,24,33,0.96), rgba(23,32,46,0.98) 34%, rgba(27,38,54,0.94) 100%)',
-      ].join(', ')
-    : [
-        'radial-gradient(circle at 0% 0%, rgba(183,121,31,0.12), transparent 26%)',
-        'radial-gradient(circle at 100% 0%, rgba(47,107,126,0.12), transparent 28%)',
-        'linear-gradient(180deg, rgba(255,249,241,0.8), rgba(246,240,232,0.96) 34%, rgba(241,232,220,0.82) 100%)',
-      ].join(', ');
+  const shellBackgroundImage = getShellBackgroundImage(colorScheme?.resolvedTheme ?? 'light');
 
-  const workspaceContent = (() => {
-    if (activeTab === 'Editor') {
-      return (
-        <div className="flex-1 overflow-y-auto flex flex-col">
-          <div className="px-3 pt-3 md:px-6 md:pt-4 xl:px-8">
-            <BuildManageToggle activeView={activeEditorView} onViewChange={setActiveEditorView} manageCount={manageCount} showScreener={hasScreener} />
-          </div>
-          <div key={activeEditorView} className="flex-1 animate-in fade-in duration-150">
-            {activeEditorView === 'build'
-              ? <DefinitionTreeEditor />
-              : activeEditorView === 'screener'
-                ? <ScreenerWorkspace />
-                : <ManageView />}
-          </div>
-        </div>
-      );
-    }
-    switch (activeTab) {
-      case 'Mapping':
-        return (
-          <MappingTab
-            activeTab={activeMappingTab}
-            onActiveTabChange={setActiveMappingTab}
-            configOpen={mappingConfigOpen}
-            onConfigOpenChange={setMappingConfigOpen}
-          />
-        );
-      case 'Preview':
-        return (
-          <PreviewTab
-            viewport={previewViewport}
-            onViewportChange={setPreviewViewport}
-            mode={previewMode}
-            onModeChange={setPreviewMode}
-            appearance={colorScheme?.resolvedTheme ?? 'light'}
-          />
-        );
-      default: {
-        const WorkspaceComponent = WORKSPACES[activeTab];
-        return WorkspaceComponent ? <WorkspaceComponent /> : activeTab;
-      }
-    }
-  })();
+  const workspaceContent = (
+    <WorkspaceContent
+      activeTab={activeTab}
+      activeEditorView={activeEditorView}
+      setActiveEditorView={setActiveEditorView}
+      manageCount={manageCount}
+      hasScreener={hasScreener}
+      activeMappingTab={activeMappingTab}
+      setActiveMappingTab={setActiveMappingTab}
+      mappingConfigOpen={mappingConfigOpen}
+      setMappingConfigOpen={setMappingConfigOpen}
+      previewViewport={previewViewport}
+      setPreviewViewport={setPreviewViewport}
+      previewMode={previewMode}
+      setPreviewMode={setPreviewMode}
+      appearance={colorScheme?.resolvedTheme ?? 'light'}
+    />
+  );
 
   const handleExport = () => exportProjectZip(project.export());
 
@@ -365,7 +233,7 @@ export function Shell({ colorScheme }: ShellProps = {}) {
           aria-hidden={overlayOpen ? true : undefined}
         >
           {/* Desktop Left Sidebar */}
-          <BlueprintSidebarInner
+          <BlueprintSidebar
             activeTab={activeTab}
             activeSection={activeSection}
             onSectionChange={setActiveSection}
@@ -421,7 +289,7 @@ export function Shell({ colorScheme }: ShellProps = {}) {
                 {compactLayout && activeTab === 'Editor' ? (
                   <div data-testid="mobile-editor-structure" className="space-y-3">
                     <div className="rounded-[24px] border border-border/70 bg-[linear-gradient(180deg,rgba(255,253,249,0.95),rgba(249,242,232,0.92))] dark:bg-[linear-gradient(180deg,rgba(26,35,47,0.95),rgba(32,44,59,0.94))] px-3 py-3 shadow-[0_20px_45px_rgba(77,57,30,0.08)] dark:shadow-[0_20px_45px_rgba(0,0,0,0.28)]">
-                      <Blueprint activeSection={resolvedActiveSection} onSectionChange={setActiveSection} sections={visibleBlueprintSections} activeEditorView={activeEditorView} activeTab={activeTab} />
+                      <Blueprint activeSection={resolvedSection} onSectionChange={setActiveSection} sections={visibleSections} activeEditorView={activeEditorView} activeTab={activeTab} />
                     </div>
                     <div className="rounded-[24px] border border-border/70 bg-[linear-gradient(180deg,rgba(255,253,249,0.95),rgba(249,242,232,0.92))] dark:bg-[linear-gradient(180deg,rgba(26,35,47,0.95),rgba(32,44,59,0.94))] px-3 py-3 shadow-[0_20px_45px_rgba(77,57,30,0.08)] dark:shadow-[0_20px_45px_rgba(0,0,0,0.28)]">
                       {SidebarComponent && <SidebarComponent />}
@@ -551,7 +419,7 @@ export function Shell({ colorScheme }: ShellProps = {}) {
                 </button>
               </div>
               <div className="flex-1 overflow-y-auto">
-                <Blueprint activeSection={resolvedActiveSection} onSectionChange={setActiveSection} sections={visibleBlueprintSections} activeEditorView={activeEditorView} activeTab={activeTab} />
+                <Blueprint activeSection={resolvedSection} onSectionChange={setActiveSection} sections={visibleSections} activeEditorView={activeEditorView} activeTab={activeTab} />
                 <div className="px-4 py-2">
                   {SidebarComponent && <SidebarComponent />}
                 </div>
@@ -596,10 +464,16 @@ export function Shell({ colorScheme }: ShellProps = {}) {
       </LayoutPreviewNavProvider>
       </OpenDefinitionInEditorProvider>
       <StatusBar />
-      <CommandPalette open={showPalette} onClose={() => setShowPalette(false)} />
-      <ImportDialog open={showImport} onClose={() => setShowImport(false)} />
-      <SettingsDialog open={showSettings} onClose={() => setShowSettings(false)} />
-      <AppSettingsDialog open={showAppSettings} onClose={() => setShowAppSettings(false)} />
+      <ShellDialogs
+        showPalette={showPalette}
+        setShowPalette={setShowPalette}
+        showImport={showImport}
+        setShowImport={setShowImport}
+        showSettings={showSettings}
+        setShowSettings={setShowSettings}
+        showAppSettings={showAppSettings}
+        setShowAppSettings={setShowAppSettings}
+      />
     </div>
   );
 }
