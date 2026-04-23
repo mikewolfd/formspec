@@ -1,6 +1,9 @@
 /** @filedesc MCP tools for changeset lifecycle management. */
+import { z } from 'zod';
+import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import type { ProjectRegistry } from '../registry.js';
 import { successResponse, errorResponse, formatToolError } from '../errors.js';
+import { NON_DESTRUCTIVE, READ_ONLY, DESTRUCTIVE } from '../annotations.js';
 import type { Project, ProposalManager, Changeset, MergeResult } from '@formspec-org/studio-core';
 
 /**
@@ -261,4 +264,66 @@ function formatMergeResult(result: MergeResult, cs: Readonly<Changeset>) {
       errors: diag.structural.filter(d => d.severity === 'error'),
     },
   ));
+}
+
+// ── Registration ────────────────────────────────────────────────────
+
+export function registerChangesetTools(server: McpServer, registry: ProjectRegistry): void {
+  server.registerTool('formspec_changeset_open', {
+    title: 'Open Changeset',
+    description: 'Start a new changeset. All subsequent mutations are recorded as proposals for review. The user can continue editing the canvas freely while the changeset is open.',
+    inputSchema: {
+      project_id: z.string(),
+    },
+    annotations: NON_DESTRUCTIVE,
+  }, async ({ project_id }) => {
+    return handleChangesetOpen(registry, project_id);
+  });
+
+  server.registerTool('formspec_changeset_close', {
+    title: 'Close Changeset',
+    description: 'Seal the current changeset. Computes dependency groups for review. Status transitions to "pending".',
+    inputSchema: {
+      project_id: z.string(),
+      label: z.string().describe('Human-readable summary of the changeset (e.g. "Added 3 fields, set validation on email")'),
+    },
+    annotations: NON_DESTRUCTIVE,
+  }, async ({ project_id, label }) => {
+    return handleChangesetClose(registry, project_id, label);
+  });
+
+  server.registerTool('formspec_changeset_list', {
+    title: 'List Changesets',
+    description: 'List changesets with status, summaries, and dependency groups.',
+    inputSchema: {
+      project_id: z.string(),
+    },
+    annotations: READ_ONLY,
+  }, async ({ project_id }) => {
+    return handleChangesetList(registry, project_id);
+  });
+
+  server.registerTool('formspec_changeset_accept', {
+    title: 'Accept Changeset',
+    description: 'Accept a pending changeset. Pass group_indices to accept specific dependency groups (partial merge), or omit to accept all.',
+    inputSchema: {
+      project_id: z.string(),
+      group_indices: z.array(z.number()).optional().describe('Dependency group indices to accept. Omit to accept all.'),
+    },
+    annotations: NON_DESTRUCTIVE,
+  }, async ({ project_id, group_indices }) => {
+    return handleChangesetAccept(registry, project_id, group_indices);
+  });
+
+  server.registerTool('formspec_changeset_reject', {
+    title: 'Reject Changeset',
+    description: 'Reject a pending changeset. Pass group_indices to reject specific dependency groups (the complement is accepted), or omit to reject all.',
+    inputSchema: {
+      project_id: z.string(),
+      group_indices: z.array(z.number()).optional().describe('Dependency group indices to reject. Omit to reject all.'),
+    },
+    annotations: DESTRUCTIVE,
+  }, async ({ project_id, group_indices }) => {
+    return handleChangesetReject(registry, project_id, group_indices);
+  });
 }

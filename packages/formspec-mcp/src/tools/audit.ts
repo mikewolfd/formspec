@@ -1,8 +1,11 @@
 /** @filedesc MCP tool for form audit: item classification and bind summaries. */
 import type { ProjectRegistry } from '../registry.js';
-import { successResponse, errorResponse, formatToolError } from '../errors.js';
+import { wrapCall } from '../errors.js';
 import { HelperError } from '@formspec-org/studio-core';
 import type { Project } from '@formspec-org/studio-core';
+import { z } from 'zod';
+import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
+import { READ_ONLY } from '../annotations.js';
 
 // ── Types ────────────────────────────────────────────────────────────
 
@@ -229,24 +232,33 @@ export function handleAudit(
   projectId: string,
   params: AuditParams,
 ) {
-  try {
+  return wrapCall(() => {
     const project = registry.getProject(projectId);
 
     switch (params.action) {
       case 'classify_items':
-        return successResponse({ items: classifyItems(project) });
+        return { items: classifyItems(project) };
       case 'bind_summary':
-        return successResponse({ binds: bindSummary(project, params.target!) });
+        return { binds: bindSummary(project, params.target!) };
       case 'cross_document':
-        return successResponse(crossDocumentAudit(project));
+        return crossDocumentAudit(project);
       case 'accessibility':
-        return successResponse(accessibilityAudit(project));
+        return accessibilityAudit(project);
     }
-  } catch (err) {
-    if (err instanceof HelperError) {
-      return errorResponse(formatToolError(err.code, err.message, err.detail as Record<string, unknown>));
-    }
-    const message = err instanceof Error ? err.message : String(err);
-    return errorResponse(formatToolError('COMMAND_FAILED', message));
-  }
+  });
+}
+
+export function registerAudit(server: McpServer, registry: ProjectRegistry) {
+  server.registerTool('formspec_audit', {
+    title: 'Audit',
+    description: 'Audit the form structure. classify_items: classify all items. bind_summary: show bind properties for a field. cross_document: check cross-artifact consistency. accessibility: check labels, hints, required field descriptions.',
+    inputSchema: {
+      project_id: z.string(),
+      action: z.enum(['classify_items', 'bind_summary', 'cross_document', 'accessibility']),
+      target: z.string().optional().describe('Field path (required for bind_summary)'),
+    },
+    annotations: READ_ONLY,
+  }, async ({ project_id, action, target }) => {
+    return handleAudit(registry, project_id, { action, target });
+  });
 }

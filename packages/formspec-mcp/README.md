@@ -1,6 +1,8 @@
 # formspec-mcp
 
-MCP server that exposes Formspec form authoring as 27 tools. Thin wrapper around `formspec-studio-core` — all business logic lives there; this package adapts it to the [Model Context Protocol](https://modelcontextprotocol.io/) over stdio.
+MCP server that exposes Formspec form authoring as **49 tools** on the default **stdio** entrypoint (`server.ts`): **43** tools from `createFormspecServer()` plus **6** Node-only tools (`formspec_draft`, `formspec_load`, `formspec_open`, `formspec_save`, `formspec_list`, `formspec_publish`) from `registerNodeTools()`. Embeddings that call `createFormspecServer()` alone get the **43** authoring tools (no filesystem bootstrap tools).
+
+Thin wrapper around `formspec-studio-core` — all business logic lives there; this package adapts it to the [Model Context Protocol](https://modelcontextprotocol.io/) over stdio.
 
 ## Install & Run
 
@@ -37,16 +39,20 @@ Add to your MCP config:
 MCP Client (Claude)
     |
     v
-server.ts          27 tool registrations + 3 schema resources
+server.ts          stdio transport + init; calls createFormspecServer + registerNodeTools
+    |
+    v
+create-server.ts   43 tool registrations (browser-safe authoring)
+node-tools.ts      6 tool registrations (Node: draft, load, open, save, list, publish) + 3 schema resources
     |
     v
 ProjectRegistry    Session manager (max 20 projects, two-phase lifecycle)
     |
     v
-tools/*.ts         Thin handlers — parse input, delegate, format output
+tools/*.ts         Handlers — parse input, delegate, format output
     |
     v
-formspec-studio-core   51 authoring methods (Project class)
+formspec-studio-core   Project class + authoring helpers
     |
     v
 formspec-engine    FEL evaluation, validation, schema checking
@@ -62,7 +68,7 @@ Projects start in **bootstrap** and transition to **authoring**.
 
 The registry enforces phase isolation. Calling an authoring tool on a bootstrap project (or vice versa) returns a `WRONG_PHASE` error. Once loaded, a project cannot return to bootstrap.
 
-## Tools (27)
+## Tools (49 on stdio — 43 from `createFormspecServer` + 6 Node-only)
 
 ### Guide (1)
 
@@ -70,82 +76,122 @@ The registry enforces phase isolation. Calling an authoring tool on a bootstrap 
 |------|---------|
 | `formspec_guide` | Start a conversational intake questionnaire before authoring. Call this first for new forms or targeted modifications. |
 
-### Bootstrap (2)
+### Bootstrap / disk (6) — `registerNodeTools` only
 
 | Tool | Purpose |
 |------|---------|
 | `formspec_draft` | Submit a raw JSON artifact (definition, component, or theme) for schema validation |
 | `formspec_load` | Validate all drafts and transition bootstrap → authoring |
+| `formspec_open` | Open a formspec project from a directory on disk |
+| `formspec_save` | Write all artifacts to disk |
+| `formspec_list` | List open projects (optionally include autosaved snapshots) |
+| `formspec_publish` | Export versioned bundle — blocked if errors exist |
 
-### Lifecycle (7)
+### Lifecycle & history (4)
 
 | Tool | Purpose |
 |------|---------|
 | `formspec_create` | Create a new project in bootstrap phase |
-| `formspec_open` | Load from disk (`*.definition.json` + siblings) |
-| `formspec_save` | Write all artifacts to disk |
-| `formspec_list` | List open projects (optionally include autosaved snapshots) |
-| `formspec_publish` | Export versioned bundle — blocked if errors exist |
 | `formspec_undo` | Undo the last authoring operation |
 | `formspec_redo` | Redo the last undone operation |
+| `formspec_lifecycle` | Combined lifecycle / export / status actions (see tool description) |
 
-### Structure (8)
+Disk **open** / **save** / **list** / **publish** are the Node-only tools in the table above (`formspec_open`, `formspec_save`, `formspec_list`, `formspec_publish`).
+
+### Changesets (5)
 
 | Tool | Purpose |
 |------|---------|
-| `formspec_field` | Add data-collecting fields (string, number, choice, date, etc.). Supports batch via `items[]`. |
+| `formspec_changeset_open` | Open a changeset recording bracket |
+| `formspec_changeset_close` | Close the current bracket |
+| `formspec_changeset_list` | List changesets |
+| `formspec_changeset_accept` | Accept a changeset |
+| `formspec_changeset_reject` | Reject a changeset |
+
+### Structure (9)
+
+| Tool | Purpose |
+|------|---------|
+| `formspec_field` | Add data-collecting fields. Supports batch via `items[]`. |
 | `formspec_content` | Add display elements (heading, paragraph, divider, banner). Supports batch via `items[]`. |
-| `formspec_group` | Add a logical group container. Include `props.repeat` to make it repeatable. Supports batch via `items[]`. |
+| `formspec_group` | Add a logical group container. Supports batch via `items[]`. |
 | `formspec_submit_button` | Add a submit button to the form or a specific page |
-| `formspec_update` | Modify properties on existing items (`target="item"`) or form metadata (`target="metadata"`) |
+| `formspec_update` | Modify properties on existing items or form metadata. Supports batch. |
 | `formspec_edit` | Structural mutations: remove, move, rename, or copy items |
-| `formspec_page` | Add, remove, or reorder pages (theme-tier) |
+| `formspec_structure_batch` | Run multiple structure operations in one call |
+| `formspec_page` | Add, remove, reorder, or list pages |
 | `formspec_place` | Assign (`place`) or unassign (`unplace`) items to pages |
 
-### Behavior (1)
+### Behavior & flow (3)
 
 | Tool | Purpose |
 |------|---------|
-| `formspec_behavior` | Set field logic: `show_when`, `readonly_when`, `require`, `calculate`, `add_rule`. All accept FEL expressions. Supports batch via `items[]`. |
+| `formspec_behavior` | Field logic: `show_when`, `readonly_when`, `require`, `calculate`, `add_rule` (FEL). Batch via `items[]`. |
+| `formspec_behavior_expanded` | Extended behavior surface (see tool schema) |
+| `formspec_flow` | Navigation mode (`set_mode`: single/wizard/tabs) or conditional branching (`branch`) |
 
-### Flow (1)
-
-| Tool | Purpose |
-|------|---------|
-| `formspec_flow` | Set navigation mode (`set_mode`: single/wizard/tabs) or add conditional branching (`branch`) |
-
-### Presentation (1)
+### Presentation & components (4)
 
 | Tool | Purpose |
 |------|---------|
-| `formspec_style` | Apply layout arrangements (`layout`), per-item style properties (`style`), or bulk style by type/dataType (`style_all`) |
+| `formspec_style` | Layout arrangements, per-item style, or bulk style by type |
+| `formspec_theme` | Theme document mutations |
+| `formspec_component` | Component tree / component document |
+| `formspec_widget` | Widget-level authoring |
 
-### Data (1)
-
-| Tool | Purpose |
-|------|---------|
-| `formspec_data` | Manage reusable choice lists (`choices`), computed variables (`variable`), and external data instances (`instance`) |
-
-### Screener (1)
+### Data & screener (2)
 
 | Tool | Purpose |
 |------|---------|
-| `formspec_screener` | Enable/disable the pre-form screener; add/remove screening fields; manage routing rules |
+| `formspec_data` | Choice lists, variables, external data instances |
+| `formspec_screener` | Screener document: items, phases, routes, lifecycle |
 
-### Query (3)
+### Query & preview (4)
 
 | Tool | Purpose |
 |------|---------|
-| `formspec_describe` | Introspect form structure (`mode="structure"`) or run diagnostics (`mode="audit"`) |
+| `formspec_describe` | Introspect structure or run diagnostics (`mode`) |
 | `formspec_search` | Find items by type, dataType, label, or extension |
-| `formspec_trace` | Trace FEL dependencies for an expression or field (`mode="trace"`), or generate a changelog (`mode="changelog"`) |
-| `formspec_preview` | Render form state with optional scenario data (`mode="preview"`), or validate a response object (`mode="validate"`) |
+| `formspec_trace` | FEL dependency trace or changelog mode |
+| `formspec_preview` | Render preview or validate a response object |
 
-### FEL (1)
+### FEL (2)
 
 | Tool | Purpose |
 |------|---------|
-| `formspec_fel` | FEL utilities: list available references at a path (`context`), list ~40 stdlib functions (`functions`), or validate an expression (`check`) |
+| `formspec_fel` | References at path, stdlib catalog, expression validation |
+| `formspec_fel_trace` | Deeper FEL trace / analysis |
+
+### Quality & docs (2)
+
+| Tool | Purpose |
+|------|---------|
+| `formspec_audit` | Audit / diagnostics helpers |
+| `formspec_changelog` | Changelog-oriented queries |
+
+### Extensions & semantics (4)
+
+| Tool | Purpose |
+|------|---------|
+| `formspec_locale` | Locale strings and metadata |
+| `formspec_ontology` | Ontology bindings on items |
+| `formspec_reference` | Bound references (URIs) on fields |
+| `formspec_composition` | Composition / layout composition helpers |
+
+### Mapping & migration (2)
+
+| Tool | Purpose |
+|------|---------|
+| `formspec_mapping` | Mapping document rules and adapter |
+| `formspec_migration` | Definition migrations |
+
+### Responses (1)
+
+| Tool | Purpose |
+|------|---------|
+| `formspec_response` | Test / sample responses for preview |
+
+> **Tool count:** `tests/tool-registration.test.ts` asserts **43** names on `createFormspecServer(registry)` alone. Adding `registerNodeTools(server, registry)` in `server.ts` registers the **6** bootstrap/disk tools above → **49** for the CLI.
 
 ## Schema Resources
 
@@ -186,39 +232,56 @@ npm test              # vitest run
 npm run test:watch    # vitest (watch mode)
 ```
 
-7 test files covering bootstrap, lifecycle, structure, behavior, query, and registry. Tests use helper factories (`registryWithProject()`, `registryInBootstrap()`) and minimal document fixtures.
+Vitest covers bootstrap, lifecycle, structure, behavior, query, registry, changesets, expanded tools, and integration paths (`tests/*.test.ts`).
 
 ## File Structure
 
 ```
 src/
-  index.ts          Shebang entry point
-  server.ts         Tool registrations + stdio transport (27 tools)
-  registry.ts       ProjectRegistry — session management
-  schemas.ts        Schema loading singleton
-  errors.ts         Error formatting + wrapHelperCall + wrapBatchCall
-  annotations.ts    Tool hint constants (READ_ONLY, DESTRUCTIVE, etc.)
-  batch.ts          Batch execution helper
+  index.ts           Shebang entry point
+  server.ts          stdio transport, engine init, registerNodeTools + schema resources
+  create-server.ts   createFormspecServer() — 43 browser-safe tool registrations
+  node-tools.ts      registerNodeTools (6) + registerSchemaResources (3)
+  mcpb-entry.ts      Alternate entry (shares node-tools registration pattern)
+  registry.ts        ProjectRegistry — session management
+  schemas.ts         Schema loading singleton
+  errors.ts          Error formatting, wrapCall, resolveProject, etc.
+  annotations.ts     Tool hint constants (READ_ONLY, DESTRUCTIVE, etc.)
+  tool-schemas.ts    Shared Zod fragments
+  dispatch.ts        Shared dispatch helpers (where used)
+  batch.ts           Batch execution helper
   tools/
-    guide.ts        Conversational intake questionnaire (1 tool)
-    bootstrap.ts    Draft submission + validation (2 tools)
-    lifecycle.ts    Create, open, save, publish (7 tools)
-    structure.ts    Fields, groups, pages, placement (8 tools)
-    behavior.ts     Visibility, required, calculate, rules (1 tool)
-    flow.ts         Navigation mode, branching (1 tool)
-    style.ts        Layout, styling (1 tool)
-    data.ts         Choices, variables, instances (1 tool)
-    screener.ts     Pre-form qualification (1 tool)
-    query.ts        Describe, search, trace, preview (4 tools)
-    fel.ts          Expression language utilities (1 tool)
+    guide.ts         Intake questionnaire
+    bootstrap.ts     Draft/load validation handlers
+    lifecycle.ts     Create, save handlers; undo/redo helpers
+    structure.ts     Fields, groups, pages, placement (+ optional registerStructureTools)
+    structure-batch.ts
+    behavior.ts      Visibility, required, calculate, rules
+    behavior-expanded.ts
+    flow.ts          Navigation mode, branching
+    style.ts         Layout, styling
+    data.ts          Choices, variables, instances
+    screener.ts      Pre-form qualification
+    query.ts         Describe, search, trace, preview
+    fel.ts           FEL utilities + fel_trace registration
+    widget.ts        Widget authoring
+    audit.ts         Audit tool
+    theme.ts         Theme tool
+    component.ts     Component tree tool
+    locale.ts        Locale tool
+    ontology.ts      Ontology tool
+    reference.ts     Reference bindings tool
+    composition.ts   Composition tool
+    response.ts      Response / preview samples
+    mapping-expanded.ts
+    migration.ts     Migration tool
+    changelog.ts     Changelog tool
+    publish.ts        Publish / lifecycle status (used by formspec_lifecycle)
+    changeset.ts     Changeset bracket helpers
 tests/
-  helpers.ts        Test utilities + fixtures
-  bootstrap.test.ts
-  lifecycle.test.ts
-  structure.test.ts
-  behavior.test.ts
-  query.test.ts
-  registry.test.ts
+  helpers.ts         Test utilities + fixtures
+  tool-registration.test.ts
+  … (many *.test.ts)
 ```
 
 ## Graceful Shutdown

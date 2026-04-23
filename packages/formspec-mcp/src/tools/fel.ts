@@ -7,8 +7,10 @@
  */
 
 import type { ProjectRegistry } from '../registry.js';
-import { HelperError } from '@formspec-org/studio-core';
-import { errorResponse, successResponse, formatToolError } from '../errors.js';
+import { wrapCall } from '../errors.js';
+import { z } from 'zod';
+import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
+import { READ_ONLY } from '../annotations.js';
 
 type FelAction = 'context' | 'functions' | 'check' | 'validate' | 'autocomplete' | 'humanize';
 
@@ -24,30 +26,25 @@ export function handleFel(
   projectId: string,
   params: FelParams,
 ) {
-  try {
+  return wrapCall(() => {
     const project = registry.getProject(projectId);
 
     switch (params.action) {
       case 'context': {
-        const refs = project.availableReferences(params.path);
-        return successResponse(refs);
+        return project.availableReferences(params.path);
       }
       case 'functions': {
-        const catalog = project.felFunctionCatalog();
-        return successResponse(catalog);
+        return project.felFunctionCatalog();
       }
       case 'check': {
         const context = params.context_path ? { targetPath: params.context_path } : undefined;
-        const result = project.parseFEL(params.expression!, context);
-        return successResponse(result);
+        return project.parseFEL(params.expression!, context);
       }
       case 'validate': {
-        const result = project.validateFELExpression(params.expression!, params.context_path);
-        return successResponse(result);
+        return project.validateFELExpression(params.expression!, params.context_path);
       }
       case 'autocomplete': {
-        const suggestions = project.felAutocompleteSuggestions(params.expression ?? '', params.context_path);
-        return successResponse(suggestions);
+        return project.felAutocompleteSuggestions(params.expression ?? '', params.context_path);
       }
       case 'humanize': {
         const humanized = project.humanizeFELExpression(params.expression!);
@@ -55,16 +52,10 @@ export function handleFel(
         if (!humanized.supported) {
           response.note = 'Humanize currently supports simple binary comparisons only (e.g. "$field > value"). Complex expressions with function calls, boolean logic, or nesting are returned as-is.';
         }
-        return successResponse(response);
+        return response;
       }
     }
-  } catch (err) {
-    if (err instanceof HelperError) {
-      return errorResponse(formatToolError(err.code, err.message, err.detail as Record<string, unknown>));
-    }
-    const message = err instanceof Error ? err.message : String(err);
-    return errorResponse(formatToolError('COMMAND_FAILED', message));
-  }
+  });
 }
 
 // ── FEL trace ────────────────────────────────────────────────────────
@@ -74,28 +65,43 @@ interface FelTraceParams {
   fields?: Record<string, unknown>;
 }
 
-/**
- * Evaluate a FEL expression and return a structured trace of evaluation steps.
- *
- * The trace is identical in shape to what Rust `fel_core::evaluate_with_trace`
- * produces — each step carries a PascalCase `kind` tag (`FieldResolved`,
- * `FunctionCalled`, `BinaryOp`, `IfBranch`, `ShortCircuit`) plus per-kind payload.
- * Intended for LLM / error-explainer surfaces.
- */
 export function handleFelTrace(
   registry: ProjectRegistry,
   projectId: string,
   params: FelTraceParams,
 ) {
-  try {
+  return wrapCall(() => {
     const project = registry.getProject(projectId);
-    const result = project.traceFEL(params.expression, params.fields ?? {});
-    return successResponse(result);
-  } catch (err) {
-    if (err instanceof HelperError) {
-      return errorResponse(formatToolError(err.code, err.message, err.detail as Record<string, unknown>));
-    }
-    const message = err instanceof Error ? err.message : String(err);
-    return errorResponse(formatToolError('COMMAND_FAILED', message));
-  }
+    return project.traceFEL(params.expression, params.fields ?? {});
+  });
+}
+
+export function registerFelTools(server: McpServer, registry: ProjectRegistry) {
+  server.registerTool('formspec_fel', {
+    title: 'FEL',
+    description: 'FEL utilities: list available references, function catalog, validate/check an expression, get autocomplete suggestions, or humanize an expression to English.\n\nRepeat group references: Inside a repeat context, $siblingField resolves to the current instance. Use $group[*].field to aggregate across all instances (e.g., sum($items[*].amount)). Context variables: @current (current instance object), @index (0-based), @count (total instances). The context action returns scope: "local"|"global" annotations per reference.',
+    inputSchema: {
+      project_id: z.string(),
+      action: z.enum(['context', 'functions', 'check', 'validate', 'autocomplete', 'humanize']),
+      path: z.string().optional(),
+      expression: z.string().optional().describe('FEL expression (for check/validate/humanize) or partial input (for autocomplete)'),
+      context_path: z.string().optional().describe('Field path for scope-aware validation and context-specific suggestions'),
+    },
+    annotations: READ_ONLY,
+  }, async ({ project_id, action, path, expression, context_path }) => {
+    return handleFel(registry, project_id, { action, path, expression, context_path });
+  });
+
+  server.registerTool('formspec_fel_trace', {
+    title: 'FEL Trace',
+    description: 'Evaluate a FEL expression with a structured trace of evaluation steps. Returns { value, diagnostics, trace }; each trace step has a `kind` (FieldResolved, FunctionCalled, BinaryOp, IfBranch, ShortCircuit) plus per-kind payload. Intended for explainer / LLM surfaces — the trace is human-readable, not a reprojected AST.',
+    inputSchema: {
+      project_id: z.string(),
+      expression: z.string().describe('FEL expression to trace'),
+      fields: z.record(z.string(), z.unknown()).optional().describe('Optional flat map of field name -> value injected into the evaluation environment.'),
+    },
+    annotations: READ_ONLY,
+  }, async ({ project_id, expression, fields }) => {
+    return handleFelTrace(registry, project_id, { expression, fields });
+  });
 }

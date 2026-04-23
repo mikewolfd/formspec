@@ -49,7 +49,7 @@ describe('handleResponse — set_test_response', () => {
     expect(data.value).toBe(30);
 
     // Cleanup
-    clearTestResponsesForProject(projectId);
+    clearTestResponsesForProject(registry, projectId);
   });
 });
 
@@ -94,7 +94,7 @@ describe('handleResponse — get_test_response', () => {
     expect(data.response.a).toBe('hello');
     expect(data.response.b).toBe(42);
 
-    clearTestResponsesForProject(projectId);
+    clearTestResponsesForProject(registry, projectId);
   });
 });
 
@@ -164,7 +164,7 @@ describe('handleResponse — validate_response', () => {
     expect(result.isError).toBeUndefined();
     expect(data).toBeDefined();
 
-    clearTestResponsesForProject(projectId);
+    clearTestResponsesForProject(registry, projectId);
   });
 });
 

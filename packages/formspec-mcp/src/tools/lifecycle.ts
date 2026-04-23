@@ -4,9 +4,12 @@
  * These manage project creation, persistence, and history operations.
  */
 
-import { createProject, HelperError, type ProjectBundle } from '@formspec-org/studio-core';
+import { createProject, type ProjectBundle } from '@formspec-org/studio-core';
 import { ProjectRegistry } from '../registry.js';
-import { errorResponse, successResponse, formatToolError } from '../errors.js';
+import { wrapCall, errorResponse, successResponse, formatToolError } from '../errors.js';
+import { z } from 'zod';
+import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
+import { NON_DESTRUCTIVE } from '../annotations.js';
 import {
   readFileSync, writeFileSync, mkdirSync, readdirSync, existsSync, statSync,
 } from 'node:fs';
@@ -57,21 +60,12 @@ function writeBundle(
 export function handleCreate(
   registry: ProjectRegistry,
 ): ReturnType<typeof successResponse> | ReturnType<typeof errorResponse> {
-  try {
+  return wrapCall(() => {
     const projectId = registry.newProject();
-    // Auto-transition to authoring with a blank project
     const project = createProject();
     registry.transitionToAuthoring(projectId, project);
-    return successResponse({
-      project_id: projectId,
-      phase: 'authoring',
-    });
-  } catch (err) {
-    if (err instanceof HelperError) {
-      return errorResponse(formatToolError(err.code, err.message, err.detail as Record<string, unknown>));
-    }
-    throw err;
-  }
+    return { project_id: projectId, phase: 'authoring' };
+  });
 }
 
 // ── handleOpen ────────────────────────────────────────────────────
@@ -80,25 +74,21 @@ export function handleOpen(
   registry: ProjectRegistry,
   path: string,
 ): ReturnType<typeof successResponse> | ReturnType<typeof errorResponse> {
-  try {
+  return wrapCall(() => {
     const absPath = resolve(path);
 
-    // Check directory exists
     if (!existsSync(absPath) || !statSync(absPath).isDirectory()) {
       return errorResponse(formatToolError('LOAD_FAILED', `Directory not found: ${absPath}`));
     }
 
-    // Find *.definition.json
     const files = readdirSync(absPath);
     const defFile = files.find(f => f.endsWith('.definition.json'));
     if (!defFile) {
       return errorResponse(formatToolError('LOAD_FAILED', `No *.definition.json found in ${absPath}`));
     }
 
-    // Read definition (required)
     const definition = JSON.parse(readFileSync(join(absPath, defFile), 'utf-8'));
 
-    // Build bundle from available artifacts
     const bundle: Record<string, unknown> = { definition };
 
     const compFile = files.find(f => f.endsWith('.component.json'));
@@ -116,24 +106,13 @@ export function handleOpen(
       bundle.mapping = JSON.parse(readFileSync(join(absPath, mappingFile), 'utf-8'));
     }
 
-    // Create project and load bundle
     const project = createProject();
     project.loadBundle(bundle);
 
-    // Register (idempotent — returns same id for same path)
     const projectId = registry.registerOpen(absPath, project);
 
-    return successResponse({ project_id: projectId, phase: 'authoring' });
-  } catch (err) {
-    if (err instanceof HelperError) {
-      return errorResponse(formatToolError(err.code, err.message, err.detail as Record<string, unknown>));
-    }
-    if (err instanceof SyntaxError) {
-      return errorResponse(formatToolError('LOAD_FAILED', `Invalid JSON: ${err.message}`));
-    }
-    const message = err instanceof Error ? err.message : String(err);
-    return errorResponse(formatToolError('LOAD_FAILED', message));
-  }
+    return { project_id: projectId, phase: 'authoring' };
+  }, 'LOAD_FAILED');
 }
 
 // ── handleSave ────────────────────────────────────────────────────
@@ -143,12 +122,10 @@ export function handleSave(
   projectId: string,
   path?: string,
 ): ReturnType<typeof successResponse> | ReturnType<typeof errorResponse> {
-  try {
-    // getProject throws WRONG_PHASE if in bootstrap
+  return wrapCall(() => {
     const project = registry.getProject(projectId);
     const entry = registry.getEntry(projectId);
 
-    // Resolve target path
     const targetPath = path ? resolve(path) : entry.sourcePath;
     if (!targetPath) {
       return errorResponse(formatToolError('SAVE_FAILED', "No save path specified. For newly created projects, provide a path parameter (e.g., formspec_save with path='my-form'). Or use formspec_publish to export the bundle inline."));
@@ -157,14 +134,8 @@ export function handleSave(
     const bundle = project.export();
     writeBundle(bundle, targetPath);
 
-    return successResponse({ saved: true, path: targetPath });
-  } catch (err) {
-    if (err instanceof HelperError) {
-      return errorResponse(formatToolError(err.code, err.message, err.detail as Record<string, unknown>));
-    }
-    const message = err instanceof Error ? err.message : String(err);
-    return errorResponse(formatToolError('SAVE_FAILED', message));
-  }
+    return { saved: true, path: targetPath };
+  }, 'SAVE_FAILED');
 }
 
 // ── handleList ────────────────────────────────────────────────────
@@ -214,14 +185,14 @@ export function handleList(
 
 // ── handlePublish ─────────────────────────────────────────────────
 
-export function handlePublish(
+export function handleExportBundle(
   registry: ProjectRegistry,
   projectId: string,
   version: string,
   summary?: string,
   path?: string,
 ): ReturnType<typeof successResponse> | ReturnType<typeof errorResponse> {
-  try {
+  return wrapCall(() => {
     const project = registry.getProject(projectId);
     const diagnostics = project.diagnose();
 
@@ -236,26 +207,20 @@ export function handlePublish(
     if (path) {
       const targetPath = resolve(path);
       writeBundle(bundle, targetPath);
-      return successResponse({
+      return {
         version,
         summary: summary ?? null,
         path: targetPath,
         bundle,
-      });
+      };
     }
 
-    return successResponse({
+    return {
       version,
       summary: summary ?? null,
       bundle,
-    });
-  } catch (err) {
-    if (err instanceof HelperError) {
-      return errorResponse(formatToolError(err.code, err.message, err.detail as Record<string, unknown>));
-    }
-    const message = err instanceof Error ? err.message : String(err);
-    return errorResponse(formatToolError('COMMAND_FAILED', message));
-  }
+    };
+  });
 }
 
 // ── handleUndo ────────────────────────────────────────────────────
@@ -264,20 +229,12 @@ export function handleUndo(
   registry: ProjectRegistry,
   projectId: string,
 ): ReturnType<typeof successResponse> | ReturnType<typeof errorResponse> {
-  try {
+  return wrapCall(() => {
     const project = registry.getProject(projectId);
-    if (!project.canUndo) {
-      return successResponse({ undone: false });
-    }
+    if (!project.canUndo) return { undone: false };
     project.undo();
-    return successResponse({ undone: true });
-  } catch (err) {
-    if (err instanceof HelperError) {
-      return errorResponse(formatToolError(err.code, err.message, err.detail as Record<string, unknown>));
-    }
-    const message = err instanceof Error ? err.message : String(err);
-    return errorResponse(formatToolError('COMMAND_FAILED', message));
-  }
+    return { undone: true };
+  });
 }
 
 // ── handleRedo ────────────────────────────────────────────────────
@@ -286,18 +243,39 @@ export function handleRedo(
   registry: ProjectRegistry,
   projectId: string,
 ): ReturnType<typeof successResponse> | ReturnType<typeof errorResponse> {
-  try {
+  return wrapCall(() => {
     const project = registry.getProject(projectId);
-    if (!project.canRedo) {
-      return successResponse({ redone: false });
-    }
+    if (!project.canRedo) return { redone: false };
     project.redo();
-    return successResponse({ redone: true });
-  } catch (err) {
-    if (err instanceof HelperError) {
-      return errorResponse(formatToolError(err.code, err.message, err.detail as Record<string, unknown>));
-    }
-    const message = err instanceof Error ? err.message : String(err);
-    return errorResponse(formatToolError('COMMAND_FAILED', message));
-  }
+    return { redone: true };
+  });
+}
+
+export function registerLifecycleTools(server: McpServer, registry: ProjectRegistry): void {
+  server.registerTool('formspec_create', {
+    title: 'Create Project',
+    description: 'Create a new project ready for authoring. For guided creation, call formspec_guide(mode="new") first.',
+    inputSchema: {},
+    annotations: NON_DESTRUCTIVE,
+  }, async () => {
+    return handleCreate(registry);
+  });
+
+  server.registerTool('formspec_undo', {
+    title: 'Undo',
+    description: 'Undo the last authoring operation. Returns { undone: true/false }.',
+    inputSchema: { project_id: z.string() },
+    annotations: NON_DESTRUCTIVE,
+  }, async ({ project_id }) => {
+    return handleUndo(registry, project_id);
+  });
+
+  server.registerTool('formspec_redo', {
+    title: 'Redo',
+    description: 'Redo the last undone operation. Returns { redone: true/false }.',
+    inputSchema: { project_id: z.string() },
+    annotations: NON_DESTRUCTIVE,
+  }, async ({ project_id }) => {
+    return handleRedo(registry, project_id);
+  });
 }

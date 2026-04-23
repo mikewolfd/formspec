@@ -1,5 +1,5 @@
 import { describe, it, expect, afterEach } from 'vitest';
-import { mkdtempSync, rmSync, readdirSync, readFileSync } from 'node:fs';
+import { mkdtempSync, rmSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { ProjectRegistry } from '../src/registry.js';
@@ -9,7 +9,7 @@ import {
   handleOpen,
   handleSave,
   handleList,
-  handlePublish,
+  handleExportBundle,
   handleUndo,
   handleRedo,
 } from '../src/tools/lifecycle.js';
@@ -135,9 +135,9 @@ describe('handleRedo', () => {
   });
 });
 
-// ── handlePublish ─────────────────────────────────────────────────
+// ── handleExportBundle ─────────────────────────────────────────────────
 
-describe('handlePublish', () => {
+describe('handleExportBundle', () => {
   it('returns PUBLISH_BLOCKED when project has diagnostics errors', () => {
     // Seed a project with an invalid FEL calculate expression in a bind.
     // loadBundle bypasses the FEL pre-validation that helper methods do,
@@ -158,7 +158,7 @@ describe('handlePublish', () => {
       } as any,
     });
 
-    const result = handlePublish(registry, projectId, '1.0.0');
+    const result = handleExportBundle(registry, projectId, '1.0.0');
 
     expect(result.isError).toBe(true);
     const data = parseResult(result);
@@ -168,7 +168,7 @@ describe('handlePublish', () => {
   it('succeeds when project has no errors', () => {
     const { registry, projectId } = registryWithProject();
     // A minimal valid project (empty items) should pass publish
-    const result = handlePublish(registry, projectId, '1.0.0', 'Initial release');
+    const result = handleExportBundle(registry, projectId, '1.0.0', 'Initial release');
 
     // Either it succeeds or it's blocked — we test the success path
     if (!result.isError) {
@@ -244,6 +244,20 @@ describe('handleOpen', () => {
     expect(result.isError).toBe(true);
     const data = parseResult(result);
     expect(data.code).toBe('LOAD_FAILED');
+  });
+
+  it('returns LOAD_FAILED with Invalid JSON prefix when definition JSON is malformed', () => {
+    const dir = makeTempDir();
+    const dirName = dir.split('/').pop()!;
+    writeFileSync(join(dir, `${dirName}.definition.json`), '{ not valid json', 'utf-8');
+
+    const registry = new ProjectRegistry();
+    const result = handleOpen(registry, dir);
+
+    expect(result.isError).toBe(true);
+    const data = parseResult(result);
+    expect(data.code).toBe('LOAD_FAILED');
+    expect(data.message).toMatch(/^Invalid JSON:/);
   });
 
   it('is idempotent — same path returns same project_id', () => {

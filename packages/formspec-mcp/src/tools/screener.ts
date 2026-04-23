@@ -7,8 +7,13 @@
  */
 
 import type { ProjectRegistry } from '../registry.js';
-import { wrapHelperCall } from '../errors.js';
+import { wrapCall } from '../errors.js';
 import { HelperError, type FieldProps } from '@formspec-org/studio-core';
+import { z } from 'zod';
+import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
+import { DESTRUCTIVE } from '../annotations.js';
+import { bracketMutation } from './changeset.js';
+import { fieldPropsSchema } from '../tool-schemas.js';
 
 type ScreenerAction =
   | 'create_document' | 'delete_document'
@@ -69,7 +74,7 @@ export function handleScreener(
   projectId: string,
   params: ScreenerParams,
 ) {
-  return wrapHelperCall(() => {
+  return wrapCall(() => {
     const project = registry.getProject(projectId);
 
     switch (params.action) {
@@ -119,5 +124,50 @@ export function handleScreener(
         return result;
       }
     }
+  });
+}
+
+export function registerScreener(server: McpServer, registry: ProjectRegistry): void {
+  server.registerTool('formspec_screener', {
+    title: 'Screener',
+    description: 'Manage standalone Screener Documents: items, phases, routes, and lifecycle.',
+    inputSchema: {
+      project_id: z.string(),
+      action: z.enum([
+        'create_document', 'delete_document',
+        'add_field', 'remove_field',
+        'add_phase', 'remove_phase', 'set_phase_strategy',
+        'add_route', 'update_route', 'reorder_route', 'remove_route',
+        'set_lifecycle',
+      ]),
+      url: z.string().optional(),
+      title: z.string().optional(),
+      key: z.string().optional(),
+      label: z.string().optional(),
+      type: z.string().optional(),
+      props: fieldPropsSchema.optional(),
+      phase_id: z.string().optional(),
+      strategy: z.string().optional(),
+      config: z.record(z.unknown()).optional(),
+      condition: z.string().optional(),
+      target: z.string().optional(),
+      message: z.string().optional(),
+      score: z.string().optional(),
+      threshold: z.number().optional(),
+      override: z.boolean().optional(),
+      terminal: z.boolean().optional(),
+      route_index: z.number().optional(),
+      changes: z.record(z.unknown()).optional(),
+      direction: z.enum(['up', 'down']).optional(),
+      insert_index: z.number().optional(),
+      availability_from: z.string().nullable().optional(),
+      availability_until: z.string().nullable().optional(),
+      result_validity: z.string().nullable().optional(),
+    },
+    annotations: DESTRUCTIVE,
+  }, async ({ project_id, ...params }) => {
+    return bracketMutation(registry, project_id, 'formspec_screener', () =>
+      handleScreener(registry, project_id, params as any),
+    );
   });
 }

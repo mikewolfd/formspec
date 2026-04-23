@@ -1,14 +1,16 @@
 /** @filedesc MCP tool for $ref composition on groups: add_ref, remove_ref, list_refs. */
 import type { ProjectRegistry } from '../registry.js';
-import type { Project } from '@formspec-org/studio-core';
-import { successResponse, errorResponse, formatToolError } from '../errors.js';
+import { wrapCall } from '../errors.js';
 import { HelperError } from '@formspec-org/studio-core';
+import { z } from 'zod';
+import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
+import { NON_DESTRUCTIVE } from '../annotations.js';
+import { bracketMutation } from './changeset.js';
 
 type CompositionAction = 'add_ref' | 'remove_ref' | 'list_refs';
 
 interface CompositionParams {
   action: CompositionAction;
-  // For add_ref / remove_ref
   path?: string;
   ref?: string;
   keyPrefix?: string;
@@ -19,7 +21,7 @@ export function handleComposition(
   projectId: string,
   params: CompositionParams,
 ) {
-  try {
+  return wrapCall(() => {
     const project = registry.getProject(projectId);
 
     switch (params.action) {
@@ -38,12 +40,12 @@ export function handleComposition(
 
         project.setGroupRef(path, params.ref!, params.keyPrefix);
 
-        return successResponse({
+        return {
           path,
           ref: params.ref,
           keyPrefix: params.keyPrefix ?? null,
           summary: `Set $ref on '${path}' → '${params.ref}'`,
-        });
+        };
       }
 
       case 'remove_ref': {
@@ -55,10 +57,10 @@ export function handleComposition(
 
         project.setGroupRef(path, null);
 
-        return successResponse({
+        return {
           path,
           summary: `Removed $ref from '${path}'`,
-        });
+        };
       }
 
       case 'list_refs': {
@@ -82,14 +84,30 @@ export function handleComposition(
         }
 
         walkItems(items, '');
-        return successResponse({ refs });
+        return { refs };
       }
     }
-  } catch (err) {
-    if (err instanceof HelperError) {
-      return errorResponse(formatToolError(err.code, err.message, err.detail as Record<string, unknown>));
+  });
+}
+
+export function registerComposition(server: McpServer, registry: ProjectRegistry) {
+  server.registerTool('formspec_composition', {
+    title: 'Composition',
+    description: 'Manage $ref composition on group items: add a reference to an external definition fragment, remove a reference, or list all references in the form.',
+    inputSchema: {
+      project_id: z.string(),
+      action: z.enum(['add_ref', 'remove_ref', 'list_refs']),
+      path: z.string().optional().describe('Group item path (for add_ref, remove_ref)'),
+      ref: z.string().optional().describe('URI of the external definition fragment (for add_ref)'),
+      keyPrefix: z.string().optional().describe('Key prefix for imported items (for add_ref)'),
+    },
+    annotations: NON_DESTRUCTIVE,
+  }, async ({ project_id, action, path, ref, keyPrefix }) => {
+    if (action === 'list_refs') {
+      return handleComposition(registry, project_id, { action, path, ref, keyPrefix });
     }
-    const message = err instanceof Error ? err.message : String(err);
-    return errorResponse(formatToolError('COMMAND_FAILED', message));
-  }
+    return bracketMutation(registry, project_id, 'formspec_composition', () =>
+      handleComposition(registry, project_id, { action, path, ref, keyPrefix }),
+    );
+  });
 }

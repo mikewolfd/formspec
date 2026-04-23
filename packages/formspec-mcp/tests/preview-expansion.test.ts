@@ -17,9 +17,9 @@ describe('handlePreview — sample_data mode', () => {
     expect(result.isError).toBeUndefined();
 
     const data = parseResult(result);
-    // string key "name" uses name heuristic; integer uses 10 + fieldIndex (second field → 11)
+    // string key "name" uses name heuristic; integer default matches studio-core generateSampleData
     expect(data.name).toBe('Jane Doe');
-    expect(data.age).toBe(11);
+    expect(data.age).toBe(34);
   });
 
   it('returns empty object for project with no fields', () => {
@@ -54,7 +54,7 @@ describe('handlePreview — sample_data mode', () => {
 
     const data = parseResult(result);
     expect(data.name).toBe('Alice');
-    expect(data.age).toBe(11); // non-overridden field keeps generated default
+    expect(data.age).toBe(34); // non-overridden field keeps generated default
   });
 
   it('ignores scenario keys that do not match any field', () => {
@@ -67,7 +67,7 @@ describe('handlePreview — sample_data mode', () => {
     const data = parseResult(result);
 
     expect(data).not.toHaveProperty('nonexistent');
-    expect(data.q1).toBe('Sample paragraph text');
+    expect(data.q1).toBe('A longer form text response with multiple sentences.');
   });
 });
 

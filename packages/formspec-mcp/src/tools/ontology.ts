@@ -1,8 +1,11 @@
 /** @filedesc MCP tool for ontology management: concept bindings and vocabulary URLs. */
 import type { ProjectRegistry } from '../registry.js';
-import { successResponse, errorResponse, formatToolError } from '../errors.js';
-import { HelperError } from '@formspec-org/studio-core';
+import { wrapCall, errorResponse, formatToolError } from '../errors.js';
 import type { FormItem } from '@formspec-org/types';
+import { z } from 'zod';
+import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
+import { NON_DESTRUCTIVE } from '../annotations.js';
+import { bracketMutation } from './changeset.js';
 
 type OntologyAction =
   | 'bind_concept'
@@ -27,7 +30,7 @@ export function handleOntology(
   projectId: string,
   params: OntologyParams,
 ) {
-  try {
+  return wrapCall(() => {
     const project = registry.getProject(projectId);
 
     switch (params.action) {
@@ -48,11 +51,11 @@ export function handleOntology(
           binding.vocabulary = params.vocabulary;
         }
         setOntologyBinding(project, params.path!, binding);
-        return successResponse({
+        return {
           summary: `Ontology concept bound to ${params.path}: ${params.concept}`,
           affectedPaths: [params.path!],
           warnings: [],
-        });
+        };
       }
 
       case 'remove_concept': {
@@ -72,11 +75,11 @@ export function handleOntology(
             setOntologyBinding(project, params.path!, existing);
           }
         }
-        return successResponse({
+        return {
           summary: `Ontology concept removed from ${params.path}`,
           affectedPaths: [params.path!],
           warnings: [],
-        });
+        };
       }
 
       case 'list_concepts': {
@@ -87,7 +90,7 @@ export function handleOntology(
             concepts.push({ path, ...binding });
           }
         });
-        return successResponse({ concepts });
+        return { concepts };
       }
 
       case 'set_vocabulary': {
@@ -101,11 +104,11 @@ export function handleOntology(
         const existing = getOntologyBinding(item) ?? {};
         existing.vocabulary = params.vocabulary!;
         setOntologyBinding(project, params.path!, existing);
-        return successResponse({
+        return {
           summary: `Vocabulary set on ${params.path}: ${params.vocabulary}`,
           affectedPaths: [params.path!],
           warnings: [],
-        });
+        };
       }
 
       default:
@@ -114,13 +117,7 @@ export function handleOntology(
           `Unknown ontology action: ${params.action}`,
         ));
     }
-  } catch (err) {
-    if (err instanceof HelperError) {
-      return errorResponse(formatToolError(err.code, err.message, err.detail as Record<string, unknown>));
-    }
-    const message = err instanceof Error ? err.message : String(err);
-    return errorResponse(formatToolError('COMMAND_FAILED', message));
-  }
+  });
 }
 
 // ── Internal helpers ─────────────────────────────────────────────────
@@ -154,4 +151,26 @@ function walkItems(
       walkItems(item.children, path, fn);
     }
   }
+}
+
+export function registerOntology(server: McpServer, registry: ProjectRegistry) {
+  server.registerTool('formspec_ontology', {
+    title: 'Ontology',
+    description: 'Manage semantic concept bindings on fields. Actions: bind_concept (associate a concept URI), remove_concept, list_concepts, set_vocabulary (set vocabulary URL for field options).',
+    inputSchema: {
+      project_id: z.string(),
+      action: z.enum(['bind_concept', 'remove_concept', 'list_concepts', 'set_vocabulary']),
+      path: z.string().optional().describe('Field path to bind concept to'),
+      concept: z.string().optional().describe('Concept URI (e.g. "https://schema.org/givenName")'),
+      vocabulary: z.string().optional().describe('Vocabulary URL for field options'),
+    },
+    annotations: NON_DESTRUCTIVE,
+  }, async ({ project_id, action, path, concept, vocabulary }) => {
+    if (action === 'list_concepts') {
+      return handleOntology(registry, project_id, { action, path, concept, vocabulary });
+    }
+    return bracketMutation(registry, project_id, 'formspec_ontology', () =>
+      handleOntology(registry, project_id, { action, path, concept, vocabulary }),
+    );
+  });
 }

@@ -1,8 +1,10 @@
 /** @filedesc Widget vocabulary query tool — list widgets, compatible widgets, field type catalog. */
 
 import type { ProjectRegistry } from '../registry.js';
-import { HelperError } from '@formspec-org/studio-core';
-import { errorResponse, successResponse, formatToolError } from '../errors.js';
+import { wrapCall } from '../errors.js';
+import { z } from 'zod';
+import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
+import { READ_ONLY } from '../annotations.js';
 
 type WidgetAction = 'list_widgets' | 'compatible' | 'field_types';
 
@@ -16,22 +18,31 @@ export function handleWidget(
   projectId: string,
   params: WidgetParams,
 ) {
-  try {
+  return wrapCall(() => {
     const project = registry.getProject(projectId);
 
     switch (params.action) {
       case 'list_widgets':
-        return successResponse(project.listWidgets());
+        return project.listWidgets();
       case 'compatible':
-        return successResponse(project.compatibleWidgets(params.dataType!));
+        return project.compatibleWidgets(params.dataType!);
       case 'field_types':
-        return successResponse(project.fieldTypeCatalog());
+        return project.fieldTypeCatalog();
     }
-  } catch (err) {
-    if (err instanceof HelperError) {
-      return errorResponse(formatToolError(err.code, err.message, err.detail as Record<string, unknown>));
-    }
-    const message = err instanceof Error ? err.message : String(err);
-    return errorResponse(formatToolError('COMMAND_FAILED', message));
-  }
+  });
+}
+
+export function registerWidget(server: McpServer, registry: ProjectRegistry) {
+  server.registerTool('formspec_widget', {
+    title: 'Widget',
+    description: 'Query widget vocabulary: list all widgets, find compatible widgets for a data type, or get the field type catalog. For signature capture, use dataType "attachment" with widgetHint "signature".',
+    inputSchema: {
+      project_id: z.string(),
+      action: z.enum(['list_widgets', 'compatible', 'field_types']),
+      data_type: z.string().optional().describe('Data type to check compatibility for (used with action="compatible")'),
+    },
+    annotations: READ_ONLY,
+  }, async ({ project_id, action, data_type }) => {
+    return handleWidget(registry, project_id, { action, dataType: data_type });
+  });
 }

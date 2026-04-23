@@ -6,7 +6,10 @@
  */
 
 import type { ProjectRegistry } from '../registry.js';
-import { successResponse, errorResponse, formatToolError } from '../errors.js';
+import { wrapCall, successResponse, errorResponse, formatToolError } from '../errors.js';
+import { z } from 'zod';
+import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
+import { READ_ONLY } from '../annotations.js';
 
 const NEW_FORM_QUESTIONNAIRE = {
   sections: [
@@ -107,25 +110,33 @@ export function handleGuide(
     ));
   }
 
-  try {
+  return wrapCall(() => {
     const project = registry.getProject(projectId);
     const stats = project.statistics();
     const fields = project.fieldPaths();
 
-    return successResponse({
+    return {
       current_form: {
         fields,
         statistics: stats,
       },
       questions: MODIFY_QUESTIONS,
       ...(context ? { context } : {}),
-    });
-  } catch (err) {
-    if (err && typeof err === 'object' && 'code' in err) {
-      const e = err as { code: string; message: string };
-      return errorResponse(formatToolError(e.code, e.message));
-    }
-    const message = err instanceof Error ? err.message : String(err);
-    return errorResponse(formatToolError('COMMAND_FAILED', message));
-  }
+    };
+  });
+}
+
+export function registerGuide(server: McpServer, registry: ProjectRegistry): void {
+  server.registerTool('formspec_guide', {
+    title: 'Guide',
+    description: 'Start a new form or modify an existing one through guided questions. Returns a structured questionnaire for the LLM to use in conversation — not required, you can call formspec_create directly. For mode="new", returns questions to gather requirements. For mode="modify", returns the current form summary and targeted modification questions.',
+    inputSchema: {
+      mode: z.enum(['new', 'modify']).describe('"new" to create a form from scratch; "modify" to change an existing form'),
+      project_id: z.string().optional().describe('Required for mode="modify"'),
+      context: z.string().optional().describe('Optional context hint (e.g., "grant application form")'),
+    },
+    annotations: READ_ONLY,
+  }, async ({ mode, project_id, context }) => {
+    return handleGuide(registry, mode, project_id, context);
+  });
 }

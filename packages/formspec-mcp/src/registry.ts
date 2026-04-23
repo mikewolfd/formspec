@@ -18,6 +18,7 @@ export interface ProjectEntry {
   project: Project | null;
   draft: DraftState | null;
   sourcePath?: string;
+  testResponses?: Record<string, unknown>;
 }
 
 export class ProjectRegistry {
@@ -97,19 +98,8 @@ export class ProjectRegistry {
   }
 
   authoringProjects(): Array<{ id: string; project: Project; sourcePath?: string }> {
-    const result: Array<{ id: string; project: Project; sourcePath?: string }> = [];
-    for (const entry of this.entries.values()) {
-      if (entry.project !== null) {
-        const item: { id: string; project: Project; sourcePath?: string } = {
-          id: entry.id,
-          project: entry.project,
-        };
-        if (entry.sourcePath !== undefined) {
-          item.sourcePath = entry.sourcePath;
-        }
-        result.push(item);
-      }
-    }
-    return result;
+    return Array.from(this.entries.values())
+      .filter((entry): entry is ProjectEntry & { project: Project } => entry.project !== null)
+      .map(({ id, project, sourcePath }) => ({ id, project, sourcePath }));
   }
 }

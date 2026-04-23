@@ -63,6 +63,25 @@ describe('handleReference — add_reference', () => {
 
     expect(data.references).toHaveLength(2);
   });
+
+  it('records references through core dispatch so undo removes the binding', () => {
+    const { registry, projectId, project } = registryWithProject();
+    project.addField('code', 'Code', 'string');
+
+    handleReference(registry, projectId, {
+      action: 'add_reference',
+      field_path: 'code',
+      uri: 'https://example.com/codes',
+    });
+
+    let list = parseResult(handleReference(registry, projectId, { action: 'list_references' }));
+    expect(list.references).toHaveLength(1);
+
+    expect(project.undo()).toBe(true);
+
+    list = parseResult(handleReference(registry, projectId, { action: 'list_references' }));
+    expect(list.references).toHaveLength(0);
+  });
 });
 
 // ── remove_reference ─────────────────────────────────────────────────

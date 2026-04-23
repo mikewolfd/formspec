@@ -1,7 +1,10 @@
 /** @filedesc MCP tool for publish lifecycle: set_version, set_status, validate_transition, get_version_info. */
+import { z } from 'zod';
+import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import type { ProjectRegistry } from '../registry.js';
-import { successResponse, errorResponse, formatToolError, wrapHelperCall } from '../errors.js';
-import { HelperError } from '@formspec-org/studio-core';
+import { successResponse, errorResponse, formatToolError, wrapCall } from '../errors.js';
+import { NON_DESTRUCTIVE } from '../annotations.js';
+import { bracketMutation } from './changeset.js';
 
 type PublishAction = 'set_version' | 'set_status' | 'validate_transition' | 'get_version_info';
 
@@ -13,7 +16,6 @@ interface PublishParams {
   status?: LifecycleStatus;
 }
 
-/** Valid status transitions: from → allowed to values. */
 const STATUS_TRANSITIONS: Record<LifecycleStatus, LifecycleStatus[]> = {
   draft: ['active'],
   active: ['retired'],
@@ -25,21 +27,17 @@ export function handlePublish(
   projectId: string,
   params: PublishParams,
 ) {
-  try {
+  return wrapCall(() => {
     const project = registry.getProject(projectId);
 
     switch (params.action) {
       case 'set_version': {
-        return wrapHelperCall(() =>
-          project.setMetadata({ version: params.version }),
-        );
+        return project.setMetadata({ version: params.version });
       }
 
       case 'set_status': {
         const currentStatus = ((project.definition as any).status ?? 'draft') as LifecycleStatus;
         const targetStatus = params.status!;
-
-        // Validate the transition
         const allowed = STATUS_TRANSITIONS[currentStatus] ?? [];
         if (!allowed.includes(targetStatus)) {
           return errorResponse(formatToolError(
@@ -48,42 +46,53 @@ export function handlePublish(
             { currentStatus, targetStatus, allowedTransitions: allowed },
           ));
         }
-
-        return wrapHelperCall(() =>
-          project.setMetadata({ status: targetStatus }),
-        );
+        return project.setMetadata({ status: targetStatus });
       }
 
       case 'validate_transition': {
         const currentStatus = ((project.definition as any).status ?? 'draft') as LifecycleStatus;
         const targetStatus = params.status!;
         const allowed = STATUS_TRANSITIONS[currentStatus] ?? [];
-        const valid = allowed.includes(targetStatus);
-
-        return successResponse({
+        return {
           currentStatus,
           targetStatus,
-          valid,
+          valid: allowed.includes(targetStatus),
           allowedTransitions: allowed,
-        });
+        };
       }
 
       case 'get_version_info': {
         const def = project.definition as any;
-        return successResponse({
+        return {
           version: def.version ?? null,
           status: def.status ?? 'draft',
           name: def.name ?? null,
           date: def.date ?? null,
           versionAlgorithm: def.versionAlgorithm ?? null,
-        });
+        };
       }
     }
-  } catch (err) {
-    if (err instanceof HelperError) {
-      return errorResponse(formatToolError(err.code, err.message, err.detail as Record<string, unknown>));
+  });
+}
+
+export function registerLifecycle(server: McpServer, registry: ProjectRegistry): void {
+  server.registerTool('formspec_lifecycle', {
+    title: 'Lifecycle',
+    description: 'Manage form lifecycle status and versioning: set version string, transition lifecycle status (draft -> active -> retired), validate a proposed transition, or get current version info.',
+    inputSchema: {
+      project_id: z.string(),
+      action: z.enum(['set_version', 'set_status', 'validate_transition', 'get_version_info']),
+      version: z.string().optional().describe('Semantic version string (for set_version)'),
+      status: z.enum(['draft', 'active', 'retired']).optional().describe('Target lifecycle status (for set_status, validate_transition)'),
+    },
+    annotations: NON_DESTRUCTIVE,
+  }, async ({ project_id, action, version, status }) => {
+    const readOnlyActions: string[] = ['validate_transition', 'get_version_info'];
+    if (readOnlyActions.includes(action)) {
+      return handlePublish(registry, project_id, { action, version, status });
     }
-    const message = err instanceof Error ? err.message : String(err);
-    return errorResponse(formatToolError('COMMAND_FAILED', message));
-  }
+    return bracketMutation(registry, project_id, 'formspec_lifecycle', () =>
+      handlePublish(registry, project_id, { action, version, status }),
+    );
+  });
 }

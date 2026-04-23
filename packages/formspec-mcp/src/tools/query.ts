@@ -6,23 +6,13 @@
  *   formspec_preview: mode 'preview' | 'validate'
  */
 
+import { z } from 'zod';
+import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import type { ProjectRegistry } from '../registry.js';
-import { previewForm, validateResponse, HelperError, describeShapeConstraint, type ItemFilter, type FormShape } from '@formspec-org/studio-core';
-import { errorResponse, successResponse, formatToolError } from '../errors.js';
+import { previewForm, validateResponse, describeShapeConstraint, type ItemFilter, type FormShape } from '@formspec-org/studio-core';
+import { wrapCall } from '../errors.js';
+import { READ_ONLY } from '../annotations.js';
 
-/** Common error handler for query tools (which return non-HelperResult types) */
-function wrapQuery(fn: () => unknown) {
-  try {
-    const result = fn();
-    return successResponse(result);
-  } catch (err) {
-    if (err instanceof HelperError) {
-      return errorResponse(formatToolError(err.code, err.message, err.detail as Record<string, unknown>));
-    }
-    const message = err instanceof Error ? err.message : String(err);
-    return errorResponse(formatToolError('COMMAND_FAILED', message));
-  }
-}
 
 // ── formspec_describe: structure + audit ─────────────────────────
 
@@ -32,7 +22,7 @@ export function handleDescribe(
   mode: 'structure' | 'audit' | 'shapes',
   target?: string,
 ) {
-  return wrapQuery(() => {
+  return wrapCall(() => {
     const project = registry.getProject(projectId);
     if (mode === 'audit') {
       return project.diagnose();
@@ -110,7 +100,7 @@ export function handleSearch(
   projectId: string,
   filter: Partial<ItemFilter>,
 ) {
-  return wrapQuery(() => {
+  return wrapCall(() => {
     const project = registry.getProject(projectId);
     return { items: project.searchItems(filter as ItemFilter) };
   });
@@ -124,7 +114,7 @@ export function handleTrace(
   mode: 'trace' | 'changelog',
   params: { expression_or_field?: string; from_version?: string },
 ) {
-  return wrapQuery(() => {
+  return wrapCall(() => {
     const project = registry.getProject(projectId);
 
     if (mode === 'changelog') {
@@ -154,7 +144,7 @@ export function handlePreview(
   mode: 'preview' | 'validate' | 'sample_data' | 'normalize',
   params: { scenario?: Record<string, unknown>; response?: Record<string, unknown> },
 ) {
-  return wrapQuery(() => {
+  return wrapCall(() => {
     const project = registry.getProject(projectId);
     switch (mode) {
       case 'validate':
@@ -167,5 +157,62 @@ export function handlePreview(
       default:
         return previewForm(project, params.scenario ?? params.response);
     }
+  });
+}
+
+// ── Registration ────────────────────────────────────────────────────
+
+export function registerQueryTools(server: McpServer, registry: ProjectRegistry): void {
+  server.registerTool('formspec_describe', {
+    title: 'Describe',
+    description: 'Introspect the form. mode="structure": returns form overview (statistics, field paths, pages). mode="audit": runs diagnostics. mode="shapes": lists all cross-field validation shapes with human-readable descriptions.',
+    inputSchema: {
+      project_id: z.string(),
+      mode: z.enum(['structure', 'audit', 'shapes']).optional().default('structure'),
+      target: z.string().optional(),
+    },
+    annotations: READ_ONLY,
+  }, async ({ project_id, mode, target }) => {
+    return handleDescribe(registry, project_id, mode ?? 'structure', target);
+  });
+
+  server.registerTool('formspec_search', {
+    title: 'Search',
+    description: 'Search for items by type, data type, label, or extension.',
+    inputSchema: {
+      project_id: z.string(),
+      filter: z.object({ type: z.enum(['group', 'field', 'display']).optional(), dataType: z.string().optional(), label: z.string().optional(), hasExtension: z.string().optional() }),
+    },
+    annotations: READ_ONLY,
+  }, async ({ project_id, filter }) => {
+    return handleSearch(registry, project_id, filter);
+  });
+
+  server.registerTool('formspec_trace', {
+    title: 'Trace',
+    description: 'Analyze dependencies or view changelog.',
+    inputSchema: {
+      project_id: z.string(),
+      mode: z.enum(['trace', 'changelog']).optional().default('trace'),
+      expression_or_field: z.string().optional(),
+      from_version: z.string().optional(),
+    },
+    annotations: READ_ONLY,
+  }, async ({ project_id, mode, expression_or_field, from_version }) => {
+    return handleTrace(registry, project_id, mode ?? 'trace', { expression_or_field, from_version });
+  });
+
+  server.registerTool('formspec_preview', {
+    title: 'Preview',
+    description: 'Preview, validate, generate sample data, or normalize the form definition. mode="preview" shows field visibility/values. mode="validate" checks a response. mode="sample_data" generates plausible values. mode="normalize" returns a cleaned-up definition.',
+    inputSchema: {
+      project_id: z.string(),
+      mode: z.enum(['preview', 'validate', 'sample_data', 'normalize']).optional().default('preview'),
+      scenario: z.record(z.string(), z.unknown()).optional().describe('Field values to inject for preview mode. Takes precedence over response.'),
+      response: z.record(z.string(), z.unknown()).optional().describe('For validate mode: the response to validate. For preview mode: used as scenario fallback when scenario is not provided.'),
+    },
+    annotations: READ_ONLY,
+  }, async ({ project_id, mode, scenario, response }) => {
+    return handlePreview(registry, project_id, mode ?? 'preview', { scenario, response });
   });
 }

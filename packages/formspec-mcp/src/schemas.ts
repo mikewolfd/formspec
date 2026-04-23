@@ -10,15 +10,15 @@ import {
 } from '@formspec-org/engine';
 
 let validator: SchemaValidator | null = null;
+let schemaTexts: Record<string, string> = {};
 
-/**
- * Loads schemas from disk and creates the validator singleton.
- * Call once at startup. Throws (fatal) if any schema file is missing.
- */
 export function initSchemas(schemasDir: string): SchemaValidator {
-  JSON.parse(readFileSync(resolve(schemasDir, 'definition.schema.json'), 'utf-8'));
-  JSON.parse(readFileSync(resolve(schemasDir, 'component.schema.json'), 'utf-8'));
-  JSON.parse(readFileSync(resolve(schemasDir, 'theme.schema.json'), 'utf-8'));
+  const texts: Record<string, string> = {};
+  for (const name of ['definition', 'component', 'theme'] as const) {
+    texts[name] = readFileSync(resolve(schemasDir, `${name}.schema.json`), 'utf-8');
+  }
+
+  schemaTexts = texts;
 
   validator = {
     validate(document: unknown, documentType?: DocumentType | null): SchemaValidationResult {
@@ -45,15 +45,9 @@ export function getValidator(): SchemaValidator {
   return validator;
 }
 
-/** Raw schema text for MCP resource responses */
-let schemaTexts: Record<string, string> = {};
-
-export function initSchemaTexts(schemasDir: string): void {
-  schemaTexts = {
-    definition: readFileSync(resolve(schemasDir, 'definition.schema.json'), 'utf-8'),
-    component: readFileSync(resolve(schemasDir, 'component.schema.json'), 'utf-8'),
-    theme: readFileSync(resolve(schemasDir, 'theme.schema.json'), 'utf-8'),
-  };
+export function initSchemaTexts(_schemasDir: string): void {
+  // Schema texts are now populated by initSchemas. This function is kept
+  // for API compat but no longer re-reads files from disk.
 }
 
 export function getSchemaText(name: 'definition' | 'component' | 'theme'): string {

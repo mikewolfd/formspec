@@ -1,7 +1,9 @@
 /** @filedesc MCP tool for changelog: list_changes, diff_from_baseline. */
+import { z } from 'zod';
+import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import type { ProjectRegistry } from '../registry.js';
-import { successResponse, errorResponse, formatToolError } from '../errors.js';
-import { HelperError } from '@formspec-org/studio-core';
+import { wrapCall } from '../errors.js';
+import { READ_ONLY } from '../annotations.js';
 
 type ChangelogAction = 'list_changes' | 'diff_from_baseline';
 
@@ -15,29 +17,37 @@ export function handleChangelog(
   projectId: string,
   params: ChangelogParams,
 ) {
-  try {
+  return wrapCall(() => {
     const project = registry.getProject(projectId);
 
     switch (params.action) {
       case 'list_changes': {
-        const changelog = project.previewChangelog();
-        return successResponse({ changelog });
+        return { changelog: project.previewChangelog() };
       }
 
       case 'diff_from_baseline': {
         const changes = project.diffFromBaseline(params.fromVersion);
-        return successResponse({
+        return {
           fromVersion: params.fromVersion ?? null,
           changeCount: changes.length,
           changes,
-        });
+        };
       }
     }
-  } catch (err) {
-    if (err instanceof HelperError) {
-      return errorResponse(formatToolError(err.code, err.message, err.detail as Record<string, unknown>));
-    }
-    const message = err instanceof Error ? err.message : String(err);
-    return errorResponse(formatToolError('COMMAND_FAILED', message));
-  }
+  });
+}
+
+export function registerChangelog(server: McpServer, registry: ProjectRegistry): void {
+  server.registerTool('formspec_changelog', {
+    title: 'Changelog',
+    description: 'View form change history. list_changes returns the full changelog preview. diff_from_baseline computes changes since a specific version.',
+    inputSchema: {
+      project_id: z.string(),
+      action: z.enum(['list_changes', 'diff_from_baseline']),
+      fromVersion: z.string().optional().describe('Version to diff from (for diff_from_baseline)'),
+    },
+    annotations: READ_ONLY,
+  }, async ({ project_id, action, fromVersion }) => {
+    return handleChangelog(registry, project_id, { action, fromVersion });
+  });
 }
