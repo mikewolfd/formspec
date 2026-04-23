@@ -1,18 +1,26 @@
 /**
  * FEL tool (consolidated):
- *   action: 'context' | 'functions' | 'check' | 'validate' | 'autocomplete' | 'humanize'
+ *   action: 'context' | 'functions' | 'check' | 'validate' | 'autocomplete' | 'humanize' | 'lift_condition_group'
  *
  * Also exports `handleFelTrace` — the `formspec_fel_trace` tool that returns a
  * structured evaluation trace suitable for LLM / explainer surfaces.
  */
 
+import { tryLiftConditionGroup } from '@formspec-org/engine';
 import type { ProjectRegistry } from '../registry.js';
 import { wrapCall } from '../errors.js';
 import { z } from 'zod';
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { READ_ONLY } from '../annotations.js';
 
-type FelAction = 'context' | 'functions' | 'check' | 'validate' | 'autocomplete' | 'humanize';
+type FelAction =
+  | 'context'
+  | 'functions'
+  | 'check'
+  | 'validate'
+  | 'autocomplete'
+  | 'humanize'
+  | 'lift_condition_group';
 
 interface FelParams {
   action: FelAction;
@@ -54,6 +62,9 @@ export function handleFel(
         }
         return response;
       }
+      case 'lift_condition_group': {
+        return tryLiftConditionGroup(params.expression!);
+      }
     }
   });
 }
@@ -79,12 +90,25 @@ export function handleFelTrace(
 export function registerFelTools(server: McpServer, registry: ProjectRegistry) {
   server.registerTool('formspec_fel', {
     title: 'FEL',
-    description: 'FEL utilities: list available references, function catalog, validate/check an expression, get autocomplete suggestions, or humanize an expression to English.\n\nRepeat group references: Inside a repeat context, $siblingField resolves to the current instance. Use $group[*].field to aggregate across all instances (e.g., sum($items[*].amount)). Context variables: @current (current instance object), @index (0-based), @count (total instances). The context action returns scope: "local"|"global" annotations per reference.',
+    description: 'FEL utilities: list available references, function catalog, validate/check an expression, get autocomplete suggestions, humanize an expression to English, or lift a simple boolean bind into structured condition JSON.\n\nRepeat group references: Inside a repeat context, $siblingField resolves to the current instance. Use $group[*].field to aggregate across all instances (e.g., sum($items[*].amount)). Context variables: @current (current instance object), @index (0-based), @count (total instances). The context action returns scope: "local"|"global" annotations per reference.\n\n`lift_condition_group` calls the Rust/WASM lift used by Studio: returns `{ status: "lifted", logic, conditions }` or `{ status: "unlifted", reason, valid }` (homogeneous and/or chains and supported predicates only).',
     inputSchema: {
       project_id: z.string(),
-      action: z.enum(['context', 'functions', 'check', 'validate', 'autocomplete', 'humanize']),
+      action: z.enum([
+        'context',
+        'functions',
+        'check',
+        'validate',
+        'autocomplete',
+        'humanize',
+        'lift_condition_group',
+      ]),
       path: z.string().optional(),
-      expression: z.string().optional().describe('FEL expression (for check/validate/humanize) or partial input (for autocomplete)'),
+      expression: z
+        .string()
+        .optional()
+        .describe(
+          'FEL expression (for check/validate/humanize/lift_condition_group) or partial input (for autocomplete)',
+        ),
       context_path: z.string().optional().describe('Field path for scope-aware validation and context-specific suggestions'),
     },
     annotations: READ_ONLY,

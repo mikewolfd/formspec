@@ -339,7 +339,7 @@ Reactive FEL uses **`compileExpression()`** closures: each closure reads `struct
 ### FEL surface in this package (`src/fel/`)
 
 - **`fel-api-runtime.ts`** — WASM **runtime** only: `analyzeFEL`, `getFELDependencies`, `evaluateDefinition`, path helpers (`normalizeIndexedPath` → `wasmNormalizeIndexedPath`; `splitNormalizedPath` defers to WASM then splits). **`itemLocationAtPath`** walks the in-memory definition tree by key (host navigation). **`normalizePathSegment`** is a small exported string helper; full paths should use **`normalizeIndexedPath`** / **`splitNormalizedPath`** for Rust-aligned behavior.
-- **`fel-api-tools.ts`** — lazy **tools** WASM: tokenize/print/catalog, rewrites, lint-adjacent FEL helpers, etc.
+- **`fel-api-tools.ts`** — lazy **tools** WASM: tokenize/print/catalog, **`tryLiftConditionGroup`** (FEL → Studio condition-group JSON), rewrites, lint-adjacent FEL helpers, etc.
 - **`fel-api.ts`** — re-exports both for `import 'formspec-engine'`.
 
 Grammar, stdlib, and evaluation semantics live in **`fel-core`** / **`formspec-core`** (Rust); see **`crates/fel-core`** and **`crates/formspec-wasm`**.
@@ -386,7 +386,7 @@ Grammar, stdlib, and evaluation semantics live in **`fel-core`** / **`formspec-c
 | Output directory | Glue module prefix | Used for |
 |------------------|-------------------|----------|
 | `wasm-pkg-runtime/` | `formspec_wasm_runtime*` | Default **`initFormspecEngine()`** path: `FormEngine`, batch eval, FEL eval, coercion, migrations, option-set inlining, path helpers |
-| `wasm-pkg-tools/` | `formspec_wasm_tools*` | Lint (7-pass) + schema planning, registry document helpers, mapping execution, definition assembly in WASM, FEL authoring helpers (tokenize, print, rewrites, …) |
+| `wasm-pkg-tools/` | `formspec_wasm_tools*` | Lint (7-pass) + schema planning, registry document helpers, mapping execution, definition assembly in WASM, FEL authoring helpers (tokenize, print, **`tryLiftConditionGroup`**, rewrites, …) |
 
 - Call **`await initFormspecEngine()`** before `FormEngine` or runtime WASM helpers.
 - Call **`await initFormspecEngineTools()`** before sync tooling APIs (`lintDocument`, `tokenizeFEL`, `assembleDefinitionSync`, `RuntimeMappingEngine`, …). **`await assembleDefinition()`** loads tools lazily on first use.

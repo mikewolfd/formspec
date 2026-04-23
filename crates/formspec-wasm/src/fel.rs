@@ -13,6 +13,8 @@ use fel_core::{
     formspec_environment_from_json_map, has_error_diagnostics, parse, prepare_fel_expression_owned,
     prepare_fel_host_options_from_json_map, reject_undefined_functions,
 };
+#[cfg(feature = "fel-authoring")]
+use formspec_core::try_lift_condition_group;
 use formspec_core::{
     JsonWireStyle, analyze_fel, analyze_fel_with_field_types,
     definition_item_location_to_json_value, fel_analysis_to_json_value, get_fel_dependencies,
@@ -158,6 +160,14 @@ pub(crate) fn tokenize_fel_inner(expression: &str) -> Result<String, String> {
 pub fn print_fel(expression: &str) -> Result<String, JsError> {
     let expr = parse_fel_source(expression).map_err(|e| JsError::new(&e))?;
     Ok(print_expr(&expr))
+}
+
+/// Try to lift a FEL expression into Studio `ConditionGroup` JSON (`lifted` / `unlifted`).
+#[cfg(feature = "fel-authoring")]
+#[wasm_bindgen(js_name = "tryLiftConditionGroup")]
+pub fn try_lift_condition_group_wasm(expression: &str) -> Result<String, JsError> {
+    let json = try_lift_condition_group(expression);
+    to_json_string(&json).map_err(|e| JsError::new(&e))
 }
 
 /// Extract field dependencies from a FEL expression.

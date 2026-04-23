@@ -44,6 +44,7 @@ export {
     wasmRewriteFELReferences,
     wasmRewriteMessageTemplate,
     wasmTokenizeFEL,
+    wasmTryLiftConditionGroup,
     wasmValidateExtensionUsage,
     wasmValidateLifecycleTransition,
     wasmWellKnownRegistryUrl,

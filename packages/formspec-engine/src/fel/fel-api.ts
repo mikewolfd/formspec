@@ -28,7 +28,16 @@ export {
     rewriteFELReferences,
     rewriteMessageTemplate,
     tokenizeFEL,
+    tryLiftConditionGroup,
     validateExtensionUsage,
     validateLifecycleTransition,
     wellKnownRegistryUrl,
+} from './fel-api-tools.js';
+
+export type {
+    FELConditionBuilderOperator,
+    FELConditionGroupCondition,
+    FELConditionGroupLifted,
+    FELConditionGroupLiftResult,
+    FELConditionGroupUnlifted,
 } from './fel-api-tools.js';

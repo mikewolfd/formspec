@@ -14,6 +14,7 @@ pub mod component_tree;
 pub mod definition_items;
 pub mod extension_analysis;
 pub mod fel_analysis;
+pub mod fel_condition_group_lift;
 pub mod fel_rewrite_exact;
 pub mod json_artifacts;
 pub mod json_util;
@@ -54,6 +55,7 @@ pub use fel_analysis::{
     fel_rewrite_targets_to_json_value, get_fel_dependencies, rewrite_fel_references,
     rewrite_options_from_camel_case_json,
 };
+pub use fel_condition_group_lift::try_lift_condition_group;
 pub use fel_rewrite_exact::{rewrite_fel_source_references, rewrite_message_template};
 pub use json_artifacts::{
     JsonWireStyle, changelog_to_json_value, extension_usage_issues_to_json_value,

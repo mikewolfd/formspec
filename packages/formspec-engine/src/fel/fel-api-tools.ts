@@ -16,6 +16,11 @@ import type {
 export type {
     DocumentType,
     ExtensionUsageIssue,
+    FELConditionGroupLiftResult,
+    FELConditionBuilderOperator,
+    FELConditionGroupCondition,
+    FELConditionGroupLifted,
+    FELConditionGroupUnlifted,
     SchemaValidationError,
     SchemaValidationResult,
     SchemaValidator,
@@ -34,6 +39,7 @@ import {
     wasmRewriteFELReferences,
     wasmRewriteMessageTemplate,
     wasmTokenizeFEL,
+    wasmTryLiftConditionGroup,
     wasmValidateExtensionUsage,
     wasmValidateLifecycleTransition,
     wasmWellKnownRegistryUrl,
@@ -95,6 +101,8 @@ export const validateLifecycleTransition = wasmValidateLifecycleTransition;
 export const wellKnownRegistryUrl = wasmWellKnownRegistryUrl;
 export const generateChangelog = wasmGenerateChangelog;
 export const printFEL = wasmPrintFEL;
+
+export const tryLiftConditionGroup = wasmTryLiftConditionGroup;
 
 export function getBuiltinFELFunctionCatalog(): FELBuiltinFunctionCatalogEntry[] {
     return wasmListBuiltinFunctions();

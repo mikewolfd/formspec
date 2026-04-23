@@ -40,6 +40,50 @@ export interface FELAnalysis {
     cst?: unknown;
 }
 
+/** Operators for structured FEL conditions (mirrors Studio `fel-condition-builder`). */
+export type FELConditionBuilderOperator =
+    | 'eq'
+    | 'neq'
+    | 'gt'
+    | 'gte'
+    | 'lt'
+    | 'lte'
+    | 'is_true'
+    | 'is_false'
+    | 'contains'
+    | 'starts_with'
+    | 'is_null'
+    | 'is_not_null'
+    | 'is_empty'
+    | 'is_present'
+    | 'money_eq'
+    | 'money_neq'
+    | 'money_gt'
+    | 'money_gte'
+    | 'money_lt'
+    | 'money_lte';
+
+/** One row in a lifted condition group (`tryLiftConditionGroup`). */
+export interface FELConditionGroupCondition {
+    field: string;
+    operator: FELConditionBuilderOperator;
+    value: string;
+}
+
+export interface FELConditionGroupLifted {
+    status: 'lifted';
+    logic: 'and' | 'or';
+    conditions: FELConditionGroupCondition[];
+}
+
+export interface FELConditionGroupUnlifted {
+    status: 'unlifted';
+    reason: string;
+    valid: boolean;
+}
+
+export type FELConditionGroupLiftResult = FELConditionGroupLifted | FELConditionGroupUnlifted;
+
 export interface FELRewriteOptions {
     rewriteFieldPath?: (path: string) => string;
     rewriteCurrentPath?: (path: string) => string;

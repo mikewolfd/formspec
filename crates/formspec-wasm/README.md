@@ -13,7 +13,7 @@
 | `mapping-api` | **yes** | `executeMapping`, `executeMappingDoc`. |
 | `registry-api` | **yes** | Registry parse/lookup/lifecycle + `validateExtensionUsage`. |
 | `changelog-api` | **yes** | `generateChangelog`. |
-| `fel-authoring` | **yes** | `parseFEL`, `tokenizeFEL`, `printFEL`, `extractDependencies`, FEL rewrites, `rewriteFelForAssembly`, `listBuiltinFunctions`. |
+| `fel-authoring` | **yes** | `parseFEL`, `tokenizeFEL`, `printFEL`, `tryLiftConditionGroup`, `extractDependencies`, FEL rewrites, `rewriteFelForAssembly`, `listBuiltinFunctions`. |
 
 **Runtime WASM** (`npm run build:wasm:runtime`): `wasm-pack … -- --no-default-features` — **none** of the above; only **eval / screener / coerce / migrations / option sets / core FEL** (`evalFEL*`, `prepareFelExpression`, `getFELDependencies`, `analyzeFEL`, path helpers) + **split ABI** string.
 

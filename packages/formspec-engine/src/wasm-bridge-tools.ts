@@ -5,6 +5,7 @@ import {
     resolveWasmAssetPathForNode,
 } from './wasm-bridge-shared.js';
 import { getWasmModule, isWasmReady } from './wasm-bridge-runtime.js';
+import type { FELConditionGroupLiftResult } from './interfaces.js';
 
 export type WasmToolsModule = typeof import('../wasm-pkg-tools/formspec_wasm_tools.js');
 
@@ -327,6 +328,12 @@ export function wasmRewriteMessageTemplate(
 export function wasmPrintFEL(expression: string): string {
     assertWasmToolsReadySync();
     return wasmTools().printFEL(expression);
+}
+
+/** Parse FEL and lift a homogeneous `and` / `or` chain into Studio condition-group JSON when possible. */
+export function wasmTryLiftConditionGroup(expression: string): FELConditionGroupLiftResult {
+    assertWasmToolsReadySync();
+    return JSON.parse(wasmTools().tryLiftConditionGroup(expression)) as FELConditionGroupLiftResult;
 }
 
 /** Return the builtin FEL function catalog exported by the Rust runtime. */

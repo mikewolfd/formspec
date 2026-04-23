@@ -159,7 +159,7 @@ Disk **open** / **save** / **list** / **publish** are the Node-only tools in the
 
 | Tool | Purpose |
 |------|---------|
-| `formspec_fel` | References at path, stdlib catalog, expression validation |
+| `formspec_fel` | References at path, stdlib catalog, expression validation, condition-group lift (`lift_condition_group`) |
 | `formspec_fel_trace` | Deeper FEL trace / analysis |
 
 ### Quality & docs (2)

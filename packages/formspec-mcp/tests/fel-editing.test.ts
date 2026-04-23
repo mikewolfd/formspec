@@ -148,6 +148,39 @@ describe('handleFel — humanize', () => {
   });
 });
 
+// ── lift_condition_group action (Rust/WASM same as Studio parseFELToGroup) ──
+
+describe('handleFel — lift_condition_group', () => {
+  it('returns lifted and/or chains as structured conditions', () => {
+    const { registry, projectId } = registryWithProject();
+
+    const result = handleFel(registry, projectId, {
+      action: 'lift_condition_group',
+      expression: '$a = 1 and $b > 2',
+    });
+    const data = parseResult(result);
+
+    expect(data.status).toBe('lifted');
+    expect(data.logic).toBe('and');
+    expect(data.conditions).toHaveLength(2);
+    expect(data.conditions[0]).toEqual({ field: 'a', operator: 'eq', value: '1' });
+    expect(data.conditions[1]).toEqual({ field: 'b', operator: 'gt', value: '2' });
+  });
+
+  it('returns unlifted for mixed and/or', () => {
+    const { registry, projectId } = registryWithProject();
+
+    const result = handleFel(registry, projectId, {
+      action: 'lift_condition_group',
+      expression: '$a = 1 and $b = 2 or $c = 3',
+    });
+    const data = parseResult(result);
+
+    expect(data.status).toBe('unlifted');
+    expect(data.valid).toBe(true);
+  });
+});
+
 // ── trace tool (formspec_fel_trace) ─────────────────────────────────
 
 describe('handleFelTrace', () => {
