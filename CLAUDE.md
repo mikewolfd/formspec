@@ -20,35 +20,23 @@ The specification is organized into three tiers: Core (data & logic), Theme (pre
 
 ## Operating Context — READ THESE BEFORE DECIDING
 
-Formspec is one spec in a three-spec stack. Architectural decisions routinely cross spec boundaries, and the owner's operating preferences override generic defaults. Four companion docs set the frame — consult them in this order before any non-trivial decision:
+Formspec is one spec in a three-spec stack. Architectural decisions routinely cross spec boundaries, and the owner's operating preferences override generic defaults. Consult in order:
 
-1. **[`.claude/user_profile.md`](.claude/user_profile.md)** — Owner's operating preferences: economic model (minutes-not-days × Imp × Debt), design philosophy (opinionated, closed taxonomies, named seams), communication style (terse, opinionated, hedges labeled), and the **maximalist one-shot delivery** rule: no stubs, no `TODO: implement later`, no placeholder returns. If AI builds it, it ships complete and working in one pass; iterate on working code, not half-built code. Surface blockers instead of papering over with stubs.
-2. **[`.claude/vision-model.md`](.claude/vision-model.md)** — Stack-wide vision captured via owner probing on 2026-04-20. Foundational Q1-Q4 answers (first adopter, spec vs. runtime authority, opinionatedness, verifiability threshold) plus per-spec architectural commitments. Consult before any decision that crosses more than one subsystem, crosses spec boundaries, or re-opens a foundational question.
-3. **[`STACK.md`](STACK.md)** — Public-facing integrative doc covering the three-spec stack (Formspec + WOS + Trellis) and the five cross-layer contracts. Canonical source for how the specs compose. Use when a decision touches integration between Formspec and WOS (`wos-spec/` submodule) or Trellis (`trellis/` submodule).
-4. **[`thoughts/specs/2026-04-22-platform-decisioning-forks-and-options.md`](thoughts/specs/2026-04-22-platform-decisioning-forks-and-options.md)** — Active platform decision register for end-state commitments, implementation leans, forks, kill criteria, and organizational/product constraints. Consult before changing cross-layer architecture, proof posture, signing semantics, custody, durable-runtime assumptions, or product-vs-engineering proof claims.
+1. **[`.claude/operating-mode.md`](.claude/operating-mode.md)** — Behavioral interrupts. Read first, before any task. Defaults in agent training push toward time-estimation, phased delivery, option-proposing, and hedging; this file interrupts those patterns.
+2. **[`.claude/user_profile.md`](.claude/user_profile.md)** — Owner's operating preferences: economic model (Importance × Debt, minutes-not-days), design philosophy (opinionated, closed taxonomies, named seams), communication style (terse, opinionated, hedges labeled), maximalist one-shot delivery.
+3. **[`.claude/vision-model.md`](.claude/vision-model.md)** — Stack-wide vision. Foundational Q1-Q4 answers plus per-spec architectural commitments. Consult before any decision that crosses more than one subsystem, crosses spec boundaries, or re-opens a foundational question.
+4. **[`thoughts/specs/2026-04-22-platform-decisioning-forks-and-options.md`](thoughts/specs/2026-04-22-platform-decisioning-forks-and-options.md)** — Platform decision register: end-state commitments, implementation leans, forks, kill criteria. Consult before changing cross-layer architecture, proof posture, signing semantics, custody, durable-runtime assumptions, or product-vs-engineering proof claims.
 
-**Conflict resolution:** direct owner signals in the current conversation > these docs > CLAUDE.md > generic defaults. If any of these docs conflicts with owner signals, update the doc — don't work around it.
+For public-facing stack framing (partners, procurement, investors), see [`STACK.md`](STACK.md) — lookup-only, not required for internal decisions.
 
-## Development Philosophy — READ THIS FIRST
+**Conflict resolution:** see [`.claude/operating-mode.md`](.claude/operating-mode.md).
 
-**Code is cheap. Time is cheap. Good architecture is invaluable.** This is a greenfield, unreleased project with zero users and zero backwards compatibility constraints. Code and time are both abundant — don't hesitate to throw away code or spend time exploring. But architecture decisions compound: a good abstraction boundary pays dividends across every future feature; a bad one taxes every change. Always prioritize by value added — ask "what moves the project forward the most?" before spending effort on anything.
+## Development Philosophy — Formspec-specific
 
-**Write code for humans first.** AI makes writing code fast and cheap — that means there is no excuse for code that is hard to read. Every file, function, and variable should be immediately understandable to a human scanning it for the first time. Use clear, descriptive names that reveal intent — not abbreviations, not generic names like `data` or `handle`, not clever wordplay. Structure files so they tell a story: imports, types, main logic, helpers. Keep functions short enough to hold in your head. If a function needs a comment to explain *what* it does, rename it or restructure it until the code speaks for itself. Comments should explain *why*, never *what*. Do things right the first time — with AI, the cost of writing clean code is the same as writing messy code, so always choose clean.
+General frame lives in [`.claude/user_profile.md`](.claude/user_profile.md) and [`.claude/operating-mode.md`](.claude/operating-mode.md). Formspec-specific additions:
 
-**Prioritize by value added.** Not all work is equal. Before starting a task, ask: does this improve the architecture, unlock future capabilities, or directly serve the spec? If the answer is "it's a nice cleanup" or "it might be useful someday," deprioritize it. Spend time on the things that create the most leverage — clean seams, correct abstractions, spec compliance, and well-tested behavior at the boundaries that matter.
-
-**All code is ephemeral.** Nothing is precious. Any file, module, or subsystem can and should be thrown away the moment it stops serving us well. Prefer starting over to refactoring — when something isn't working, take the lessons learned and rewrite it from scratch. A clean rewrite with hindsight is almost always faster and better than a careful refactor of something that grew wrong.
-
-- **Architecture over code** — spend your thinking time on where the seams go, what the interfaces look like, and how data flows. The implementation within those boundaries is cheap to redo; the boundaries themselves are expensive to move.
-- **Delete, don't preserve** — do not work around problems. Do not add layers to avoid touching existing code. Do not band-aid. If it's wrong, throw it away and build it right. There is no legacy to protect, no users to migrate.
-- **Learn then rebuild** — when you hit a wall, the answer is often "start over with what we now know." Prior code is a learning artifact, not an asset to protect.
-- **Don't refactor for fun** — if code is ugly but functional and not in your way, leave it. Only restructure when it's actively blocking the current task or making things harder to understand. Sometimes three messy files that work are better than one elegant abstraction that took an hour to extract.
-- **KISS always** — prefer the simplest solution that works. If the problem is genuinely complex, handle that complexity cleanly — but don't invent complexity that isn't there. Fewer lines = fewer bugs = faster iteration.
-- **Right-sized files** — don't shatter logic across dozens of tiny files where you lose the thread, but don't cram everything into one file either. A file should represent one coherent concept. If you need to jump between five files to understand one operation, consolidate. If a file is doing three unrelated things, split it. The test: can someone new find what they're looking for without a treasure map?
-- **DRY when natural** — extract shared code when the abstraction is obvious and makes things clearer. Don't force it. Three similar lines are better than one confusing helper. With AI, the cost of writing "duplicate" clear code is near zero — the cost of a bad abstraction is paid every time someone reads it.
-- **Extensibility where the spec demands it** — Formspec has extension points by design. Build clean seams where the spec calls for them, but nowhere else.
-- **The spec is the source of truth** — do not implement features that aren't in the spec. If a capability exists in the spec (like OptionSet), use it; do not invent a parallel mechanism (like `choicesFrom`) that does the same thing outside the spec. Non-spec code paths add fields to core structs, require `None` initializers in every test, and create maintenance burden — all for behavior the spec already covers. When you encounter a non-spec feature: if the spec already covers the use case, delete the non-spec code and use the spec mechanism. If the spec does NOT cover it and it's a genuinely new capability, consult the `formspec-specs:spec-expert` agent to determine whether it should be added to the spec — don't just implement it in code and leave the spec behind.
-- **No "defer" on greenfield** — when an audit finds something wrong, fix it. Do not tag issues as "fix later" or "not urgent." There are no users to break, no releases to stabilize, no backwards compatibility to preserve. The cost of fixing now is lower than it will ever be again. Every deferred fix becomes a landmine for the next person (or agent) working in that code.
+- **The spec is the source of truth.** Do not implement features that are not in the spec. If a capability exists (like `OptionSet`), use it; do not invent a parallel mechanism (like `choicesFrom`) that does the same thing outside the spec. Non-spec code paths add fields to core structs, require `None` initializers in every test, and create maintenance burden — all for behavior the spec already covers. When you find a non-spec feature: if the spec already covers the use case, delete the non-spec code. If the spec does not cover it and it is a genuinely new capability, consult the `formspec-specs:spec-expert` agent before implementing.
+- **Extensibility where the spec demands it.** Formspec has extension points by design. Build clean seams where the spec calls for them, nowhere else.
 
 ## Monorepo Structure
 
@@ -147,74 +135,28 @@ Formspec is one spec in a three-spec stack. Architectural decisions routinely cr
 
 ## Keeping `context.md` Current
 
-`context.md` is the project's living source of truth for features, reasoning, vision, and roadmap. It must stay current. Update it when any of the following happen:
+[`context.md`](context.md) is the project's living overview — what Formspec is, why, where it's going. Update when scope, positioning, or roadmap materially changes. Do NOT update for implementation details, file paths, or internal architecture (those belong in CLAUDE.md).
 
-- **New spec added or existing spec materially changed** — update the relevant section (Core Architecture, Companion Documents, Key Differentiators) to reflect the new capability or changed semantics.
-- **New blog post or public content published** — if it introduces concepts, positioning, or messaging not already captured, update "How We Talk About This" or add to the appropriate section.
-- **Major feature developed** — when a feature lands that changes what Formspec *is* or *can do* (new runtime, new sidecar document type, new AI integration, new platform support), update the relevant sections. Bug fixes and internal refactors don't qualify.
-- **Audience or positioning shift** — if the target audience expands, narrows, or the competitive framing changes, update "Who It's For" and "Key Differentiators."
-- **Roadmap milestone reached** — when something moves from planned to shipped (e.g., Android runtime, UniFFI), update the status in the relevant table or section.
+## Build & commands
 
-**What NOT to update:** Implementation details, file paths, internal architecture that changes frequently — those belong in `CLAUDE.md`, not `context.md`. The context doc is about *what* and *why*, not *how*.
+Full target list: read [`Makefile`](Makefile). Key invocations:
 
-## Build & Development Commands
+- `make build` — full monorepo compile (Rust + npm + pip).
+- `make test` — unit + python + rust + e2e + studio-e2e + submodule tests.
+- `npm run build` — TypeScript packages only.
+- `npm run docs:generate` — regenerate schema-driven spec artifacts + filemap.
+- `npm run docs:check` — enforce doc/schema gates.
+- `npm run check:deps` — validate package dependency layering.
+- `npm test` — full Playwright E2E (auto-starts Vite).
+- `npx playwright test <file>` — single Playwright file.
+- `npx playwright test --grep "<pattern>"` — pattern match across E2E suite.
+- `python3 -m pytest tests/ -v` — Python conformance suite.
+- `python3 -m pytest tests/test_fel_evaluator.py::TestClass::test_name -v` — single Python test.
+- `python3 -m formspec.validate <dir> --registry registries/formspec-common.registry.json` — validate all artifacts in a directory.
 
-```bash
-# Full monorepo compile (Rust workspace + npm build + pip install formspec-py / formspec_rust)
-make build
+## Package layering
 
-# Build TypeScript packages only
-npm run build                    # runs tsc in each package (formspec-engine runs wasm-pack first)
-
-# Regenerate schema-driven spec artifacts (BLUF injection, schema refs, LLM docs) + filemap
-npm run docs:generate
-
-# Regenerate filemap.json only
-npm run docs:filemap
-
-# Validate package dependency layering (no upward/lateral deps, WASM exclusivity)
-npm run check:deps
-
-# Enforce critical doc/schema gates (staleness + critical annotations + cross-spec contracts)
-npm run docs:check
-
-# Build all docs: HTML specs + Python API reference (requires pandoc, pdoc)
-make docs
-
-# Generate Python API docs only (HTML + LLM markdown)
-make api-docs
-
-# Set up pre-commit hooks (one-time)
-make setup
-
-# Start Vite dev server for Playwright E2E test harness
-npm run test:serve               # http://127.0.0.1:8080
-
-# Run Playwright E2E tests (auto-starts Vite server)
-npm test
-
-# Run a single Playwright test file
-npx playwright test tests/e2e/playwright/fel-functions.spec.ts
-
-# Run Playwright tests matching a pattern
-npx playwright test --grep "pattern"
-
-# Validate all artifacts in a directory (auto-discovery, 9 passes)
-python3 -m formspec.validate examples/grant-report/ --registry registries/formspec-common.registry.json
-
-# Run Python conformance tests
-python3 -m pytest tests/ -v
-
-# Run a single Python test file
-python3 -m pytest tests/test_fel_evaluator.py -v
-
-# Run a specific Python test
-python3 -m pytest tests/test_fel_evaluator.py::TestClassName::test_name -v
-```
-
-## Package Dependency Fences
-
-Internal package dependencies must flow strictly downward through defined layers. Run `npm run check:deps` to validate.
+Enforced by `npm run check:deps`. Rule: a package at layer N may only depend on packages at layer < N (strictly lower; same-layer dependencies forbidden). WASM is exclusive to `formspec-engine`; no other package may import from `wasm-pkg*`, `formspec-wasm`, or generated `formspec_wasm*` glue.
 
 | Layer | Packages |
 |-------|----------|
@@ -226,12 +168,7 @@ Internal package dependencies must flow strictly downward through defined layers
 | 5 | `formspec-chat` |
 | 6 | `formspec-studio` |
 
-**Rules:**
-
-- A package at layer N may only depend on packages at layer < N (strictly lower). Same-layer dependencies are forbidden — they create lateral coupling that easily becomes circular.
-- **WASM is exclusive to `formspec-engine`.** No other package may import from `wasm-pkg`, `wasm-pkg-runtime`, `wasm-pkg-tools`, `formspec-wasm`, or generated `formspec_wasm*` glue. The engine is the sole bridge between the Rust/WASM tier and the TypeScript tier.
-- When adding a new package, assign it a layer in `scripts/check-dep-fences.mjs` before adding any internal dependencies.
-- The fence checker validates `dependencies`, `peerDependencies`, and `devDependencies` — test-only imports count.
+Layer assignments and the fence checker live in [`scripts/check-dep-fences.mjs`](scripts/check-dep-fences.mjs).
 
 ## Architecture
 
@@ -241,13 +178,13 @@ Internal package dependencies must flow strictly downward through defined layers
 
 ### FormEngine (`packages/formspec-engine/src/index.ts`)
 
-Central class that manages form state. Maintains separate Preact Signals for: field values, relevance, required state, readonly state, validation results, and repeat counts. Computed signals auto-update when dependencies change. Key methods: `setDefinition()`, `setValue()`, `getResponse()`, `getValidationReport()`, `compileExpression()`.
+Central class that manages form state with Preact Signals. Key methods: `setDefinition()`, `setValue()`, `getResponse()`, `getValidationReport()`, `compileExpression()`.
 
-Apps that use `formspec-engine` directly (not only `formspec-webcomponent`) must call **`await initFormspecEngine()`** (alias: **`initEngine`**) once before constructing `FormEngine` or calling WASM-backed helpers. The web component package starts this automatically on import. Authoring/tooling APIs (lint, registry helpers, mapping, sync assembly, FEL tokenize/print, etc.) need **`await initFormspecEngineTools()`** as well, unless they use **`await assembleDefinition()`**, which loads tools lazily. Runtime and tools ship as separate generated artifacts under `wasm-pkg-runtime/` and `wasm-pkg-tools/` (see `packages/formspec-engine/README.md`). Those dirs are **untracked** (not root-gitignored) so `npm pack` can ship them; **`npm run build` removes wasm-pack’s pkg-local `.gitignore`** (`*`) that would otherwise exclude them from the tarball — **do not commit** WASM outputs. **`import 'formspec-engine'`** still loads **`fel-api`**, which composes **`fel-runtime`** + **`fel-tools`** (tools JS glue). **`formspec-core`** imports **`formspec-engine/fel-runtime`** and **`/fel-tools`** where possible so path/diagnostic code does not need the main **`index`** graph. **`FormEngine`** internals use **`wasm-bridge-runtime`** only. Embedders that only need runtime startup use **`formspec-engine/init-formspec-engine`**; for **`FormEngine`** / **`createFormEngine`** without the full fel facade, use **`formspec-engine/render`**. The **`wasm-bridge.ts`** barrel remains for compatibility and tests.
+Apps using `formspec-engine` directly must call `await initFormspecEngine()` before constructing `FormEngine`. Authoring APIs (lint, registry helpers, mapping, FEL tokenize/print) also need `await initFormspecEngineTools()`. See [`packages/formspec-engine/README.md`](packages/formspec-engine/README.md) for initialization paths, WASM bridge details, entry-point variants, and tarball/gitignore mechanics.
 
-### FEL in the TypeScript engine (`packages/formspec-engine/src/fel/`)
+### FEL in the TypeScript engine
 
-**Rust / WASM** (`fel-core`, `formspec-core`, `formspec-wasm`) owns the FEL grammar, parser, evaluator, and dependency extraction. **Runtime WASM** exposes `evalFEL`, `getFELDependencies`, `analyzeFEL`, `prepareFelExpression`, path helpers, etc. **`FormEngine.compileExpression()`** returns a reactive closure that calls **`wasmEvalFELWithContext`**. **`fel-api-runtime.ts`** / **`fel-api-tools.ts`** are thin WASM facades and re-exports; optional small TS helpers (e.g. `itemLocationAtPath` for host tree walks) are not normative spec logic.
+Rust/WASM (`fel-core`, `formspec-core`, `formspec-wasm`) owns the FEL grammar, parser, evaluator, and dependency extraction. The TypeScript wrappers in `packages/formspec-engine/src/fel/` are thin facades. Do NOT add FEL semantics in TypeScript; extend Rust and call through the bridge.
 
 ### Python Backend & Tooling (`src/formspec/` — Python)
 
