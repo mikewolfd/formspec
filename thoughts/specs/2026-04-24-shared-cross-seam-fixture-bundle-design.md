@@ -77,10 +77,12 @@ fixtures/stack-integration/
     003-workflow-initiated-attach/
       ...                               # ADR 0073 workflow-attach path
 
-    # Future bundles (not Phase 1):
-    #   004-amendment-and-supersession/    # per ADR 0066
-    #   005-statutory-clock-fires/         # per ADR 0067
-    #   006-tenant-scope-composition/      # per ADR 0068
+    004-crossref-adversary-tampered-export/
+      ...                               # Trellis-side drift; expect crossref_resolved = false
+    # Future bundles (beyond Phase-1 crossref slice):
+    #   005-amendment-and-supersession/    # per ADR 0066
+    #   006-statutory-clock-fires/         # per ADR 0067
+    #   007-tenant-scope-composition/      # per ADR 0068
 ```
 
 ### Bundle manifest format
@@ -108,8 +110,8 @@ signer_count          = 1
 workflow_status       = "completed"
 
 [expected_report.cross_references]
-# Declarative cross-layer hash-alignment table. Runner resolves each tuple
-# and confirms the named byte-strings match across submodule outputs.
+# Declarative cross-layer hash-alignment table — see "Cross-reference path grammar" below.
+
 [[expected_report.cross_references.row]]
 from = "formspec.signed_response.canonical_response_hash"
 to   = "wos.provenance.SignatureAffirmation.responseRef"
@@ -128,6 +130,15 @@ wos       = "<sha-at-bundle-landing>"
 trellis   = "<sha-at-bundle-landing>"
 ```
 
+### Cross-reference path grammar (normative for the runner)
+
+Each `from` / `to` string is a **dotted logical path** resolved by the stack runner — not arbitrary prose and not filesystem paths.
+
+1. **Syntax:** `layer(.segment)+` where `layer` is one of `formspec`, `wos`, `trellis` (extend via registry if new subsystems join). Each `segment` matches `[A-Za-z0-9_]+`; hashes/refs use the **final segment** name (e.g. `canonical_response_hash`).
+2. **Resolution source:** For layer `formspec`, values MUST be read from the **Formspec step output object** produced from `inputs.formspec_response` in the same run — never short-circuit by re-reading `_common/` unless the manifest declares `inputs.formspec_response = "_common/..."` and the runner hashes that file as the Formspec input. Same rule for `wos` / `trellis`: resolve from the **emitted** WOS kernel output and the **opened** Trellis export ZIP / verifier report for this bundle, not from a stale sibling file.
+3. **Equality rule:** For a row with `from = A`, `to = B`, the runner extracts **typed byte strings** (or UTF-8 strings where explicitly specified) at both paths and requires **exact byte equality** after any declared decoding (hex → raw, JSON field → digest). If either path is missing, `crossref_resolved = false`.
+4. **Anti-tautology:** Two different rows MUST NOT resolve to the **same physical field** in a single artifact unless `from` and `to` are identical strings (identity row). The runner MUST fail closed if two rows both read from `_common/canonical-response-001.json` → `canonical_response_hash` without traversing distinct producer outputs — that pattern can fake `crossref_resolved = true` while skipping WOS/Trellis.
+
 The `expected_report` section is hand-authored from the running submodule conformance suites at bundle-landing time. It is NOT regenerated on each run (that would defeat its purpose as a pin).
 
 ### Runner contract
@@ -144,13 +155,14 @@ The `expected_report` section is hand-authored from the running submodule confor
 
 ## Phase-1 bundle set
 
-Three bundles ship in the Phase-1 slice:
+Four bundles ship in the Phase-1 slice (happy paths **plus** one adversary crossref):
 
 1. **`001-signature-complete-workflow`** — the WOS-T4 canonical path. Formspec response with `authoredSignatures`; WOS Signature Profile completes; Trellis `append/019` + `export/006` + `065-certificates-of-completion.cbor` (when ADR 0007 execution lands).
 2. **`002-public-intake-create`** — the ADR 0073 public-create path. Formspec `IntakeHandoff` with no prior case; WOS receives handoff + creates new case; Trellis `append/021` + `append/022` + `export/007`.
 3. **`003-workflow-initiated-attach`** — the ADR 0073 workflow-attach path. WOS has a pre-existing case; Formspec handoff attaches; Trellis `append/020` + `export/008`.
+4. **`004-crossref-adversary-tampered-export`** — intentional Trellis-side mutation (e.g. wrong `response_ref` or swapped `canonical_event_hash`) so `expected_report.crossref_resolved = false` while Formspec + WOS layers still verify. Proves the runner's discriminator is real, not happy-path-only.
 
-Ship 1–3 together. They exercise the two load-bearing stack claims (signature-workflow end-to-end + both ADR 0073 case-initiation paths). Additional bundles (amendment/supersession per ADR 0066, statutory clocks per ADR 0067, tenant/scope per ADR 0068) land when the respective stack ADRs execute.
+Ship 1–4 together for Phase-1 closure of the stack-integration claim. Additional bundles (amendment/supersession per ADR 0066, statutory clocks per ADR 0067, tenant/scope per ADR 0068) land when the respective stack ADRs execute.
 
 ## Dependency ordering for implementation
 
@@ -160,9 +172,10 @@ Ship 1–3 together. They exercise the two load-bearing stack claims (signature-
 4. **Bundle 001 scaffolding** — land `_common/canonical-response-001.json` (seed from existing Formspec signed-response fixture); build `001/`'s Trellis export from existing Trellis vectors + the COC slice (requires ADR 0007 execution to be partially landed); assemble WOS provenance-events from existing WOS T4 fixtures. Hand-author `expected-verification-report.toml`.
 5. **Bundle 001 passing** — runner accepts bundle 001; both Rust and eventual Python-stranger implementations agree.
 6. **Bundles 002 + 003** — repeat for the two ADR 0073 paths.
-7. **Submodule fixture reconciliation** — re-seed submodule fixtures to consume from `_common/` rather than maintaining parallel inputs. This is the "residue" work tracked in Trellis TODO items #13 and #14.
+7. **Bundle 004 (adversary)** — land `004-crossref-adversary-tampered-export` with `crossref_resolved = false` in the manifest / expected report; prove the runner fails closed on Trellis-side drift.
+8. **Submodule fixture reconciliation** — re-seed submodule fixtures to consume from `_common/` rather than maintaining parallel inputs. This is the "residue" work tracked in Trellis TODO items #13 and #14.
 
-Steps 1–2 are ~1 session of scaffold work. Steps 3–5 are ~2–3 sessions to get the first bundle green end-to-end. Steps 6–7 are incremental.
+Steps 1–2 are ~1 session of scaffold work. Steps 3–5 are ~2–3 sessions to get the first bundle green end-to-end. Steps 6–8 are incremental.
 
 ## Out of scope
 
