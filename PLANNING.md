@@ -6,6 +6,31 @@ Structure-preserving compressed backlog. Every active row is atomic: stable `PLN
 
 Order of attack: P0 active spec/ADR questions, P0 implementation prerequisites, P1 proof/guardrails, P2 cleanup, Trigger rows only when their trigger appears. A backlog row must explain what to do, why it matters, and what proves done without relying on surrounding conversation.
 
+## Reading guide for active clusters
+
+**Workflow consolidation** (owner-decided 2026-04-25). 27 → 6 WOS schemas: one author-time core (`wos-spec/schemas/wos-workflow.schema.json`) with 7 embedded blocks (`governance`, `agents`, `aiOversight`, `signature`, `custody`, `advanced`, `assurance`), 2 sidecars (`wos-delivery`, `wos-ontology-alignment`), 2 runtime artifacts (`wos-case-instance`, `wos-provenance-log`), 1 tooling schema (`wos-tooling`). Single `$wosWorkflow` top-level version marker; specs do NOT physically merge — `kernel/spec.md`, `governance/spec.md`, `ai/ai-integration.md`, `advanced/spec.md` retain filenames and §-numbering. Forms+ tier (~30-line workflows) delivered via Formspec native `IntakeHandoff` emission per ADR 0079. Active rows span three non-contiguous ranges:
+
+- **PLN-0176..0207** — kernel/spec.md absorption pass (Companions + Lifecycle Detail + Integration Profile content into kernel + governance/ai/advanced spec docs); §-numbering preserved across all four spec files.
+- **PLN-0213..0218** — `wos-spec/CLAUDE.md` / `README.md` / `COMPATIBILITY-MATRIX.md` rewrite to embedded-block + sidecar shape and single-marker form.
+- **PLN-0314..0330** — schema sketch promotion (PLN-0314), spec-merge closure (PLN-0315), sidecar split (PLN-0316), lint rules (PLN-0317, PLN-0326, PLN-0327), runtime-artifact rename and relocation (PLN-0318), tooling consolidation (PLN-0319, PLN-0328), example validation (PLN-0320), compatibility shim (PLN-0321), decision-driven follow-ups (PLN-0322 custody migration, PLN-0323 Formspec native emission, PLN-0324 T4 alignment, PLN-0325 shared coercion library, PLN-0329 claims-map paragraph, PLN-0330 anchor-stability gate).
+
+Entry-point ADRs:
+- [ADR 0076 (product-tier consolidation)](thoughts/adr/0076-product-tier-consolidation.md) — schema family, embedded blocks, version marker, spec-non-merge decision; closes Q1–Q4 + Q11 in Decisions made.
+- [ADR 0074 (governed output-commit pipeline)](thoughts/adr/0074-governed-output-commit-pipeline.md) — six-surface pipeline shape, shared coercion, quarantine precedence; closes Q5–Q7.
+- [ADR 0079 (Formspec native IntakeHandoff emission)](thoughts/adr/0079-formspec-native-intake-handoff-emission.md) — cross-spec rule that delivers Forms+ tier; defines `targetWorkflow` declaration in Formspec.
+
+Related invariants (no rewrites in this cluster, but cited throughout):
+- [ADR 0075 (rejection register)](thoughts/adr/0075-rejection-register.md) — 12 invariants (I-1..I-12), 15 rejection rows.
+- [ADR 0077 (canonical kernel extension seams)](thoughts/adr/0077-canonical-kernel-extension-seams.md) — six canonical seams.
+- [ADR 0078 (foreach topology)](thoughts/adr/0078-foreach-topology.md) — fifth state.type kind.
+
+Reference workflows (in submodule `wos-spec/`):
+- `wos-spec/examples/timeoff.workflow.json` — Forms+ tier (~30 lines, no embedded blocks beyond spine).
+- `wos-spec/examples/nda.workflow.json` — DocuSign tier (~85 lines, embedded `signature` load-bearing).
+- `wos-spec/examples/benefits-adjudication.workflow.json` — case-management tier (~600 lines, every embedded block populated).
+
+Branch: `workflow-consolidation` (replaces previous `kernel-restructure`). Submodule note: `wos-spec/` is a submodule; schema sketch + examples + `wos-spec/CLAUDE.md` updates committed there (`439d494`); ADR rewrites + PLANNING.md updates committed in parent (`d9b6e59b`, `e43f8518`).
+
 ## Active Spec/ADR Questions
 
 | ID | Imp×Debt | Status | Owner/layer | Question / semantic decision | Depends on | Source ADR | Source pointer | Evidence required for done |

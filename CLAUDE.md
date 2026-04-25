@@ -73,7 +73,7 @@ General frame lives in [`.claude/user_profile.md`](.claude/user_profile.md) and 
   - `packages/formspec-mcp/API.llm.md` — TypeScript MCP server API reference (tool declarations, server setup).
   - `packages/formspec-studio-core/API.llm.md` — TypeScript studio-core API reference (Project, helpers, evaluation).
 - **`thoughts/`** — All plans, ADRs, research, and design artifacts. **Never put plans in `docs/`.** See `thoughts/README.md` for full index.
-  - `thoughts/adr/` — **Active** ADRs (Proposed / in-flight / accepted-but-not-landed). Implemented and historical ADRs live in `thoughts/archive/adr/`. Next free id: **0074** (duplicate `0047` / `0048` / `0053` slugs on disk — see `thoughts/README.md`).
+  - `thoughts/adr/` — **Active** ADRs (Proposed / in-flight / accepted-but-not-landed). Implemented and historical ADRs live in `thoughts/archive/adr/`. Next free id: **0080** (0074-0079 occupied by the workflow-consolidation cluster — see PLANNING.md "Reading guide for active clusters"; duplicate `0047` / `0048` / `0053` slugs on disk — see `thoughts/README.md`).
   - `thoughts/plans/` — **Active** implementation plans. Completed plans: `thoughts/archive/plans/`.
   - `thoughts/specs/` — **Active** design specs. Delivered / merged specs: `thoughts/archive/specs/`.
   - `thoughts/archive/` — **Implemented**, superseded, or merged precursors. `npm run docs:check` enforces that tracked links use `thoughts/archive/...` for files stored here.
