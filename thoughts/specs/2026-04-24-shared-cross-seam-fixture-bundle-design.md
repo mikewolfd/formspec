@@ -26,6 +26,7 @@ As of 2026-04-24:
 All three submodules verify their respective conformance independently. **Nothing verifies that they compose.** The claim "canonical response → WOS governance → Trellis custody hook → offline verify" is asserted by prose in STACK.md and by the submodule TODOs that say "Formspec signed-response → WOS SignatureAffirmation → Trellis `custodyHook`." No artifact proves the composition holds.
 
 A cold reader evaluating the stack today must:
+
 - Read Formspec fixture X, trust its `canonical_response_hash` value.
 - Switch to WOS, find a fixture (T4 or SIG-* fixtures) that uses that same hash. Not necessarily pinned to the same scenario.
 - Switch to Trellis, find an `append/019`-family vector that binds WOS's event. Fixtures were generated independently so byte-alignment is approximate.
