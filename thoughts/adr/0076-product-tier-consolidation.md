@@ -206,5 +206,5 @@ Sequencing: 1 lands now (this ADR + sketch + examples). 2–8 land on the consol
 
 None outstanding for this ADR. Cross-cutting follow-ups tracked separately:
 
-- **Formspec ↔ WOS native intake handoff.** Q10 owner decision 2026-04-25 — Formspec emits `IntakeHandoff` natively when targeting a WOS workflow. Cross-spec change; ADR amendment to ADR 0073 or a new Formspec-side ADR. Tracked in PLANNING.md.
+- **Formspec ↔ WOS native intake handoff.** Q10 owner decision 2026-04-25 — Formspec emits `IntakeHandoff` natively when targeting a WOS workflow. Formalized in [ADR 0079 (Formspec native IntakeHandoff emission)](./0079-formspec-native-intake-handoff-emission.md). Tracked in PLANNING.md PLN-0323.
 - **Shared coercion library across all six surfaces.** Q5 owner decision 2026-04-25 — `fel-core::coerce` used by `commit_external_output`. Tracked in ADR 0074 implementation plan + PLANNING.md.
