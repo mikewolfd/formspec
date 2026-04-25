@@ -38,7 +38,7 @@ This document **does not** replace [`STACK.md`](../../../STACK.md), the [vision 
 
 **Precedence (per [user profile](../../../.claude/user_profile.md)):** direct owner signal beats everything here; normative specs beat this file; vision model and STACK beat ad-hoc research; survey notes, risk memos, and panel-style reviews are **Imp×Debt inputs only** until they land as spec prose, schemas, vectors, or ADRs.
 
-It also answers: **where we are**, **where we should go** (Imp × Debt), **what forks need an owner call** — with inventory, conflicts, gaps, and an ADR dependency grid.
+It also answers: **where we are**, **where we should go** (Importance × Debt), **what forks need an owner call** — with inventory, conflicts, gaps, and an ADR dependency grid.
 
 ---
 
@@ -218,7 +218,7 @@ The [compass artifact](../../../wos-spec/research/compass_artifact_wf-91189436-c
 
 **Expert panel:** FHE, MPC threshold signing, etc. stay **adapter-tier**, profile-gated.
 
-### 9.1 Work rank (Imp × Debt)
+### 9.1 Work rank (Importance × Debt)
 
 | Rank | Work | Why |
 |------|------|-----|

@@ -4,7 +4,7 @@ Historical completion notes and resolved items moved to [`COMPLETED.md`](COMPLET
 
 ## Open
 
-Scoring `[Imp / Cx / Debt]` per [`.claude/user_profile.md`](.claude/user_profile.md) economic model; number in parentheses is `Imp × Debt`. Dev/time free; architecture debt expensive. Cx is scheduling-only, never priority.
+Scoring `[Imp / Cx / Debt]` per [`.claude/user_profile.md`](.claude/user_profile.md) economic model; number in parentheses is `Importance × Debt`. Dev/time free; architecture debt expensive. Cx is scheduling-only, never priority.
 
 ### Stack-wide
 
