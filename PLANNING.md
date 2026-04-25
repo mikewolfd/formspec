@@ -174,7 +174,7 @@ Primary sources in this update: ADR 0068, ADR 0069, ADR 0070, ADR 0072, ADR 0073
 
 ## Evidence Integrity and Attachment Binding (ADR 0072)
 
-- [ ] Close remaining tracker drift so ADR 0072 is reflected as implemented where code has landed (root `STACK.md` and `TODO.md` still reference open work).
+- [ ] Close remaining tracker drift so ADR 0072 reflects landed Trellis/Formspec coverage in root trackers (current root `TODO.md` wording still implies open Trellis export/verify/tamper work).
   Source: ADR 0072 implementation status follow-up + stack review.
 - [ ] Confirm WOS-side optional origination posture remains intentionally unimplemented (`WOS MAY originate`) and document explicit trigger conditions for when to implement it.
   Source: ADR 0072 D-4 + implementation plan.
@@ -182,7 +182,7 @@ Primary sources in this update: ADR 0068, ADR 0069, ADR 0070, ADR 0072, ADR 0073
   Source: ADR 0072 implementation plan (WOS).
 - [ ] Add/retain cross-repo conformance checks proving `EvidenceAttachmentBinding` invariants for add/replace/remove lifecycle semantics and `prior_binding_hash` lineage integrity.
   Source: ADR 0072 D-1/D-2/D-6.
-- [ ] Ensure offline export/verify coverage remains mandatory in regression runs for:
+- [ ] Ensure offline export/verify coverage remains mandatory in regression runs (vectors landed; keep CI enforcement explicit) for:
   - attachment manifest digest mismatch,
   - missing inline attachment body,
   - unresolved or cyclic binding lineage.
@@ -272,8 +272,8 @@ Primary sources in this update: ADR 0068, ADR 0069, ADR 0070, ADR 0072, ADR 0073
   Source: ADR 0068 Open Question #3 + ADR 0066.
 - [ ] Case ID uniqueness contract level (global practical uniqueness vs scoped uniqueness as normative rule).
   Source: ADR 0068 D-4 + ADR 0061.
-- [ ] Contract authority precedence when ADRs overlap (0068 composition vs 0071 version migration semantics).
-  Source: ADR 0068 + ADR 0071 (cross-ADR governance).
+- [ ] Confirm the ADR 0071 D-4/D-5 compatibility rubric is sufficient to avoid cross-ADR ambiguity (instead of treating 0068 vs 0071 as precedence conflict).
+  Source: ADR 0068 + ADR 0071 + proposed rubric in hardening item below.
 - [ ] ADR 0071 pin wire encoding choice: inline pin object vs registry URI reference.
   Source: ADR 0071 Open Question #1.
 - [ ] ADR 0071 historical semantics distribution model: embedded libraries vs runtime registry lookup.
@@ -300,24 +300,18 @@ Primary sources in this update: ADR 0068, ADR 0069, ADR 0070, ADR 0072, ADR 0073
   Source: ADR 0066 D-5 + premise review.
 - [ ] ADR 0066 ownership boundary: clarify where canonical `reason` and `authorization` live per mode so respondent-ledger and governance records cannot diverge.
   Source: ADR 0066 D-1/D-2 + premise review.
-- [ ] ADR 0072 metadata confidentiality posture: should filename/media/slot/length be fully portable by default, profile-gated, or partially redacted for sensitive domains?
-  Source: ADR 0072 Open Question #2 + premise review.
-- [ ] ADR 0072 verifier plaintext-hash check requirement level by profile (`SHOULD` vs `MUST` when readable).
-  Source: ADR 0072 D-6 + premise review.
-- [ ] ADR 0072 slot identity durability across definition evolution (`slot_path` drift risk): canonical slot id requirement vs path migration mapping.
-  Source: ADR 0072 D-1 + premise review.
+- [ ] ADR 0072 attachment profile contract: decide metadata disclosure policy (`filename`/`media_type`/`slot_path`/`byte_length`), plaintext re-hash requirement tier (`SHOULD` vs profile `MUST`), and slot identity stability (`slot_path` vs stable slot id + migration mapping).
+  Source: ADR 0072 Open Question #2 + D-1 + D-6 + premise review.
 - [ ] ADR 0072 WOS optional evidence origination: defer indefinitely or schedule a profile/phase trigger for implementation.
   Source: ADR 0072 D-4 + implementation status.
 - [ ] ADR 0073 anonymous public intake default posture and gating policy (pending-case allowed vs identity-first).
   Source: ADR 0073 Open Question #1.
-- [ ] ADR 0073 mode vocabulary boundary and extension criteria (`workflowInitiated`/`publicIntake` only until fixture-proven need).
-  Source: ADR 0073 Open Question #2.
-- [ ] ADR 0073 closure criteria: what minimum shared-fixture + verifier + CI evidence is required before moving from "accepted/mostly landed" to fully implemented.
-  Source: ADR 0073 implementation status (still open items) + premise review.
+- [x] ADR 0073 mode vocabulary boundary is currently closed at `workflowInitiated`/`publicIntake`; reopen only if shared-fixture evidence demonstrates a third mode requirement.
+  Source: ADR 0073 Open Question #2 + current schema contract.
+- [ ] ADR 0073 closure criteria execution: land the shared fixture bundles + verifier + CI evidence already defined in `thoughts/specs/2026-04-24-shared-cross-seam-fixture-bundle-design.md`.
+  Source: ADR 0073 implementation status + shared fixture bundle design.
 - [ ] ADR 0073 policy-floor uncertainty: which acceptance checks are mandatory across deployments (vs profile-specific) so `publicIntake` portability does not drift.
   Source: ADR 0073 D-7 + premise review.
-- [ ] ADR 0073 cross-repo ratification uncertainty: whether stack-level fixtures become a strict release gate for Formspec/WOS/Trellis changes touching the intake seam.
-  Source: ADR 0073 implementation plan + premise review.
 - [ ] ADR 0069 precision-scope uncertainty: whether ms-minimum rejection applies to all wire timestamps or only ordering-sensitive/clock-bearing fields.
   Source: ADR 0069 D-2 rationale + premise review.
 - [ ] ADR 0069 leap-second uncertainty: should UTC-SLS be normative and verifiable, or should the normative contract be lexical rejection + parser-safe normalization only.
@@ -345,16 +339,14 @@ Primary sources in this update: ADR 0068, ADR 0069, ADR 0070, ADR 0072, ADR 0073
   Source: ADR 0071 replay guarantee premise (proposed hardening).
 - [ ] Publish a per-dimension transition matrix for `MigrationPinChanged` (allowed/forbidden upgrades, downgrade/rollback semantics, and required authorizations).
   Source: ADR 0071 D-4 + Open Questions (proposed hardening).
-- [ ] ADR 0072: add explicit profile controls for attachment-manifest metadata disclosure (confidentiality class -> required redaction/retention behavior).
-  Source: ADR 0072 premise review hardening.
-- [ ] ADR 0072: define canonical slot reference strategy (stable slot ids and migration mapping) so historical attachment bindings remain semantically interpretable.
-  Source: ADR 0072 premise review hardening.
+- [ ] ADR 0072: publish a single attachment-profile taxonomy that binds confidentiality controls (manifest metadata redaction/retention), slot-reference stability rules (stable id + mapping), and verifier strictness tiers.
+  Source: ADR 0072 premise review hardening + D-1 + D-6.
 - [ ] ADR 0072: consider a minimal normalized removal reference contract to improve cross-origin audit tooling without centralizing origin lifecycle types.
   Source: ADR 0072 D-2 premise review hardening.
-- [ ] ADR 0073: publish a closure checklist that binds "implemented" to concrete stack evidence (fixtures, verifier outputs, CI gate) rather than prose status.
-  Source: ADR 0073 implementation status + proposed execution hardening.
-- [ ] ADR 0073: add a short "contract authority and closure semantics" addendum clarifying that ownership decision is accepted, but full implementation status requires stack-level fixture ratification.
-  Source: ADR 0073 Context/Decision + implementation status + premise review.
+- [x] ADR 0073 closure checklist is now defined by the shared fixture-bundle design (`002` + `003` plus CI ratification); remaining work is execution, not checklist design.
+  Source: ADR 0073 implementation status + `thoughts/specs/2026-04-24-shared-cross-seam-fixture-bundle-design.md`.
+- [x] ADR 0073 contract-authority vs closure semantics are already documented; keep tracker focused on evidence execution.
+  Source: ADR 0073 Context/Decision + implementation status.
 - [ ] ADR 0069: add a timestamp profile taxonomy (ordering-sensitive, SLA/statutory, informational) and bind D-2 precision requirements to profile class rather than universal wire rejection.
   Source: ADR 0069 D-2 + premise review hardening.
 - [ ] ADR 0069: clarify D-3 verifier failure class and reporting semantics so temporal-order violations do not ambiguously overlap with cryptographic integrity failures.
@@ -372,7 +364,7 @@ Primary sources in this update: ADR 0068, ADR 0069, ADR 0070, ADR 0072, ADR 0073
 
 - [ ] Close handoff hygiene item §4.1 uniformly across all WOS schemas: permit vendor `x-` extensions via `patternProperties` where intended, enforce unknown-key rejection, and ensure rule coverage includes both extension-allow and reserved-namespace rejection paths.
   Source: ADR 0064 Consequences (inherits handoff §4) + `wos-spec/thoughts/archive/reviews/2026-04-16-architecture-review-handoff.md` §4.1.
-- [ ] Land explicit Tier-1 extension rule registration parity (`K-EXT-001` equivalent) and fixtures so extension-seam behavior is not only implied by schema shape or Tier-2 comments.
+- [ ] Land explicit Tier-1 extension rule registration parity (`K-EXT-001` equivalent) and fixtures so extension-seam behavior is not only implied by schema shape or Tier-2 comments (`K-EXT-002` exists; Tier-1 parity still missing).
   Source: handoff §4.1 + ADR 0064 D-1/D-3 loop reliability requirement.
 - [ ] Complete handoff §4.2 truth-in-coverage work: rule-coverage-first reporting, CI rule→fixture enforcement, and promotion mechanics for load-bearing classification.
   Source: ADR 0064 Alternatives Considered #1 (revisit trigger depends on §4.2 metrics) + open-questions Q4 actions.
@@ -380,7 +372,7 @@ Primary sources in this update: ADR 0068, ADR 0069, ADR 0070, ADR 0072, ADR 0073
   Source: ADR 0064 Consequences + handoff §4.4 + open-questions Q3/Q5.
 - [ ] Finish Claim-A enablement work referenced by ADR 0064 consequences: schema-doc quality, structured lint diagnostics, conformance trace pedagogy, synth/bench loop, and positioning artifacts.
   Source: ADR 0064 Consequences + handoff §5.1-§5.6 + open-questions Q1/Q2/Q6.
-- [ ] Add explicit WOS workspace CI gate(s) so `wos-spec` lint/conformance/runtime checks are exercised in automated workflows, not only by local/manual runs.
+- [ ] Add explicit WOS workspace CI gate(s) so `wos-spec` lint/conformance/runtime checks are exercised in automated workflows, not only by local/manual runs (root workspace CI currently excludes `wos-spec`).
   Source: ADR 0064 D-1 methodology dependency (`spec -> schema -> lint -> conformance -> runtime`) + execution hardening.
 
 ### Open Questions / Uncertainty (Decision Queue)
@@ -770,3 +762,104 @@ Disposition row corrections + future lint rule. CLAUDE.md edit already landed in
   Source: ADR 0075 Open Question #2.
 - [ ] **Register maintenance threshold.** When does a new rejection earn an ADR amendment vs supersession? Threshold proposal: idea raised (or likely to be raised) by more than one contributor, crosses one of the twelve invariants, rationale non-obvious from invariant alone.
   Source: ADR 0075 Open Question #3.
+
+## WOS Submodule Plans Audit (2026-04-24)
+
+24-document audit of `wos-spec/thoughts/{plans,adr,specs}/` — 20 plans + 3 ADRs (0059, 0060, 0061) + 1 integration master (Phase 11). Per-document verdicts and full archive-move checklist live in `wos-spec/thoughts/audit-2026-04-24-wos-spec-thoughts-plans.md`. Open items rolled up below by topic.
+
+### CI / Release Automation (WOS Submodule)
+
+- [ ] Dedicated `wos-schema-regression` (or equivalent) GitHub Actions job with path filters for `pytest tests/schemas`. No workflow under `wos-spec/.github` today; parent-repo workflows do not exercise the WOS schema regression suite.
+  Source: audit verdict 5 (`2026-04-17-wos-schema-regression-tests.md`).
+- [ ] Optional rule-coverage workflow `.github/workflows/wos-coverage.yml` + `ratchet-check` binary. Registry graduation + coverage CLI + matrix regen landed; standalone CI step + mass LoadBearing-promotion seed remain partial.
+  Source: audit verdict 13 (`2026-04-16-wos-rule-coverage-conformance.md`).
+- [ ] Release trains Tasks 4–5: Changesets `fixed` groups, `scripts/wos-publish.mjs`, `.github/workflows/wos-release.yml`, README "Versioning" section. Tasks 1–3 (RELEASE-STREAMS.md, per-stream changelogs, COMPATIBILITY-MATRIX.md) landed.
+  Source: audit verdict 14 (`2026-04-16-wos-release-trains.md`) + `wos-spec/TODO.md` §4.4.
+- [ ] Synthesis benchmark: full `wos-bench` plan — crate, leaderboard doc, multi-problem fixture set. Single problem file today; tracked as lower-priority backlog in `wos-spec/TODO.md` §5.5.
+  Source: audit verdict 9 (`2026-04-16-wos-synthesis-benchmark.md`).
+
+### Conformance / Fixtures / Facts Tier (WOS Submodule)
+
+- [ ] Promote `K-DET-001` (determination transitions require `caseFileSnapshot`) with evidence map + conformance fixtures. Schema + Rust + runtime + pytest landed; rule + fixture migration not found.
+  Source: audit verdict 3 (`2026-04-18-wos-facts-tier-input-snapshot.md`).
+- [ ] Migrate determination-bearing conformance fixtures to populate `caseFileSnapshot`. `TODO.md` claims `#24a` closed in narrative while plan still tracks K-DET-001 + fixture work — drift between completed narrative and conformance depth.
+  Source: audit verdict 3 + cross-ref delta.
+
+### Schema Documentation Quality (WOS Submodule)
+
+- [ ] `SCHEMA-DOC-001` triage pass: offender list doc, per-tier description backfills, promotion past `draft` with linked fixtures. `schema_doc.rs` + draft rule landed; triage markdown / tier backfills / fixture-linked promotion open.
+  Source: audit verdict 12 (`2026-04-16-wos-schema-description-audit.md`).
+
+### Governance / Assurance Alignment (WOS Submodule)
+
+- [ ] Governance schema upgrades: §2.9 schema, §4.9 quorum delegation, §7.15 legal hold prose + schema fields. Plan partially landed (Kernel `custodyHook` + Assurance spec/schema); governance extensions and legal-sufficiency cross-ref to Assurance §6 still missing.
+  Source: audit verdict 17 (`2026-04-15-wos-custody-and-assurance.md`).
+- [ ] Add legal-sufficiency cross-reference to Assurance §6 + Invariant 6 deduplication grep across governance prose.
+  Source: audit verdict 17.
+- [ ] Reconcile `WOS-FEATURE-MATRIX.md` rows showing ✅ for governance items without matching spec/schema artifacts. Matrix/spec drift must close before treating those capabilities as shippable claims.
+  Source: audit verdict 17 + cross-ref delta + audit recommendation 2.
+
+### Synth / MCP / Authoring Follow-ups (WOS Submodule)
+
+- [ ] Empirical iteration counts via live Anthropic runs (Q-V0-1..4). Spike crate + retrospective + benchmark problem landed; live-API metrics still follow-up.
+  Source: audit verdict 4 (`2026-04-17-wos-synth-v0-spike.md`).
+- [ ] Production `ToolContext` wiring; retire `DirectToolContext` stopgap. Synth crate split + Task 7 schema landed; `DirectToolContext` documented as stopgap.
+  Source: audit verdict 10 (`2026-04-16-wos-synth-crate.md`).
+- [ ] Authoring crate helpers: nested-state setters, transition metadata setters, case-field / correspondence APIs per plan. ~27 helpers vs planned 28 with different names; nested-state and some transition-metadata helpers explicitly open.
+  Source: audit verdict 7 (`2026-04-17-wos-authoring-crate.md`).
+- [ ] Synth completion criterion 6 (10 NL workflows converging) blocked on `wos-synthesis-benchmark` plan. Keep cross-link explicit in `TODO.md` until `wos-bench` exists to avoid silent dependency chains.
+  Source: audit verdict 10 + audit recommendation 4.
+
+### Program Narrative — Tracked Obligations (ADR 0059)
+
+- [ ] Phase 3 mapping: every WOS emission mappable to stable unified-ledger taxonomy event types. Strategic ADR-0059 narrative; Phase 1 WOS duties met, Phase 2/3 explicitly future-gated. Not a task checklist; tracked as obligation.
+  Source: audit verdict 1 (`0059-unified-ledger-as-canonical-event-store.md`).
+
+### Cross-Reference Taxonomy Continuation (ADR 0060)
+
+- [ ] Future schema PRs SHOULD continue applying the `*Ref` / `*Key` / `*Id` taxonomy until no plain-string key remains under a `*Ref` suffix. WOS-T2 first-landed sweep (Workflow Governance) closed; future sweeps land per-PR.
+  Source: audit verdict 22 (`adr/0060-cross-reference-naming-ref-key-id.md`).
+- [ ] First remaining candidate: `schemas/kernel/wos-correspondence-metadata.schema.json` `templateRef` (lines 117, 175) — resolves to the metadata's own `id`, so this is intra-document `*Id`, not URI. Taxonomy violation.
+  Source: audit verdict 22 + cross-ref delta.
+
+### Phase 11 Master Follow-on Alignment
+
+- [ ] Phase 11 master should reference (or be archived against) the public-intake handoff path that ADR 0073 introduced. The master treats `submitTaskResponse` as the only ingress; `crates/wos-formspec-binding/src/lib.rs:72` (`IntakeHandoff`) + `IntakeAcceptanceAdapter` implement the load-bearing public-intake handoff that has overtaken Phase 11's framing.
+  Source: audit verdict 24 (`specs/2026-04-11-formspec-wos-phase11-integration-master.md`).
+- [ ] Either retire the dead `P11-BL-050` rule id (no entry in lint registry — publication discipline honored implicitly) or land the rule.
+  Source: audit verdict 24 §6.10 item 7.
+- [ ] Consider deleting Phase 11 master §10 "Subagent / tooling note" — predates the parent CLAUDE.md formal skill registration; informative, not normative.
+  Source: audit verdict 24.
+- [ ] Fix Phase 11 master §6.10 reference to `thoughts/plans/2026-04-11-phase11-coprocessor-open-backlog.md` — points at the parent Formspec repo, not the WOS submodule. Cold readers grep the submodule and find nothing.
+  Source: audit verdict 24.
+
+### Stack-wide Identifier Seam (Optional, Unscheduled)
+
+- [ ] Open a shared-stack TypeID utility ADR. WOS, Formspec Response IDs, and Trellis bundle artifacts could share one TypeID utility crate. Explicitly optional and unscheduled per ADR-0061 §4 item 9; decide after first-implementation landings reveal whether the shared utility is worth the coordination cost.
+  Source: audit verdict 21 (`adr/0061-custody-hook-trellis-wire-format.md`).
+
+### Frontmatter Housekeeping (WOS Submodule)
+
+- [ ] Flip `wos-spec/thoughts/adr/0059-continuous-mode-post-mutation-rescan.md` `Status: Proposed` → `Accepted` (or `Implemented`). All five §6 tasks landed across `2d890d3`/`a683c03`/`bdf7063`/`f03ca40`; K-049 is the only `LoadBearing` rule per `LINT-MATRIX.md:148` and `crates/wos-lint/src/rules/registry.rs:1031-1046`.
+  Source: audit verdict 23.
+- [ ] Document ADR-0059 §4.2 back-compat shim divergence: the one-release `"$continuous"` no-op alias was skipped in greenfield-cleanup commit `f03ca40`; deviation lives only in `COMPLETED.md:319`. Add a one-line note to ADR-0059 before archive.
+  Source: audit verdict 23.
+- [ ] Reconcile ADR-0061 §3 Negative wording calling `serde_json_canonicalizer` "superseded" with §2.2 carve-out keeping it for §8.2.1 case-file snapshots (`crates/wos-core/src/provenance/snapshot.rs:22`). Clarifying edit before any amendment.
+  Source: audit verdict 21.
+- [ ] Flip `wos-spec/thoughts/specs/2026-04-11-formspec-wos-phase11-integration-master.md` `status: proposed` → `accepted` (or `landed`). Body already declares Landed/Resolved at `:51-53`; §7 publication checklist all `[x]`.
+  Source: audit verdict 24.
+- [ ] Optional: add a one-line "overtaken by ADR-0073 / ADR-0061" note to the Phase 11 master before archive.
+  Source: audit verdict 24.
+- [ ] Reconcile `COMPLETED.md` internal narrative: `:171, 199` describe ADR-0059 F3b as "drafted" / "READY TO EXECUTE" while `:316-319` documents actual landing. Internal supersession not surfaced.
+  Source: audit cross-ref delta.
+
+### Archive Cleanup (WOS Submodule, 13 candidates)
+
+Full `git mv` blocks live in the audit doc. **Do not archive** `0059-unified-ledger-as-canonical-event-store.md` (living program narrative, not closed task list).
+
+- [ ] Run `git mv` for the 9 FULLY RESOLVED plans (`2026-04-20-typed-event-meta-vocabulary`, `2026-04-17-wos-mcp-crate`, `2026-04-16-trace-emitting-conformance`, `2026-04-16-structured-lint-diagnostics`, `2026-04-16-provenance-record-schema-extension`, `2026-04-15-provenance-export`, `2026-04-14-spec-section-1-implementation`, `2026-04-13-runtime-crate`, `2026-04-10-core-extraction`) + 2 Accepted ADRs (0060, 0061) into `wos-spec/thoughts/archive/{plans,adr}/`. Ensure target directories exist.
+  Source: audit archive-move checklist.
+- [ ] Frontmatter-flip-then-archive (single commit each): `adr/0059-continuous-mode-post-mutation-rescan.md` and `specs/2026-04-11-formspec-wos-phase11-integration-master.md`. Move into `wos-spec/thoughts/archive/{adr,specs}/` after the status flip.
+  Source: audit verdicts 23, 24 + recommendation 5.
+- [ ] Checkbox hygiene pass: many landed plans still show `- [ ]` in source `.md`. Either archive after a final "mark complete" edit, or add a one-line banner "Execution record: see `COMPLETED.md` §…" to stop false "open plan" signals.
+  Source: audit recommendation 1.
