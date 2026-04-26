@@ -34,17 +34,34 @@ Reference workflows (in submodule `wos-spec/`):
 
 Branch: `workflow-consolidation` (replaces previous `kernel-restructure`). Submodule note: `wos-spec/` is a submodule; schema sketch + examples + `wos-spec/CLAUDE.md` updates committed there (`439d494`); ADR rewrites + PLANNING.md updates committed in parent (`d9b6e59b`, `e43f8518`).
 
-**Recommended sequence within the cluster** (derivation of "Depends on" columns; all rows are P0 unless marked):
+**Cluster prioritization** under `(Importance + User Value) × Future Tech Debt` — the column-level `Imp×Debt` P0/P1/P2 marker is the coarse priority; within the cluster's 36 P0s, the four tiers below sharpen ordering. Within each tier, dependency ordering still applies (named below).
 
-1. **Foundation — gates everything else.** PLN-0314 (full normative schema, replaces sketch); PLN-0330 (P1 — anchor-stability CI gate before any spec-absorption touches the four spec docs).
-2. **Highest external leverage — cross-spec, unlocks Forms+ tier.** PLN-0323 (Formspec native `IntakeHandoff` emission per ADR 0079; requires Formspec spec amendment + runtime work + cross-spec lint rules).
-3. **Schema family build-out — parallel after step 1.** PLN-0316 (delivery sidecar), PLN-0318 (provenance rename + relocate), PLN-0319 (tooling consolidation), PLN-0322 (custody migration), PLN-0317 (`WOS-AGENT-XREF-001` + `WOS-SIG-COVER-001` lints), plus decision lints PLN-0326 (`WOS-QUARANTINE-PRECEDENCE-001`) and PLN-0327 (`WOS-VER-LEVEL-002`).
-4. **Spec absorption pass — parallel chunks, gated by step 1's PLN-0330.** PLN-0176..0207 (kernel/spec.md + governance/spec.md + ai/ai-integration.md + advanced/spec.md absorb Companions + Lifecycle Detail + Integration Profile content; §-numbering preserved).
-5. **Decision-driven follow-ups — parallel after step 3.** PLN-0324 (T4 conformance suite alignment), PLN-0325 (shared `fel-core::coerce` library), PLN-0329 (`RELEASE-STREAMS.md` claims-map paragraph).
-6. **Tooling polish + validation gate — gated by step 3.** PLN-0320 (validate three reference examples against the full schema), PLN-0328 (P1 — tooling-schema `$views` declarations).
-7. **Cleanup sweeps — parallel after step 3.** PLN-0321 (compatibility shim for old document markers), PLN-0213..0218 (P2 — `wos-spec/CLAUDE.md` / `README.md` / `COMPATIBILITY-MATRIX.md` rewrites).
+**Tier 1 — Critical path (TOP score; all three axes HIGH).** Lead with these; everything else compounds without them.
 
-Critical-path: 1 → 2 in parallel with 3 → 4 → 6 → 7. The Forms+ tier "~30 lines" promise is gated by step 2; any deferral of PLN-0323 means Forms+ tier remains aspirational.
+- **PLN-0314** — promote `wos-workflow.schema.json` from sketch to full normative schema. Gates every downstream code change; sketch debt compounds.
+- **PLN-0323** — Formspec native `IntakeHandoff` emission per ADR 0079. The Forms+ tier "~30 lines" promise is gated here; deferral leaves Forms+ aspirational and every Forms+ workflow author writing explicit envelope wiring is undoable debt.
+- **PLN-0317** — register `WOS-AGENT-XREF-001` (every actor with `type=='agent'` has matching `agents[].id`) + `WOS-SIG-COVER-001` (signature-gated transitions covered by `signature.signers[]`). Cross-reference rules are beyond JSON Schema expressivity; without these, every workflow shipped that violates them adds linearly to a future support burden.
+
+**Tier 2 — High priority (HIGH score; gates Tier 1 quality or large downstream work).**
+
+- **PLN-0330** (P1) — anchor-stability CI gate. MUST land before PLN-0176..0207 begins; otherwise §-numbering drift breaks every external "Kernel §10.3"-style citation that Q1's specs-don't-physically-merge decision was designed to preserve.
+- **PLN-0325** — shared `fel-core::coerce` library across all six output-commit surfaces. This is the bug class consolidation prevents; per-surface coercion drift compounds with every new surface and is harder to pull apart later.
+- **PLN-0322** — custody from sidecar to embedded `custody` block; delete `wos-custody-hook-encoding.schema.json`. Closes Q4 decision; standalone schema is dead weight if not migrated now.
+- **PLN-0176..0207** — kernel/spec.md + governance/spec.md + ai/ai-integration.md + advanced/spec.md absorb Companions + Lifecycle Detail + Integration Profile content. §-numbering preserved. Gated by PLN-0330.
+
+**Tier 3 — Medium priority (MEDIUM score; landing improves the system but deferral is bounded).**
+
+- **PLN-0316** (delivery sidecar merge), **PLN-0318** (provenance schema rename + relocate), **PLN-0319** (tooling consolidation) — schema family cleanup.
+- **PLN-0320** (validate three reference examples against full schema; depends on PLN-0314), **PLN-0328** (P1 — tooling-schema `$views`; depends on PLN-0319).
+- **PLN-0324** (T4 conformance suite alignment), **PLN-0329** (`RELEASE-STREAMS.md` claims-map paragraph).
+- **PLN-0326** (`WOS-QUARANTINE-PRECEDENCE-001` lint), **PLN-0327** (`WOS-VER-LEVEL-002` lint) — decision-driven lints; lower future-debt than Tier 1's cross-reference lints because they catch policy choices, not invariant violations.
+- **PLN-0213..0218** (P2 — `wos-spec/CLAUDE.md` / `README.md` / `COMPATIBILITY-MATRIX.md` sweep).
+
+**Tier 4 — Low priority / reconsider.**
+
+- **PLN-0321** (compatibility shim for old document markers) — per the "Nothing is released" memory, no production users running old markers, so the shim has no actual users to support. Reclassify as Trigger ("Land if a real migration target appears") or close. Currently P0 in the row; this prioritization downgrades it pending owner confirmation.
+
+**Critical path:** Tier 1 in parallel (PLN-0314 / PLN-0323 / PLN-0317 are independent). Tier 2 gates Tier 3 in places (PLN-0330 → PLN-0176..0207; PLN-0314 → PLN-0320). The Forms+ tier "~30 lines" promise is gated by PLN-0323 alone; any deferral leaves Forms+ aspirational.
 
 ## Active Spec/ADR Questions
 
