@@ -31,6 +31,18 @@ Reference workflows (in submodule `wos-spec/`):
 
 Branch: `workflow-consolidation` (replaces previous `kernel-restructure`). Submodule note: `wos-spec/` is a submodule; schema sketch + examples + `wos-spec/CLAUDE.md` updates committed there (`439d494`); ADR rewrites + PLANNING.md updates committed in parent (`d9b6e59b`, `e43f8518`).
 
+**Recommended sequence within the cluster** (derivation of "Depends on" columns; all rows are P0 unless marked):
+
+1. **Foundation — gates everything else.** PLN-0314 (full normative schema, replaces sketch); PLN-0330 (P1 — anchor-stability CI gate before any spec-absorption touches the four spec docs).
+2. **Highest external leverage — cross-spec, unlocks Forms+ tier.** PLN-0323 (Formspec native `IntakeHandoff` emission per ADR 0079; requires Formspec spec amendment + runtime work + cross-spec lint rules).
+3. **Schema family build-out — parallel after step 1.** PLN-0316 (delivery sidecar), PLN-0318 (provenance rename + relocate), PLN-0319 (tooling consolidation), PLN-0322 (custody migration), PLN-0317 (`WOS-AGENT-XREF-001` + `WOS-SIG-COVER-001` lints), plus decision lints PLN-0326 (`WOS-QUARANTINE-PRECEDENCE-001`) and PLN-0327 (`WOS-VER-LEVEL-002`).
+4. **Spec absorption pass — parallel chunks, gated by step 1's PLN-0330.** PLN-0176..0207 (kernel/spec.md + governance/spec.md + ai/ai-integration.md + advanced/spec.md absorb Companions + Lifecycle Detail + Integration Profile content; §-numbering preserved).
+5. **Decision-driven follow-ups — parallel after step 3.** PLN-0324 (T4 conformance suite alignment), PLN-0325 (shared `fel-core::coerce` library), PLN-0329 (`RELEASE-STREAMS.md` claims-map paragraph).
+6. **Tooling polish + validation gate — gated by step 3.** PLN-0320 (validate three reference examples against the full schema), PLN-0328 (P1 — tooling-schema `$views` declarations).
+7. **Cleanup sweeps — parallel after step 3.** PLN-0321 (compatibility shim for old document markers), PLN-0213..0218 (P2 — `wos-spec/CLAUDE.md` / `README.md` / `COMPATIBILITY-MATRIX.md` rewrites).
+
+Critical-path: 1 → 2 in parallel with 3 → 4 → 6 → 7. The Forms+ tier "~30 lines" promise is gated by step 2; any deferral of PLN-0323 means Forms+ tier remains aspirational.
+
 ## Active Spec/ADR Questions
 
 | ID | Imp×Debt | Status | Owner/layer | Question / semantic decision | Depends on | Source ADR | Source pointer | Evidence required for done |
