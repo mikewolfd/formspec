@@ -19,7 +19,7 @@ export interface ChatMessage {
 
 export interface Attachment {
   id: string;
-  type: 'pdf' | 'image' | 'spreadsheet' | 'json';
+  type: 'pdf' | 'image' | 'spreadsheet' | 'json' | 'text';
   name: string;
   /** Raw file data or extracted text content. */
   data: string;

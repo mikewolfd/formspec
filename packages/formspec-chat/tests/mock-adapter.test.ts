@@ -177,15 +177,14 @@ describe('MockAdapter', () => {
   });
 
   describe('extractFromFile', () => {
-    it('returns a placeholder message (cannot extract without AI)', async () => {
+    it('returns attachment data for deterministic offline tests', async () => {
       const content = await adapter.extractFromFile({
         id: 'att-1',
         type: 'pdf',
         name: 'form.pdf',
         data: 'binary-data',
       });
-      expect(typeof content).toBe('string');
-      expect(content.length).toBeGreaterThan(0);
+      expect(content).toBe('binary-data');
     });
   });
 });

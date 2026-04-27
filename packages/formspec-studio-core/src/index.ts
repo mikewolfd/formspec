@@ -22,6 +22,26 @@ export type {
   MergeResult,
 } from './proposal-manager.js';
 
+// ── Studio intelligence metadata ───────────────────────────────────
+export {
+  STUDIO_EXTENSION_KEY,
+  getStudioIntelligence,
+} from './studio-intelligence.js';
+export type {
+  EvidenceCoverage,
+  EvidenceDocument,
+  EvidenceWorkbench,
+  FieldProvenance,
+  LayoutDocument,
+  LayoutDrift,
+  LayoutPlacement,
+  StudioConfidence,
+  StudioIntelligence,
+  StudioOrigin,
+  StudioPatch,
+  StudioReviewStatus,
+} from './studio-intelligence.js';
+
 // ── Studio-core types (own vocabulary) ──────────────────────────────
 export type {
   // Schema-derived types (from formspec-types)

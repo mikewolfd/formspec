@@ -91,8 +91,8 @@ export class MockAdapter implements AIAdapter {
     };
   }
 
-  async extractFromFile(_attachment: Attachment): Promise<string> {
-    return 'File extraction requires an AI provider. Configure an API key to enable document analysis.';
+  async extractFromFile(attachment: Attachment): Promise<string> {
+    return attachment.data;
   }
 
   private scaffoldFromTemplate(templateId: string): ScaffoldResult {

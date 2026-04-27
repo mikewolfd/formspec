@@ -305,8 +305,6 @@ describe('ChatSession', () => {
       await session.startFromUpload(attachment);
 
       const traces = session.getTraces();
-      // MockAdapter.extractFromFile returns a message, not actual fields,
-      // so scaffoldFromUpload processes the extracted content
       expect(session.hasDefinition()).toBe(true);
     });
 
