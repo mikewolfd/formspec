@@ -235,13 +235,21 @@ Defined in `tests/conftest.py` — auto-assigned by file path. Read conftest.py 
 
 ## Spec Behavior Lookup
 
-**Do not embed spec knowledge — look it up.** When you need to know what a spec behavior requires for a test, use this process:
+**Do not embed spec knowledge — look it up.** Pick the right skill for the subsystem under test:
 
-1. Read the reference maps at `${CLAUDE_PLUGIN_ROOT}/skills/formspec-specs/references/` to find the relevant spec section
+| Subsystem | Skill / reference root | Specialist |
+|---|---|---|
+| Formspec (intake) | `${CLAUDE_PLUGIN_ROOT}/skills/formspec-specs/references/` (specs + schemas) + `schemas/*.schema.json` cross-reference | `spec-expert` |
+| WOS (governance) | `${CLAUDE_PLUGIN_ROOT}/skills/wos-core/references/` (specs + schemas) + `wos-spec/schemas/**/*.schema.json` | `wos-expert` |
+| Trellis (cryptographic integrity substrate) | `${CLAUDE_PLUGIN_ROOT}/skills/trellis-core/references/` (specs) + `references/crates/` (Rust API maps; Rust is byte authority per ADR 0004) | `trellis-expert` |
+
+Lookup process:
+
+1. Read the matching skill's reference map to find the relevant spec section (and crate map for Trellis byte tests)
 2. Grep for the section heading in the canonical spec, then read the targeted section
-3. Cross-reference against the corresponding JSON schema in `schemas/`
+3. Cross-reference against the corresponding JSON schema (Formspec, WOS) or Rust crate (Trellis)
 
-For complex or cross-tier questions, dispatch the **spec-expert** agent — it has structured navigation for the full 625K+ spec suite.
+For complex or cross-tier questions, dispatch the right specialist (`spec-expert` for Formspec, `wos-expert` for WOS, `trellis-expert` for Trellis) — they have structured navigation for the full spec suites. For Trellis byte-level conformance tests specifically, the trellis-expert drops into the Rust crates under `trellis/crates/` and the fixture vectors under `trellis/fixtures/vectors/` (the test oracles): the prose tells you the contract, the crates tell you the bytes, the fixtures pin both.
 
 **Commonly tested behaviors** (know these exist — look up details when writing tests):
 - **Bind behaviors** (Core §4.3.1): 10 bind types, each with distinct evaluation and inheritance rules

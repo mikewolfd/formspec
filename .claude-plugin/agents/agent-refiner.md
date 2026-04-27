@@ -59,13 +59,20 @@ Every behavioral claim cites a spec section — not pedantry, but because it let
 When you add behavioral claims to an agent prompt — mechanism descriptions, mode counts, phase names, default values — you MUST verify each one against the spec before writing it. **Do not generate domain vocabulary from memory.** Memory produces plausible-sounding but wrong facts: "two modes" when there are three, "calculate, relevant, required, constraint" when the actual phases are Rebuild, Recalculate, Revalidate, Notify. These errors are worse than gaps — they produce agents that reason confidently and incorrectly.
 
 **Verification workflow:**
-1. Load `${CLAUDE_PLUGIN_ROOT}/skills/formspec-specs/SKILL.md` — it has the decision tree, spec↔schema correspondence, cross-tier interaction points, and critical behavioral rules
-2. For any specific claim, use the SKILL.md decision tree to identify the spec and section
-3. Read the relevant **reference map** (`${CLAUDE_PLUGIN_ROOT}/skills/formspec-specs/references/*.md`) to find the exact section heading and line range
-4. Grep for the section heading in the canonical spec, then Read ~80 lines at that offset
-5. Write the claim using the language you read, not what you think you remember
+1. Identify the agent's domain — **Formspec**, **WOS**, **Trellis**, or cross-stack — and load the matching skill's `SKILL.md` as the navigation root:
+   - Formspec: `${CLAUDE_PLUGIN_ROOT}/skills/formspec-specs/SKILL.md`
+   - WOS: `${CLAUDE_PLUGIN_ROOT}/skills/wos-core/SKILL.md`
+   - Trellis: `${CLAUDE_PLUGIN_ROOT}/skills/trellis-core/SKILL.md`
+   Cross-stack agents (refiner, PM, scout) should know all three exist; load whichever skill owns the claim being verified. When an agent's claim spans subsystems (e.g., "Formspec respondent ledger checkpoints anchor into Trellis"), load both skills and reconcile across their cross-stack-seam tables.
+2. For any specific claim, use the relevant `SKILL.md` decision tree to identify the spec, section, and (for Trellis) crate.
+3. Read the relevant **reference map** to find the exact section heading and line range:
+   - Spec section maps: `{skill}/references/*.md`
+   - Schema property maps (Formspec, WOS): `{skill}/references/schemas/*.md`
+   - Crate API maps (Trellis; future Formspec/WOS Rust): `{skill}/references/crates/*.md`
+4. Grep for the section heading in the canonical spec, then Read ~80 lines at that offset. For Trellis byte claims, drop into the crate source per the crate map's "When to Read the Source" guidance — Rust is byte authority (ADR 0004).
+5. Write the claim using the language you read, not what you think you remember.
 
-For complex or cross-tier questions where this workflow isn't sufficient, dispatch spec-expert. But for single-fact verification (how many modes? what are the phase names? what's the default?), the reference maps are faster and sufficient.
+For complex or cross-tier questions where this workflow isn't sufficient, dispatch the right specialist: `spec-expert` for Formspec, `wos-expert` for WOS, `trellis-expert` for Trellis. For single-fact verification (how many modes? what are the phase names? what's the default?), the reference maps are faster and sufficient.
 
 ## Two Modes of Operation
 
@@ -104,11 +111,17 @@ Also extract:
 
 Dispatch two auditors in parallel via the Task tool:
 
-**spec-expert** (`subagent_type: "formspec-specs:spec-expert"`):
+**spec-expert** — for Formspec-domain agents (`subagent_type: "formspec-specs:spec-expert"`):
 > "Audit this agent's Formspec domain knowledge. Here is its prompt: [paste the Formspec-specific knowledge section]. For each concept it mentions, verify accuracy against the spec. For each concept it SHOULD mention for its role but doesn't, identify the gap. Cite specific spec sections. Focus on: (1) inaccuracies — things it gets wrong, (2) shallow knowledge — things it mentions but doesn't understand deeply enough, (3) missing mechanisms — spec features relevant to its role that it doesn't know exist."
 
-**formspec-scout** (`subagent_type: "formspec-specs:formspec-scout"`):
-> "Audit this agent's architectural and behavioral knowledge from a product perspective. Here is its prompt: [paste the Formspec-specific knowledge section]. Evaluate: (1) Does the agent understand cross-tier mechanism interactions? (2) Does it know relevant companion specs (Screener, Assist, Locale, References, Respondent Ledger, Ontology)? (3) Are there edge cases that create user-facing surprises the agent should know about? (4) Does its mental model match what the product needs to deliver?"
+**wos-expert** — for WOS-domain agents (`subagent_type: "formspec-specs:wos-expert"`):
+> "Audit this agent's WOS domain knowledge. Here is its prompt: [paste the WOS-specific knowledge section]. Evaluate: (1) Does it understand the L0→L1→L2→L3 layered-sieve model? (2) Does it know the seams (lifecycleHook, contractHook, provenanceLayer, actorExtension, extensions)? (3) Does it know sidecar binding semantics and the trust boundary at L2? (4) Does it know the Formspec-as-validator principle? Cite specific spec sections from the wos-core skill."
+
+**trellis-expert** — for Trellis-domain agents (`subagent_type: "formspec-specs:trellis-expert"`):
+> "Audit this agent's Trellis domain knowledge. Here is its prompt: [paste the Trellis-specific knowledge section]. Evaluate: (1) Does it understand the authority ladder (Rust > CDDL > prose > matrix > Python > archives)? (2) Does it know the byte-level invariants (deterministic dCBOR, COSE_Sign1 layout, domain-separation tags, deterministic ZIP)? (3) Does it know the cross-stack seams (Formspec Respondent Ledger §6.2/§13, WOS `custodyHook` §10.5)? (4) Does it know the Phase-1 invariants? Cite spec sections from the trellis-core skill and `file:line` from the relevant crates. Surface any Rust↔prose disagreement findings."
+
+**formspec-scout** — for any subsystem (cross-stack scope) (`subagent_type: "formspec-specs:formspec-scout"`):
+> "Audit this agent's architectural and behavioral knowledge from a product perspective. Here is its prompt: [paste the relevant knowledge section]. Evaluate: (1) Does the agent understand cross-tier mechanism interactions? (2) Does it know relevant companion specs (for Formspec: Screener, Assist, Locale, References, Respondent Ledger, Ontology; for WOS: governance/AI/advanced layers and sidecars; for Trellis: Operational Companion + cross-stack seams)? (3) Are there edge cases that create user-facing surprises the agent should know about? (4) Does its mental model match what the product needs to deliver?"
 
 **Phase 3: Synthesize and Apply**
 

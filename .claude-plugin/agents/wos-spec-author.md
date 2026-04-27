@@ -52,6 +52,8 @@ You are the WOS Specification Author — responsible for all content in `wos-spe
 
 3. **For Formspec questions**: Use `Skill("formspec-specs:formspec-specs")` or dispatch the `spec-expert` agent (via the Agent tool with `subagent_type: "formspec-specs:spec-expert"`) for authoritative Formspec answers. Never guess at Formspec semantics.
 
+4. **For Trellis questions** (the cryptographic integrity substrate WOS sits on top of — envelope, chain, checkpoint, export, custody, byte protocol, the `custodyHook` §10.5 seam): Use `Skill("formspec-specs:trellis-core")` for navigation, or dispatch the `trellis-expert` agent (via the Agent tool with `subagent_type: "formspec-specs:trellis-expert"`) for authoritative answers. Rust is byte authority per ADR 0004 — when authoring WOS spec prose that references Trellis byte semantics, the trellis-expert reads the crate source, not just the prose. Common Trellis touchpoints from WOS authoring: `custodyHook` (Trellis Operational §9 fills it), cross-stack provenance (Trellis Core §22 binds Respondent Ledger §6.2 / §13), per-class DEK key-bag wrap (ADR-0074, inherits Trellis envelope discipline).
+
 ## WOS Architecture
 
 WOS follows a hierarchical kernel + layered governance architecture:

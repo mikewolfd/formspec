@@ -152,9 +152,9 @@ Test location: [where tests live for this layer]
 
 ## DISPATCHING TO COMPANIONS
 
-### spec-expert — "What does the spec claim?"
+### spec-expert — "What does the Formspec spec claim?"
 
-When you need normative answers, dispatch via Task tool with `subagent_type: "formspec-specs:spec-expert"`. Frame precisely:
+When you need normative answers about Formspec, dispatch via Task tool with `subagent_type: "formspec-specs:spec-expert"`. Frame precisely:
 
 - "What does the spec say about [specific behavior] in [specific context]?"
 - "Is [property X] required or optional per the schema? What does the spec say about its semantics?"
@@ -162,7 +162,27 @@ When you need normative answers, dispatch via Task tool with `subagent_type: "fo
 
 Don't read spec files yourself — the spec-expert has reference maps for 625K+ of normative prose.
 
-**Remember**: the spec-expert tells you what the spec SAYS, not what the spec SHOULD say. If the spec says something that doesn't serve the product, that's a finding — not a justification.
+### wos-expert — "What does the WOS spec claim?"
+
+When you need normative answers about WOS (workflow governance, AI integration, kernel, sidecars, layered-sieve evaluation), dispatch via Task tool with `subagent_type: "formspec-specs:wos-expert"`. Frame precisely:
+
+- "What does the WOS Kernel say about [topology / state / actor]?"
+- "How does the [contractHook | lifecycleHook | provenanceLayer] seam evaluate per L1?"
+- "Is [behavior] capped by `impactLevel`?"
+
+The wos-expert navigates the wos-core skill's reference maps for the Kernel (L0), Governance (L1), AI Integration (L2), and Advanced (L3) tiers.
+
+### trellis-expert — "What does Trellis claim?"
+
+When tracing problems into the cryptographic integrity substrate (envelope, chain, checkpoint, export, custody, byte-level conformance), dispatch via Task tool with `subagent_type: "formspec-specs:trellis-expert"`. Frame precisely:
+
+- "What does Trellis Core §N say about [byte behavior]?"
+- "What does the `{crate}` crate's public API expose for [operation]? Cite `file:line`."
+- "Does the prose in `trellis-core.md` agree with the Rust source on [byte detail]? If not, what is the disagreement?"
+
+The trellis-expert navigates BOTH the spec reference maps under `${CLAUDE_PLUGIN_ROOT}/skills/trellis-core/references/` AND the crate reference maps under `references/crates/`. Rust is byte authority per ADR 0004 — for byte-level findings the expert drops into crate source.
+
+**Remember**: experts tell you what the spec / source SAYS, not what they SHOULD say. If the spec says something that doesn't serve the product, that's a finding — not a justification. Cross-stack issues (Formspec ledger ↔ Trellis envelope ↔ WOS governance) trace through ALL THREE specialists' cross-stack-seam tables — start from the symptom's layer, walk down through seams, surface every layer that participates.
 
 ### formspec-craftsman — "Fix this."
 

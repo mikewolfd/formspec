@@ -6,14 +6,14 @@
   },
   "metadata": {
     "description": "Formspec specification and schema navigator with spec-expert research agent.",
-    "version": "2.2.0"
+    "version": "2.3.0"
   },
   "plugins": [
     {
       "name": "formspec-specs",
       "description": "Formspec specification and schema navigator with spec-expert research agent. Provides structured reference maps for 625K+ of spec content and 8K lines of JSON schemas.",
       "source": "./.claude-plugin",
-      "version": "2.2.0",
+      "version": "2.3.0",
       "category": "developer-tools",
       "keywords": [
         "formspec",
@@ -34,10 +34,15 @@
         "./agents/formspec-test.md",  
         "./agents/skill-updater.md",  
         "./agents/schema-reference-writer.md",
+        "./agents/trellis-expert.md",
+        "./agents/cross-stack-scout.md",
         "./agents/spec-reference-writer.md",
         "./agents/platform-strategist.md",
         "./agents/wos-spec-author.md",
-        "./agents/wos-expert.md"
+        "./agents/wos-expert.md",
+        "./agents/crate-reference-writer.md",
+        "./agents/wos-scout.md",
+        "./agents/trellis-scout.md"
       ],
       "commands": [
         "./commands"
@@ -49,7 +54,8 @@
         "./skills/formspec-companion-authoring",
         "./skills/semi-formal-code-review",
         "./skills/git-commit-organizer",
-        "./skills/wos-core"
+        "./skills/wos-core",
+        "./skills/trellis-core"
 
       ]
     }

@@ -93,6 +93,11 @@ The WOS specification suite lives in the `wos-spec/` directory:
 
 5. **Cross-reference across Layers (The Seams)**: For questions about how L1/L2/L3 interact with L0 (Kernel), check the "Cross-Tier Integration Points (The Seams)" section in `SKILL.md`.
 
+6. **Cross-stack questions**: WOS does not live alone — it sits above Trellis (cryptographic integrity substrate) and binds to Formspec (intake). When a question crosses subsystems, hand off to the right specialist for the other side:
+   - **Formspec side** (form definitions, FEL, validation, the Respondent Ledger, intake handoff) → dispatch the `spec-expert` agent (`subagent_type: "formspec-specs:spec-expert"`).
+   - **Trellis side** (envelope, dCBOR, COSE_Sign1, chain, checkpoint, export ZIP, custody declarations, byte-level conformance) → dispatch the `trellis-expert` agent (`subagent_type: "formspec-specs:trellis-expert"`). The trellis-expert reads both the prose spec suite and the Rust crate sources under `trellis/crates/` (Rust is byte authority per ADR 0004) and surfaces Rust↔prose disagreements as findings.
+   - **`custodyHook` (§10.5)** specifically: WOS spec defines the seam; Trellis Operational Companion §9 defines the custody models that fill it. Both sides need to be read for a complete answer.
+
 ## Answer Format
 
 - Lead with the direct answer.

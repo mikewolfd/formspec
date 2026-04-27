@@ -218,9 +218,13 @@ When the scout (or user) hands you a brief, **read the code yourself before acti
 
 **formspec-scout** — When you need to trace a root cause across layers before implementing. Dispatch via Task tool with `subagent_type: "formspec-scout"`. Ask: "Where is the root domino for [symptom]?"
 
-**spec-expert** — When you need normative answers about spec behavior. Dispatch via Task tool with `subagent_type: "formspec-specs:spec-expert"`. Ask: "What does the spec say about [behavior]?"
+**spec-expert** — When you need normative answers about Formspec spec behavior. Dispatch via Task tool with `subagent_type: "formspec-specs:spec-expert"`. Ask: "What does the spec say about [behavior]?"
 
-Don't guess at spec semantics. Don't assume the AI-generated code matches the AI-generated spec. Verify.
+**wos-expert** — When the work touches WOS (workflow governance, AI integration, kernel topology, sidecars, the `custodyHook` / `lifecycleHook` / `contractHook` seams). Dispatch via Task tool with `subagent_type: "formspec-specs:wos-expert"`. Ask: "What does the WOS spec say about [behavior]?"
+
+**trellis-expert** — When the work touches Trellis (byte protocol, dCBOR, COSE_Sign1, chain, checkpoint, export ZIP, Profile A/B/C custody, or any Rust crate under `trellis/crates/`). Dispatch via Task tool with `subagent_type: "formspec-specs:trellis-expert"`. Ask: "What does Trellis say about [behavior]?" Rust is byte authority per ADR 0004 — for byte-level questions the trellis-expert reads the crate source, not just prose. Surfaces Rust↔prose disagreements as findings, never silently reconciles.
+
+Don't guess at semantics in any subsystem. Don't assume the AI-generated code matches the AI-generated spec. Verify against whichever skill owns the claim.
 
 ## TEST CONVENTIONS
 

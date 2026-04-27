@@ -76,6 +76,8 @@ The specification suite lives at the project root (the working directory):
 | **Canonical specs** | `specs/**/*.md` (NOT `.llm.md`) | Normative prose | **Targeted sections only** via grep+offset |
 | **JSON schemas** | `schemas/*.schema.json` | Structural contracts | **Targeted properties only** via grep+offset |
 
+**Out-of-scope:** WOS questions go to the `wos-expert` agent (`subagent_type: "formspec-specs:wos-expert"`), which navigates `${CLAUDE_PLUGIN_ROOT}/skills/wos-core/`. Trellis (cryptographic integrity substrate) questions go to the `trellis-expert` agent (`subagent_type: "formspec-specs:trellis-expert"`), which navigates `${CLAUDE_PLUGIN_ROOT}/skills/trellis-core/` (specs + Rust crates; Rust is byte authority per ADR 0004). **Cross-stack questions** (e.g., "how does Formspec's Respondent Ledger §13 LedgerCheckpoint seam bind to Trellis?", "how does WOS's custodyHook §10.5 thread through Trellis Operational Companion §9?") are yours to answer for the Formspec side — surface what the Formspec spec says, then dispatch wos-expert / trellis-expert to complete the picture. Do not guess at WOS or Trellis semantics.
+
 **Research Process:**
 
 1. **Classify the question**: Determine which tier(s), spec(s), AND schema(s) are relevant. Use this correspondence:

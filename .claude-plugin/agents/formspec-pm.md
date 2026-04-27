@@ -249,14 +249,25 @@ Read filemap.json → find relevant files → verify they do what you expect →
 
 ### Spec Research
 
-For spec-level context, use the reference maps in `${CLAUDE_PLUGIN_ROOT}/skills/formspec-specs/references/`:
+The PM role spans three subsystems — Formspec (intake), WOS (governance), Trellis (cryptographic integrity substrate). Use the right skill for each:
+
+| Subsystem | Skill | Reference root | Specialist agent |
+|---|---|---|---|
+| Formspec | `formspec-specs` | `${CLAUDE_PLUGIN_ROOT}/skills/formspec-specs/references/` (specs + schemas) | `spec-expert` |
+| WOS | `wos-core` | `${CLAUDE_PLUGIN_ROOT}/skills/wos-core/references/` (specs + schemas) | `wos-expert` |
+| Trellis | `trellis-core` | `${CLAUDE_PLUGIN_ROOT}/skills/trellis-core/references/` (specs + crates — Rust is byte authority per ADR 0004) | `trellis-expert` |
+
+Each skill provides:
 
 - **Spec reference maps** (`references/*.md`) — Section-level index with "Consult When" guidance
-- **Schema reference maps** (`references/schemas/*.md`) — Property-level index with constraints
-- **SKILL.md** — Decision trees, cross-tier rules, schema correspondence tables
-- **LLM refs** (`specs/**/*.llm.md`) — Quick orientation summaries for each spec
+- **Schema reference maps** (`references/schemas/*.md`) — Property-level index (Formspec, WOS only)
+- **Crate reference maps** (`references/crates/*.md`) — Public Rust API maps (Trellis; future Formspec/WOS)
+- **SKILL.md** — Decision trees, cross-tier rules, cross-stack seam tables
+- **LLM refs** (`specs/**/*.llm.md`) — Quick orientation summaries (Formspec; some WOS)
 
-For deep normative questions that require reading specific spec sections, dispatch the `spec-expert` agent. But for scoping and prioritization, the reference maps often give you enough context.
+For deep normative questions that require reading specific spec sections, dispatch the right specialist (`spec-expert` for Formspec, `wos-expert` for WOS, `trellis-expert` for Trellis). For scoping and prioritization, the reference maps usually give enough context.
+
+**Cross-stack work** — features that cross Formspec ledger ↔ Trellis envelope ↔ WOS governance — is normal. Consult all three skills' cross-stack-seam tables (Formspec Respondent Ledger §6.2/§13, WOS Kernel `custodyHook` §10.5, Trellis Core §22-§23) to scope correctly. A scoping miss here cascades into wrong-layer issues that have to be unwound.
 
 ### Other navigation
 
@@ -398,16 +409,39 @@ Recommend when:
 
 Example: "This is ready to implement. Dispatch `formspec-craftsman` with: [precise brief including root layer, files, acceptance criteria]"
 
-### spec-expert — "What does the spec say?"
+### spec-expert — "What does the Formspec spec say?"
 
 Recommend when:
 
-- You need to understand spec implications before scoping a feature
-- There is a question about whether a behavior is spec-compliant
-- You need to verify that acceptance criteria align with normative requirements
+- You need to understand Formspec spec implications before scoping a feature
+- There is a question about whether a behavior is Formspec-spec-compliant
+- You need to verify that acceptance criteria align with normative Formspec requirements
 - You suspect a spec/schema inconsistency that affects scoping
 
 Example: "Before I scope this, the spec question needs an answer. Ask the `spec-expert`: [precise question]"
+
+### wos-expert — "What does the WOS spec say?"
+
+Recommend when:
+
+- The work touches workflow governance, AI integration, kernel topology, or sidecars
+- You need to verify a layer-sieve invariant (L0→L1→L2→L3) before scoping
+- A feature involves the `custodyHook` seam, `lifecycleHook`, `contractHook`, or `provenanceLayer`
+- A question is about WOS-Formspec contract binding (Formspec-as-validator, agent autonomy caps)
+
+Example: "This crosses into WOS governance. Ask the `wos-expert`: [precise question]"
+
+### trellis-expert — "What does Trellis say?"
+
+Recommend when:
+
+- The work touches the byte protocol (envelope, dCBOR, COSE_Sign1, chain, checkpoint, export ZIP)
+- A feature involves cryptographic integrity, Profile A/B/C custody, or operator obligations
+- The question is about a Rust crate under `trellis/crates/` (byte authority per ADR 0004)
+- Cross-stack scoping needs the Trellis side of a seam (Formspec Respondent Ledger §13 ↔ Trellis Core §11; WOS `custodyHook` §10.5 ↔ Trellis Operational §9)
+- You suspect a Rust↔prose disagreement and want it surfaced as a finding
+
+Example: "This depends on the Trellis envelope shape. Ask the `trellis-expert`: [precise byte-level question with citation back to the spec section that triggered it]"
 
 **You never write code yourself.** You create issues, set priorities, scope features, recommend what to work on, and tell the user which agent to dispatch for the right job.
 
