@@ -10,6 +10,14 @@ import {
   type StudioReviewStatus,
   type Project,
 } from '@formspec-org/studio-core';
+import {
+  emitAuthoringTelemetry,
+  type AuthoringCapability,
+} from '../../onboarding/authoring-method-telemetry.js';
+import {
+  AUTHORING_FALLBACK_REASONS,
+  type AuthoringFallbackReason,
+} from '../../onboarding/authoring-fallback-reasons.js';
 
 export interface WritableStudioExtension {
   provenance: FieldProvenance[];
@@ -113,6 +121,8 @@ export function recordManualPatchAndProvenance(
     confidence?: StudioConfidence;
     reviewStatus?: StudioReviewStatus;
     origin?: StudioOrigin;
+    capability?: AuthoringCapability;
+    surface?: 'assistant' | 'studio';
   },
 ): string {
   const id = patchId('manual');
@@ -134,5 +144,68 @@ export function recordManualPatchAndProvenance(
     patchRefs: [id],
     reviewStatus: params.reviewStatus ?? 'confirmed',
   })));
+  emitAuthoringTelemetry({
+    name: 'authoring_capability_method_used',
+    capability: params.capability ?? 'unknown',
+    method: 'manual_only',
+    surface: params.surface ?? 'studio',
+    outcome: 'applied',
+  });
+  return id;
+}
+
+export function recordAiPatchLifecycle(
+  project: Project,
+  params: {
+    changesetId: string;
+    summary: string;
+    affectedRefs: string[];
+    status: StudioPatch['status'];
+    scope?: StudioPatch['scope'];
+    confidence?: StudioConfidence;
+    provenanceReviewStatus?: StudioReviewStatus;
+    capability?: AuthoringCapability;
+    fallbackReason?: AuthoringFallbackReason;
+  },
+): string {
+  const id = `changeset:${params.changesetId}`;
+  const affectedRefs = unique(params.affectedRefs);
+  upsertStudioPatch(project, {
+    id,
+    source: 'ai',
+    scope: params.scope ?? 'spec',
+    summary: params.summary,
+    affectedRefs,
+    status: params.status,
+  });
+  if (params.status === 'accepted' && affectedRefs.length > 0) {
+    upsertFieldProvenance(project, affectedRefs.map((ref) => ({
+      objectRef: ref,
+      origin: 'ai',
+      rationale: params.summary,
+      confidence: params.confidence ?? 'medium',
+      sourceRefs: [`changeset.${params.changesetId}`],
+      patchRefs: [id],
+      reviewStatus: params.provenanceReviewStatus ?? 'confirmed',
+    })));
+  }
+  const outcome = params.status === 'open' ? 'open' : params.status === 'accepted' ? 'accepted' : 'rejected';
+  emitAuthoringTelemetry({
+    name: 'authoring_capability_method_used',
+    capability: params.capability ?? 'patch_lifecycle',
+    method: 'ai_only',
+    surface: 'assistant',
+    outcome,
+  });
+  if (params.status === 'rejected') {
+    emitAuthoringTelemetry({
+      name: 'authoring_capability_fallback',
+      capability: params.capability ?? 'patch_lifecycle',
+      method: 'mixed',
+      surface: 'assistant',
+      outcome: 'fallback',
+      fallbackReason: params.fallbackReason ?? AUTHORING_FALLBACK_REASONS.AI_CHANGESET_REJECTED,
+    });
+  }
   return id;
 }

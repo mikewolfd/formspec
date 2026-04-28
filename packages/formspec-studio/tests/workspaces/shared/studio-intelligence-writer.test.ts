@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { createProject, type FormDefinition } from '@formspec-org/studio-core';
 import {
+  recordAiPatchLifecycle,
   recordManualPatchAndProvenance,
   upsertFieldProvenance,
   upsertStudioPatch,
@@ -96,6 +97,57 @@ describe('studio-intelligence-writer', () => {
       entry.objectRef === 'items.name'
       && entry.patchRefs.includes(patchRef)
       && entry.origin === 'manual'
+    ))).toBe(true);
+  });
+
+  it('records accepted AI patch lifecycle and linked provenance', () => {
+    const project = createProject({ seed: { definition: seededDefinition() } });
+
+    const patchRef = recordAiPatchLifecycle(project, {
+      changesetId: '123',
+      summary: 'AI accepted a field update.',
+      affectedRefs: ['items.name'],
+      status: 'accepted',
+      capability: 'field_group_crud',
+    });
+
+    const ext = studioExtension(project);
+    expect(ext).toBeDefined();
+    expect(patchRef).toBe('changeset:123');
+    expect(ext.patches.some((patch: any) => patch.id === 'changeset:123' && patch.status === 'accepted')).toBe(true);
+    expect(ext.provenance.some((entry: any) => (
+      entry.objectRef === 'items.name'
+      && entry.patchRefs.includes('changeset:123')
+      && entry.origin === 'ai'
+    ))).toBe(true);
+  });
+
+  it('emits authoring fallback telemetry when AI changes are rejected', () => {
+    const project = createProject({ seed: { definition: seededDefinition() } });
+    const telemetry: Array<Record<string, unknown>> = [];
+    const listener = (event: Event) => {
+      telemetry.push((event as CustomEvent<Record<string, unknown>>).detail);
+    };
+    window.addEventListener('formspec:authoring-telemetry', listener);
+
+    try {
+      recordAiPatchLifecycle(project, {
+        changesetId: 'rejected-1',
+        summary: 'AI suggestion rejected.',
+        affectedRefs: ['items.name'],
+        status: 'rejected',
+        capability: 'patch_lifecycle',
+        fallbackReason: 'rejected_in_review',
+      });
+    } finally {
+      window.removeEventListener('formspec:authoring-telemetry', listener);
+    }
+
+    expect(telemetry.some((detail) => detail.name === 'authoring_capability_method_used' && detail.outcome === 'rejected')).toBe(true);
+    expect(telemetry.some((detail) => (
+      detail.name === 'authoring_capability_fallback'
+      && detail.outcome === 'fallback'
+      && detail.fallbackReason === 'rejected_in_review'
     ))).toBe(true);
   });
 });

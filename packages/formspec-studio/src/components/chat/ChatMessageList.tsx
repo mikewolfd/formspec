@@ -31,7 +31,7 @@ export function ChatMessageList({
       data-testid={ribbon ? 'chat-message-list-ribbon' : 'chat-message-list'}
     >
       {!hasApiKey ? (
-        <div className={`flex flex-col items-center justify-center gap-4 text-center ${ribbon ? 'min-h-[120px]' : 'min-h-[200px]'}`}>
+        <div className={`mx-auto flex w-full max-w-[420px] flex-col items-center justify-center gap-4 rounded-xl border border-border/70 bg-surface/60 p-4 text-center ${ribbon ? 'min-h-[110px]' : 'min-h-[140px]'}`}>
           <div className="w-10 h-10 rounded-xl flex items-center justify-center bg-amber/10 text-amber">
             <IconWarning />
           </div>
