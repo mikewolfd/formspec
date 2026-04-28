@@ -1,14 +1,14 @@
 ---
 title: Respondent Ledger Add-On Specification
 version: 0.2.0-draft
-date: 2026-04-15
+date: 2026-04-27
 status: draft
 ---
 
 # Respondent Ledger Add-On Specification v0.2
 
 **Status:** Draft  
-**Last updated:** 2026-04-15  
+**Last updated:** 2026-04-27
 **Audience:** Formspec add-on editors, platform engineers, runtime implementers, trust/compliance reviewers  
 **Normative language:** The key words **MUST**, **MUST NOT**, **REQUIRED**, **SHOULD**, **SHOULD NOT**, and **MAY** are to be interpreted as described in RFC 2119 / RFC 8174 when, and only when, they appear in all capitals.
 
@@ -18,11 +18,12 @@ status: draft
 
 This document defines an **optional, respondent-facing audit change tracking ledger** for Formspec-based systems.
 
-The ledger is designed for the **people filling out forms**. It records the material history of a draft, submission, reopening, amendment, or abandonment flow without changing the core Formspec `Response` contract.
+The ledger is designed for the **people filling out forms**. It records the material history of a draft, submission, reopening, amendment, or abandonment flow without changing the core Formspec `Response` contract. Deployments that need finer reconstruction **MAY** enable field-level editing changelog mode, which records durable per-path edits as `ChangeSetEntry` objects.
 
 This add-on exists to answer questions such as:
 
 - what materially changed between draft saves,
+- which field-level edits were durably captured when field-level changelog mode is enabled,
 - what changed after a completed submission was reopened,
 - which values were user-entered versus prepopulated or system-derived,
 - which validation findings were present when the respondent saved or tried to submit,
@@ -82,6 +83,27 @@ Recommended extension pointer shape:
 
 Ledger integrity, event chaining, and checkpoint anchoring contribute to evidentiary quality but do not, by themselves, guarantee legal admissibility in any particular jurisdiction. Implementations **MUST NOT** imply that ledger integrity alone is sufficient for legal admissibility. Implementations **MAY** make stronger evidentiary claims only to the extent supported by declared process, authored signature semantics, records-management practice, and applicable law — and **MUST** disclose which of those conditions they rely on when making such claims.
 
+### 2.5 Field-level editing changelog mode
+
+The respondent ledger supports two capture modes:
+
+- `material` — default mode. The processor records material respondent-side events and material deltas at save, submit, amendment, migration, attachment, or validation boundaries.
+- `field-level` — optional mode. The processor records a durable `ChangeSetEntry` for each response field path whose persisted value changes at a declared capture boundary.
+
+Field-level changelog mode is a changelog of **persisted response edits**, not UI telemetry. It **MUST NOT** require keystroke capture, focus/blur capture, cursor movement capture, page navigation capture, or rendering lifecycle capture. An implementation **MAY** coalesce multiple UI interactions into one durable event when the event preserves the final per-path `before` / `after` value or hash for every changed field path.
+
+A ledger using `field-level` mode **MUST** declare `changelogBoundaries`, the durable boundary families at which field deltas are captured. Exact lifecycle details still live on each event's `eventType`; the boundary declaration states which families the ledger promises to capture.
+
+Allowed `changelogBoundaries` values:
+
+- `save` — respondent or support-triggered save of an in-progress response.
+- `autosave` — implementation-defined autosave batch.
+- `submit` — submit attempt or successful completion.
+- `amendment` — save or completion during a reopened amendment cycle.
+- `prepopulation` — external, parent-response, or imported data writes values into the response.
+- `migration` — processor migration across definition versions.
+- `merge` — system resolution of conflicting changes or resume merges.
+
 ---
 
 ## 3. Design goals and non-goals
@@ -93,6 +115,7 @@ This add-on is intended to be:
 - **Optional** — not every processor must implement it.
 - **Append-only** — history is preserved rather than overwritten.
 - **Material** — it captures meaningful state changes rather than UI noise.
+- **Changelog-capable** — deployments can opt into field-level persisted-edit history without making keystroke telemetry mandatory.
 - **Path-native** — change entries align with Formspec response paths and stable item keys.
 - **Portable** — the data model can travel with the response or be stored externally.
 - **Identity-portable** — identity, proof-of-personhood, and delegated-access facts can be represented through stable provider-neutral references rather than hard-coded vendor shapes.
@@ -166,6 +189,8 @@ A `RespondentLedger` object **SHOULD** also include, where available:
 - `headEventId`
 - `sessionRefs`
 - `checkpointRefs`
+- `changelogMode`
+- `changelogBoundaries`
 - `extensions`
 
 ### 5.3 Field semantics
@@ -181,6 +206,8 @@ A `RespondentLedger` object **SHOULD** also include, where available:
 - `currentResponseHash` — optional digest of the current canonical response snapshot.
 - `currentResponseAuthored` — last known `Response.authored` timestamp.
 - `headEventId` — identifier of the newest retained event.
+- `changelogMode` — optional capture declaration. Allowed values are `material` and `field-level`. If omitted, `material` is assumed.
+- `changelogBoundaries` — optional in `material` mode and required in `field-level` mode. Declares the durable boundaries at which field-level deltas are captured.
 
 ### 5.4 Example
 
@@ -443,6 +470,7 @@ Each `ChangeSetEntry` **MUST** contain:
 Each `ChangeSetEntry` **SHOULD** include, where resolvable:
 
 - `itemKey`
+- `accessClass`
 - `before`
 - `after`
 - `beforeHash`
@@ -450,6 +478,8 @@ Each `ChangeSetEntry` **SHOULD** include, where resolvable:
 - `displayBefore`
 - `displayAfter`
 - `reasonCode`
+- `editBatchId`
+- `editSequence`
 - `dataPointer`
 
 ### 7.4 Supported operations
@@ -473,6 +503,7 @@ Interpretation:
 - `replace` — substitute one value/document for another where replacement semantics matter.
 - `reorder` — reorder repeated elements without semantic value mutation.
 - `status-transition` — record a change to lifecycle state.
+- In `field-level` changelog mode, `set`, `unset`, `add`, `remove`, `replace`, and `reorder` are the durable edit operations for response paths. Implementations **MAY** group many such entries inside one save/coalesced-autosave event rather than emitting one ledger event per field.
 
 ### 7.5 Value classes
 
@@ -498,7 +529,22 @@ For repeated structures, implementations:
 - **MAY** include a concrete `dataPointer` using JSON Pointer notation for precise row targeting,
 - **SHOULD NOT** rely on array index alone when a stable repeated-row identifier exists elsewhere in the runtime.
 
-### 7.7 Sensitive values and minimization
+### 7.7 Field-level changelog requirements
+
+When `RespondentLedger.changelogMode = "field-level"`, each durable edit boundary **MUST** include one `ChangeSetEntry` for each response field path whose persisted value changed at that boundary.
+
+Field-level mode:
+
+- **MUST** use the logical response path in `path`,
+- **SHOULD** include `itemKey` for every changed field that maps to a stable Formspec item,
+- **SHOULD** include `editBatchId` when multiple entries were produced by the same save/autosave/submit action,
+- **SHOULD** include `editSequence` to preserve stable ordering within the batch,
+- **MAY** store raw `before` / `after` values, hashes, display summaries, or redaction metadata according to policy,
+- **MUST NOT** treat omitted raw values as evidence that no field edit occurred.
+
+A field-level changelog is not a replay authority. The current Formspec `Response` remains canonical; the changelog explains how the persisted response reached that state.
+
+### 7.8 Sensitive values and minimization
 
 Implementations **MAY** omit `before` and/or `after` when policy prohibits retention of raw values.
 
@@ -513,7 +559,9 @@ If raw values are omitted for policy reasons, implementations **SHOULD** record 
 
 This enables proof that a material change happened without retaining the full sensitive content indefinitely.
 
-### 7.8 Example
+When a Privacy Profile is loaded, each `ChangeSetEntry` for a response field **MUST** inherit the field's `accessControl.class` as `accessClass` when the class is resolvable. Raw `before` and `after` values for a class **MUST NOT** be exposed to a reader who lacks authority for that class. Implementations **MAY** retain hashes, display summaries, or redaction metadata outside the raw value bucket only when doing so does not leak more than the deployment's header/tag policy allows.
+
+### 7.9 Example
 
 ```json
 {
@@ -561,6 +609,7 @@ An implementation **MAY** support additional material event types, including:
 - `attestation.captured`
 - `response.submit-attempted`
 - `response.migrated`
+- `field.edit-recorded`
 
 ### 8.3 Event type guidance
 
@@ -581,6 +630,7 @@ An implementation **MAY** support additional material event types, including:
 - `identity-verified` — an identity provider, DID verifier, or proof-of-personhood flow materially updated the assurance state relied on by the workflow.
 - `attestation.captured` — a credential, delegation, personhood proof, or related attestation was durably bound into audit history.
 - `response.migrated` — response was transformed to a new definition version.
+- `field.edit-recorded` — optional event type for deployments that emit one durable event per field edit batch instead of carrying field-level entries only inside `draft.saved`, `autosave.coalesced`, `response.submit-attempted`, `response.amended`, migration, or merge events.
 
 ### 8.4 Explicit exclusions
 
@@ -623,6 +673,16 @@ If autosave coalescing is used, the implementation:
 - **MUST** preserve the final persisted state represented by the coalesced event,
 - **SHOULD** preserve a stable ordering of the material changes included in the event,
 - **SHOULD** indicate the coalescing policy in event metadata or implementation documentation.
+
+### 9.4 Field-level changelog materiality
+
+A deployment that enables `changelogMode = "field-level"` treats every persisted field-value delta as material for changelog purposes, even when the edit does not change lifecycle status, validation outcome, or downstream eligibility logic.
+
+Field-level mode still preserves the no-telemetry boundary:
+
+- UI-only edits that are never persisted **MUST NOT** produce durable ledger events.
+- Multiple UI edits to the same field **MAY** collapse into one persisted `ChangeSetEntry` when they occur before the same durable save/autosave/submit boundary.
+- If an implementation claims field-level changelog support, it **MUST** populate `RespondentLedger.changelogBoundaries` with the durable boundaries at which field deltas are captured.
 
 ---
 
@@ -979,6 +1039,8 @@ Implementations exposing the ledger to respondents or support staff **SHOULD** r
 
 To generate changesets efficiently, implementations **SHOULD** compare the last durable response snapshot to the new durable response snapshot and emit only material deltas.
 
+In `field-level` changelog mode, the same snapshot-diff mechanism **SHOULD** emit one `ChangeSetEntry` per changed response path at the durable boundary. The implementation may coalesce UI activity, but it must not coalesce two different persisted field paths into an uninspectable summary if it claims field-level capture.
+
 ### 15.3 Support and dispute workflows
 
 Implementations **SHOULD** be able to answer at least these audit questions from the ledger:
@@ -986,6 +1048,7 @@ Implementations **SHOULD** be able to answer at least these audit questions from
 - when the draft was first created,
 - when it was resumed,
 - which fields materially changed and in what direction,
+- when field-level mode is enabled, which durable response paths changed in each edit batch,
 - whether the submission was amended after completion,
 - what validation state existed at save or submit,
 - and whether attachment inventory changed.
@@ -1044,12 +1107,13 @@ A processor claiming conformance to the Respondent Ledger add-on:
 3. **MUST** record exact `definitionUrl` and `definitionVersion` on every event.
 4. **MUST** support the required event types defined in this specification when those lifecycle moments occur.
 5. **MUST** represent material changes using `ChangeSetEntry` objects with `op`, `path`, and `valueClass`.
-6. **MUST NOT** require keystroke-level telemetry.
-7. **MUST NOT** alter Formspec core semantics through ledger data.
-8. **SHOULD** preserve validation snapshots at save, submit, amendment, and stop boundaries.
-9. **SHOULD** preserve provider-neutral identity / proof-of-personhood attestation references when those facts are used for completion, delegation, or eligibility-sensitive processing.
-10. **SHOULD** support privacy-bounded retention using hashes, summaries, or redaction metadata where necessary.
-11. **SHOULD** support optional integrity chaining and checkpointing for higher-assurance environments.
+6. **MAY** support field-level editing changelog mode; if it claims that mode, it **MUST** declare `changelogMode = "field-level"`, populate `changelogBoundaries`, and emit a `ChangeSetEntry` for each persisted response field path changed at each declared durable boundary.
+7. **MUST NOT** require keystroke-level telemetry.
+8. **MUST NOT** alter Formspec core semantics through ledger data.
+9. **SHOULD** preserve validation snapshots at save, submit, amendment, and stop boundaries.
+10. **SHOULD** preserve provider-neutral identity / proof-of-personhood attestation references when those facts are used for completion, delegation, or eligibility-sensitive processing.
+11. **SHOULD** support privacy-bounded retention using hashes, summaries, or redaction metadata where necessary.
+12. **SHOULD** support optional integrity chaining and checkpointing for higher-assurance environments.
 
 ---
 

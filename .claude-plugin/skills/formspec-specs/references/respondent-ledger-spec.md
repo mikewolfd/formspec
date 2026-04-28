@@ -73,8 +73,9 @@ The Respondent Ledger Add-On Specification (v0.2.0-draft) defines an optional, a
 | 7.4 | Supported operations | ops: set, unset, add, remove, replace, reorder, status-transition with interpretations. | status-transition, reorder | Choosing op |
 | 7.5 | Value classes | valueClass enum: user-input, prepopulated, calculated, imported, attachment, system-derived, migration-derived. | valueClass | Classifying value origin |
 | 7.6 | Path requirements | path MUST match logical response path model; SHOULD itemKey; repeated structures SHOULD stable discriminator, MAY JSON Pointer dataPointer; SHOULD NOT index-only when stable id exists. | path, itemKey, stable row discriminator | Repeat groups and paths |
-| 7.7 | Sensitive values and minimization | MAY omit before/after; SHOULD then use hashes, display, semanticDelta, redactionPolicy. | minimization, redactionPolicy | PII handling |
-| 7.8 | Example | replace on nested path with user-input and reasonCode. | example JSON | Concrete change entry |
+| 7.7 | Field-level changelog requirements | When changelogMode is field-level, MUST emit ChangeSetEntry per changed path at durable boundaries; SHOULD editBatchId, editSequence; Response stays canonical. | field-level mode, changelogBoundaries | Fine-grained persisted-edit audit |
+| 7.8 | Sensitive values and minimization | MAY omit before/after; SHOULD then use hashes, display, semanticDelta, redactionPolicy; accessClass when Privacy Profile loaded. | minimization, redactionPolicy, accessClass | PII handling |
+| 7.9 | Example | replace on nested path with user-input and reasonCode. | example JSON | Concrete change entry |
 
 ### Event taxonomy (Lines 532-593)
 
@@ -246,7 +247,7 @@ The Respondent Ledger Add-On Specification (v0.2.0-draft) defines an optional, a
 
 6. **Autosave coalescing preserves truth**: MAY coalesce; MUST preserve final persisted state; SHOULD stable change ordering and policy visibility (§9.3).
 
-7. **ChangeSetEntry minimum is three fields**: MUST have `op`, `path`, `valueClass`; sensitive values MAY be omitted with hashes/summaries (§7.2, §7.7).
+7. **ChangeSetEntry minimum is three fields**: MUST have `op`, `path`, `valueClass`; sensitive values MAY be omitted with hashes/summaries (§7.2, §7.8).
 
 8. **Paths must be stable across repeats**: SHOULD stable row discriminators; SHOULD NOT rely on array index alone when a stable repeated-row identifier exists (§7.6).
 

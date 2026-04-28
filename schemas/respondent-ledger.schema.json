@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://formspec.org/schemas/respondent-ledger.schema.json",
   "title": "Formspec Respondent Ledger",
-  "description": "A top-level append-only respondent-side audit ledger layered on top of a canonical Formspec Response. The ledger provides material history for drafts, resumes, attachments, submissions, amendments, stops, migrations, and validation snapshots without changing core Response semantics.",
+  "description": "A top-level append-only respondent-side audit ledger layered on top of a canonical Formspec Response. The ledger provides material history for drafts, resumes, attachments, submissions, amendments, stops, migrations, validation snapshots, and optional field-level editing changelogs without changing core Response semantics.",
   "type": "object",
   "required": [
     "$formspecRespondentLedger",
@@ -112,6 +112,30 @@
       },
       "uniqueItems": true
     },
+    "changelogMode": {
+      "type": "string",
+      "enum": ["material", "field-level"],
+      "default": "material",
+      "description": "Capture mode for respondent-side changes. 'material' captures material lifecycle deltas; 'field-level' captures a durable ChangeSetEntry for each persisted response field path changed at a durable boundary."
+    },
+    "changelogBoundaries": {
+      "type": "array",
+      "description": "Durable boundaries at which field-level changelog deltas are captured. Required when changelogMode is 'field-level'.",
+      "items": {
+        "type": "string",
+        "enum": [
+          "save",
+          "autosave",
+          "submit",
+          "amendment",
+          "prepopulation",
+          "migration",
+          "merge"
+        ]
+      },
+      "minItems": 1,
+      "uniqueItems": true
+    },
     "events": {
       "type": "array",
       "description": "Optional embedded event stream retained with the ledger document.",
@@ -130,6 +154,17 @@
       "$ref": "#/$defs/Extensions"
     }
   },
+  "allOf": [
+    {
+      "if": {
+        "properties": { "changelogMode": { "const": "field-level" } },
+        "required": ["changelogMode"]
+      },
+      "then": {
+        "required": ["changelogBoundaries"]
+      }
+    }
+  ],
   "$defs": {
     "LedgerCheckpoint": {
       "type": "object",
