@@ -22,6 +22,8 @@ import { FormHealthPanel } from '../workspaces/editor/FormHealthPanel';
 import { LayoutLivePreviewSection } from '../workspaces/layout/LayoutLivePreviewSection';
 import { LayoutPreviewNavProvider } from '../workspaces/layout/LayoutPreviewNavContext';
 import { ChatPanel } from './ChatPanel';
+import { createLocalChatThreadRepository, deriveChatProjectScope } from './chat/chat-thread-repository';
+import { createLocalVersionRepository } from './chat/version-repository';
 import { ResizeHandle } from './ui/ResizeHandle';
 import { CanvasTargetsProvider } from '../state/useCanvasTargets';
 import { LayoutModeProvider } from '../workspaces/layout/LayoutModeContext';
@@ -46,6 +48,9 @@ interface ShellProps {
 
 export function Shell({ colorScheme }: ShellProps = {}) {
   const project = useProject();
+  const shellChatThreadRepository = useMemo(() => createLocalChatThreadRepository(), []);
+  const shellVersionRepository = useMemo(() => createLocalVersionRepository(), []);
+  const shellAssistantPersistenceScope = useMemo(() => deriveChatProjectScope(project), [project]);
   const { selectedKey, selectedKeyForTab, deselect, select } = useSelection();
 
   const router = useWorkspaceRouter();
@@ -215,7 +220,7 @@ export function Shell({ colorScheme }: ShellProps = {}) {
         onExport={handleExport}
         onImport={() => setShowImport(true)}
         onSearch={() => setShowPalette(true)}
-        onHome={() => setShowSettings(true)}
+        onHome={undefined}
         onOpenMetadata={() => setShowSettings(true)}
         onToggleAccountMenu={() => setShowAppSettings(true)}
         onToggleMenu={compactLayout ? () => setShowBlueprintDrawer(true) : undefined}
@@ -254,7 +259,7 @@ export function Shell({ colorScheme }: ShellProps = {}) {
       <CanvasTargetsProvider>
         <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
         <div
-          className={`relative flex flex-1 min-h-0 overflow-hidden ${activeTab === 'Editor' ? 'bg-[linear-gradient(180deg,rgba(255,252,247,0.42)_0%,rgba(244,235,224,0.7)_100%)] dark:bg-[linear-gradient(180deg,rgba(26,35,47,0.38)_0%,rgba(20,28,39,0.74)_100%)]' : ''}`}
+          className={`relative flex flex-1 min-h-0 overflow-hidden ${activeTab === 'Editor' ? 'bg-bg-default' : ''}`}
           aria-hidden={overlayOpen ? true : undefined}
         >
           {/* Desktop Left Sidebar */}
@@ -268,7 +273,7 @@ export function Shell({ colorScheme }: ShellProps = {}) {
           />
           {!compactLayout && <ResizeHandle side="left" onResize={onResizeLeft} />}
 
-          <main className="flex-1 overflow-y-auto min-w-0 shrink-0 bg-[linear-gradient(180deg,rgba(255,252,247,0.66),rgba(246,238,227,0.92))] dark:bg-[linear-gradient(180deg,rgba(26,35,47,0.74),rgba(19,24,33,0.94))]">
+          <main className="flex-1 overflow-y-auto min-w-0 shrink-0 bg-bg-default">
             <div
               id={activePanelId}
               role="tabpanel"
@@ -313,13 +318,13 @@ export function Shell({ colorScheme }: ShellProps = {}) {
               >
                 {compactLayout && activeTab === 'Editor' ? (
                   <div data-testid="mobile-editor-structure" className="space-y-3">
-                    <div className="rounded-[24px] border border-border/70 bg-[linear-gradient(180deg,rgba(255,253,249,0.95),rgba(249,242,232,0.92))] dark:bg-[linear-gradient(180deg,rgba(26,35,47,0.95),rgba(32,44,59,0.94))] px-3 py-3 shadow-[0_20px_45px_rgba(77,57,30,0.08)] dark:shadow-[0_20px_45px_rgba(0,0,0,0.28)]">
+                    <div className="rounded-[20px] border border-border bg-surface px-3 py-3">
                       <Blueprint activeSection={resolvedSection} onSectionChange={setActiveSection} sections={visibleSections} activeEditorView={activeEditorView} activeTab={activeTab} />
                     </div>
-                    <div className="rounded-[24px] border border-border/70 bg-[linear-gradient(180deg,rgba(255,253,249,0.95),rgba(249,242,232,0.92))] dark:bg-[linear-gradient(180deg,rgba(26,35,47,0.95),rgba(32,44,59,0.94))] px-3 py-3 shadow-[0_20px_45px_rgba(77,57,30,0.08)] dark:shadow-[0_20px_45px_rgba(0,0,0,0.28)]">
+                    <div className="rounded-[20px] border border-border bg-surface px-3 py-3">
                       {SidebarComponent && <SidebarComponent />}
                     </div>
-                    <div className="rounded-[26px] border border-border/70 bg-[linear-gradient(180deg,rgba(255,255,255,0.9),rgba(249,242,232,0.92))] dark:bg-[linear-gradient(180deg,rgba(26,35,47,0.96),rgba(32,44,59,0.95))] px-2 py-2 shadow-[0_24px_60px_rgba(77,57,30,0.1)] dark:shadow-[0_24px_60px_rgba(0,0,0,0.32)]">
+                    <div className="rounded-[22px] border border-border bg-surface px-2 py-2">
                       {workspaceContent}
                     </div>
                   </div>
@@ -334,7 +339,7 @@ export function Shell({ colorScheme }: ShellProps = {}) {
               <>
                 <ResizeHandle side="right" onResize={onResizeRight} />
                 <aside
-                  className="flex flex-col overflow-hidden shrink-0 border-l border-border/70 bg-[linear-gradient(180deg,rgba(255,252,247,0.95),rgba(246,238,227,0.9))] dark:bg-[linear-gradient(180deg,rgba(26,35,47,0.94),rgba(32,44,59,0.92))]"
+                  className="flex flex-col overflow-hidden shrink-0 border-l border-border/70 bg-surface"
                   style={{ width: `clamp(200px, ${rightWidth}px, calc(50vw - 340px))` }}
                   data-testid="properties-panel"
                   aria-label="Form health panel"
@@ -358,7 +363,7 @@ export function Shell({ colorScheme }: ShellProps = {}) {
               <button
                 type="button"
                 aria-label="Show form health panel"
-                className="shrink-0 border-l border-border/70 bg-[linear-gradient(180deg,rgba(255,252,247,0.95),rgba(246,238,227,0.9))] dark:bg-[linear-gradient(180deg,rgba(26,35,47,0.94),rgba(32,44,59,0.92))] px-1.5 py-3 text-muted hover:text-ink hover:bg-subtle transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/35"
+                className="shrink-0 border-l border-border/70 bg-surface px-1.5 py-3 text-muted hover:text-ink hover:bg-subtle transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/35"
                 onClick={() => setShowRightPanel(true)}
               >
                 <IconChevronLeft size={14} />
@@ -370,7 +375,7 @@ export function Shell({ colorScheme }: ShellProps = {}) {
               <>
                 <ResizeHandle side="right" onResize={onResizeRight} />
                 <aside
-                  className="flex flex-col overflow-hidden shrink-0 border-l border-border/70 bg-[linear-gradient(180deg,rgba(255,252,247,0.95),rgba(246,238,227,0.9))] dark:bg-[linear-gradient(180deg,rgba(26,35,47,0.94),rgba(32,44,59,0.92))]"
+                  className="flex flex-col overflow-hidden shrink-0 border-l border-border/70 bg-surface"
                   style={{ width: `clamp(280px, ${rightWidth}px, calc(50vw - 260px))` }}
                   data-testid="layout-preview-panel"
                   aria-label="Layout live preview"
@@ -386,7 +391,7 @@ export function Shell({ colorScheme }: ShellProps = {}) {
                     </button>
                   </div>
                   <div className="flex-1 min-h-0 px-3 pb-3">
-                    <div className="h-full overflow-hidden rounded-[22px] border border-border/70 bg-surface/80 shadow-[0_18px_40px_rgba(23,32,51,0.08)] dark:shadow-[0_18px_36px_rgba(0,0,0,0.24)]">
+                    <div className="h-full overflow-hidden rounded-[22px] border border-border/70 bg-surface/80">
                       <LayoutLivePreviewSection
                         width="100%"
                         className="h-full"
@@ -400,7 +405,7 @@ export function Shell({ colorScheme }: ShellProps = {}) {
               <button
                 type="button"
                 aria-label="Show layout preview panel"
-                className="shrink-0 border-l border-border/70 bg-[linear-gradient(180deg,rgba(255,252,247,0.95),rgba(246,238,227,0.9))] dark:bg-[linear-gradient(180deg,rgba(26,35,47,0.94),rgba(32,44,59,0.92))] px-1.5 py-3 text-muted hover:text-ink hover:bg-subtle transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/35"
+                className="shrink-0 border-l border-border/70 bg-surface px-1.5 py-3 text-muted hover:text-ink hover:bg-subtle transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/35"
                 onClick={() => setShowLayoutPreviewPanel(true)}
               >
                 <IconChevronLeft size={14} />
@@ -423,6 +428,10 @@ export function Shell({ colorScheme }: ShellProps = {}) {
               <ChatPanel
                 project={project}
                 surfaceLayout={assistantPrimaryOpen ? 'primary' : 'rail'}
+                chatThreadRepository={shellChatThreadRepository}
+                chatProjectScope={shellAssistantPersistenceScope}
+                versionRepository={shellVersionRepository}
+                versionScope={shellAssistantPersistenceScope}
                 onClose={() => {
                   setShowChatPanel(false);
                   setPrimaryAssistantOpen(false);

@@ -148,9 +148,9 @@ export function AppSettingsDialog({ open, onClose }: AppSettingsDialogProps) {
           )}
 
           <div className="border-t border-border pt-4 space-y-3">
-            <p className="text-[12px] font-semibold text-ink">Assistant workspace</p>
+            <p className="text-[12px] font-semibold text-ink">AI authoring surface</p>
             <p className="text-[11px] text-muted">
-              Open the full-screen assistant (starters, import, chat) with your current project. Your API key and provider choice are not changed.
+              Open full-screen AI authoring (starters, import, chat) with your current project. Your API key and provider choice are not changed.
             </p>
             <button
               type="button"
@@ -158,12 +158,12 @@ export function AppSettingsDialog({ open, onClose }: AppSettingsDialogProps) {
               onClick={handleOpenAssistantWorkspaceOnly}
               className="w-full px-3 py-1.5 text-[12px] font-medium rounded-[4px] border border-border hover:bg-subtle transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/40"
             >
-              Open assistant workspace
+              Open AI authoring surface
             </button>
             <div className="rounded-[4px] border border-border/80 bg-bg-default/40 px-3 py-2">
               <p className="text-[11px] font-medium text-ink">Reset first-run and open</p>
               <p className="mt-1 text-[11px] text-muted leading-snug">
-                Clears completion, orientation tips, and saved assistant/workspace preference. Then opens the assistant workspace with this project.
+                Clears completion, orientation tips, and saved assistant/workspace preference. Then opens the AI authoring surface with this project.
               </p>
               <button
                 type="button"

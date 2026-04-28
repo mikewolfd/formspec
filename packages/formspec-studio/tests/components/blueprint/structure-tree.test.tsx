@@ -1,4 +1,4 @@
-import { render, screen, act } from '@testing-library/react';
+import { render, screen, act, fireEvent } from '@testing-library/react';
 import { describe, it, expect } from 'vitest';
 import { createProject } from '@formspec-org/studio-core';
 import { ProjectProvider } from '../../../src/state/ProjectContext';
@@ -225,5 +225,22 @@ describe('StructureTree', () => {
     });
 
     expect(screen.getByRole('button', { name: /^Heading Section heading or title/i })).toBeInTheDocument();
+  });
+
+  it('opens the same editor context menu on right-click and can duplicate a field', async () => {
+    const project = createProject({ seed: { definition: treeDef as any } });
+    renderTree(project);
+
+    const node = screen.getByTestId('tree-item-name');
+    fireEvent.contextMenu(node, { clientX: 120, clientY: 160 });
+
+    expect(screen.getByTestId('context-menu')).toBeInTheDocument();
+    expect(screen.getByTestId('ctx-duplicate')).toBeInTheDocument();
+
+    await act(async () => {
+      screen.getByTestId('ctx-duplicate').click();
+    });
+
+    expect(project.definition.items.length).toBe(4);
   });
 });

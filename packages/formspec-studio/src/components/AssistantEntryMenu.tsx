@@ -72,8 +72,8 @@ export function AssistantEntryMenu({
               onOpenFullWorkspace();
             }}
           >
-            <span className="text-[13px] font-medium text-ink">Assistant workspace</span>
-            <span className="text-[11px] leading-snug text-muted">Full screen — starters, import, composer.</span>
+            <span className="text-[13px] font-medium text-ink">AI authoring surface</span>
+            <span className="text-[11px] leading-snug text-muted">Full screen AI workflow — starters, import, composer.</span>
           </button>
           <div className="my-1 border-t border-border" role="separator" />
           {!showHideChat && (

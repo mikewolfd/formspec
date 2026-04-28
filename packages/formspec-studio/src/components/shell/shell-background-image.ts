@@ -3,14 +3,14 @@
 export function getShellBackgroundImage(theme: 'light' | 'dark'): string {
   if (theme === 'dark') {
     return [
-      'radial-gradient(circle at 0% 0%, rgba(123,161,255,0.13), transparent 26%)',
-      'radial-gradient(circle at 100% 0%, rgba(131,216,219,0.11), transparent 28%)',
-      'linear-gradient(180deg, rgba(19,24,33,0.96), rgba(23,32,46,0.98) 34%, rgba(27,38,54,0.94) 100%)',
+      'radial-gradient(circle at 0% 0%, rgba(138,180,255,0.09), transparent 30%)',
+      'radial-gradient(circle at 100% 0%, rgba(155,205,207,0.06), transparent 32%)',
+      'linear-gradient(180deg, #181819 0%, #141415 42%, #121213 100%)',
     ].join(', ');
   }
   return [
-    'radial-gradient(circle at 0% 0%, rgba(183,121,31,0.12), transparent 26%)',
-    'radial-gradient(circle at 100% 0%, rgba(47,107,126,0.12), transparent 28%)',
-    'linear-gradient(180deg, rgba(255,249,241,0.8), rgba(246,240,232,0.96) 34%, rgba(241,232,220,0.82) 100%)',
+    'radial-gradient(circle at 0% 0%, rgba(122,106,74,0.07), transparent 30%)',
+    'radial-gradient(circle at 100% 0%, rgba(74,111,118,0.06), transparent 32%)',
+    'linear-gradient(180deg, rgba(252,252,251,0.92) 0%, rgba(243,242,239,0.98) 40%, rgba(235,234,231,0.95) 100%)',
   ].join(', ');
 }

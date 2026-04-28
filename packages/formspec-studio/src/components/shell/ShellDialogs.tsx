@@ -2,7 +2,7 @@ import { StudioWorkspaceModals, type StudioWorkspaceModalsProps } from './Studio
 
 export type ShellDialogsProps = Omit<
   StudioWorkspaceModalsProps,
-  'importOnBeforeLoad' | 'onImportClosed'
+  'importOnBeforeLoad' | 'importOnSuccess' | 'onImportClosed'
 >;
 
 export function ShellDialogs(props: ShellDialogsProps) {

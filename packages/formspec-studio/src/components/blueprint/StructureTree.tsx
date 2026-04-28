@@ -1,5 +1,17 @@
 /** @filedesc Blueprint section rendering the definition item tree with inline add-item palette support. */
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useLayoutEffect, useMemo, useRef } from 'react';
+import type { MouseEvent as ReactMouseEvent } from 'react';
+import {
+  autoUpdate,
+  flip,
+  FloatingPortal,
+  offset,
+  shift,
+  useDismiss,
+  useFloating,
+  useInteractions,
+} from '@floating-ui/react';
+import { buildDefLookup } from '@formspec-org/studio-core';
 import { useDefinition } from '../../state/useDefinition';
 import { useSelection } from '../../state/useSelection';
 import { useProject } from '../../state/useProject';
@@ -7,6 +19,10 @@ import { useCanvasTargets } from '../../state/useCanvasTargets';
 import { FieldIcon } from '../ui/FieldIcon';
 import { AddItemPalette, type FieldTypeOption } from '../AddItemPalette';
 import { EmptyBlueprintState } from '../shared/EmptyBlueprintState';
+import { ConfirmDialog } from '../ConfirmDialog';
+import { EditorContextMenu } from '../../workspaces/editor/EditorContextMenu';
+import { WrapInGroupDialog } from '../../workspaces/editor/WrapInGroupDialog';
+import type { ContextMenuItem } from '../ui/context-menu-utils';
 
 interface ItemNode {
   key: string;
@@ -52,10 +68,12 @@ function TreeNode({
   item,
   depth,
   pathPrefix,
+  onItemContextMenu,
 }: {
   item: ItemNode;
   depth: number;
   pathPrefix: string;
+  onItemContextMenu: (e: ReactMouseEvent, fullPath: string, itemType: string) => void;
 }) {
   const { selectedKeyForTab, select } = useSelection();
   const { scrollToTarget } = useCanvasTargets();
@@ -90,6 +108,7 @@ function TreeNode({
         }`}
         style={{ paddingLeft: `${depth * 12 + 8}px` }}
         onClick={handleClick}
+        onContextMenu={(e) => onItemContextMenu(e, fullPath, item.type)}
       >
         <span className="shrink-0 w-4 flex justify-center">{icon}</span>
         <span className="truncate flex-1">{item.label || item.key}</span>
@@ -105,6 +124,7 @@ function TreeNode({
           item={child}
           depth={depth + 1}
           pathPrefix={fullPath}
+          onItemContextMenu={onItemContextMenu}
         />
       ))}
     </div>
@@ -132,13 +152,135 @@ function parentPathForInsertion(project: ReturnType<typeof useProject>, selected
   return selectedKey.split('.').slice(0, -1).join('.') || undefined;
 }
 
+interface WrapGroupDraft {
+  itemPath: string;
+  itemLabel: string;
+  key: string;
+  label: string;
+}
+
+/** Right-click target: path + item type (position comes from Floating UI + pointer). */
+interface RowContextMenu {
+  path: string;
+  type: string;
+}
+
 export function StructureTree() {
   const definition = useDefinition();
   const project = useProject();
-  const { selectedKeyForTab, select } = useSelection();
+  const { selectedKeyForTab, select, selectedKeysForTab, deselect } = useSelection();
   const items = (definition.items ?? []) as ItemNode[];
   const [paletteOpen, setPaletteOpen] = useState(false);
+  const [rowMenu, setRowMenu] = useState<RowContextMenu | null>(null);
+  const [pendingDeletePath, setPendingDeletePath] = useState<string | null>(null);
+  const [wrapGroupDraft, setWrapGroupDraft] = useState<WrapGroupDraft | null>(null);
   const selectedKey = selectedKeyForTab('editor');
+  const pointerRef = useRef({ x: 0, y: 0 });
+
+  const menuOpen = rowMenu !== null;
+  const { refs, floatingStyles, context } = useFloating({
+    open: menuOpen,
+    onOpenChange: (open) => {
+      if (!open) setRowMenu(null);
+    },
+    strategy: 'fixed',
+    placement: 'bottom-start',
+    middleware: [offset({ mainAxis: 2, crossAxis: 0 }), flip(), shift({ padding: 8 })],
+    whileElementsMounted: autoUpdate,
+  });
+
+  const dismiss = useDismiss(context);
+  const { getFloatingProps } = useInteractions([dismiss]);
+
+  useLayoutEffect(() => {
+    if (!menuOpen) return;
+    const { x, y } = pointerRef.current;
+    refs.setReference({
+      getBoundingClientRect() {
+        return new DOMRect(x, y, 0, 0);
+      },
+    });
+  }, [menuOpen, refs]);
+
+  const contextMenuItems = useMemo<ContextMenuItem[]>(
+    () => [
+      { label: 'Duplicate', action: 'duplicate' },
+      { label: 'Delete', action: 'delete' },
+      { label: 'Move Up', action: 'moveUp' },
+      { label: 'Move Down', action: 'moveDown' },
+      { label: 'Wrap in Group', action: 'wrapInGroup' },
+    ],
+    [],
+  );
+
+  const onItemContextMenu = useCallback(
+    (e: ReactMouseEvent, path: string, type: string) => {
+      e.preventDefault();
+      e.stopPropagation();
+      const keys = selectedKeysForTab('editor');
+      if (!keys.has(path)) {
+        select(path, type, { tab: 'editor' });
+      }
+      pointerRef.current = { x: e.clientX, y: e.clientY };
+      setRowMenu({ path, type });
+    },
+    [select, selectedKeysForTab],
+  );
+
+  const handleContextAction = useCallback(
+    (action: string) => {
+      const path = rowMenu?.path;
+      if (!path) return;
+
+      switch (action) {
+        case 'duplicate': {
+          const result = project.copyItem(path);
+          const nextPath = result.affectedPaths[0];
+          if (nextPath) {
+            const nextItems = (project.state.definition.items ?? []) as ItemNode[];
+            const nextType = buildDefLookup(nextItems).get(nextPath)?.item?.type ?? 'field';
+            select(nextPath, nextType, { tab: 'editor' });
+          }
+          break;
+        }
+        case 'delete':
+          setPendingDeletePath(path);
+          break;
+        case 'moveUp':
+          project.reorderItem(path, 'up');
+          break;
+        case 'moveDown':
+          project.reorderItem(path, 'down');
+          break;
+        case 'wrapInGroup': {
+          const targetItem = buildDefLookup(items).get(path)?.item;
+          const itemLabel =
+            typeof targetItem?.label === 'string' && targetItem.label.trim()
+              ? targetItem.label
+              : path.split('.').pop() ?? path;
+          setWrapGroupDraft({
+            itemPath: path,
+            itemLabel,
+            key: '',
+            label: '',
+          });
+          break;
+        }
+        default:
+          break;
+      }
+      setRowMenu(null);
+    },
+    [rowMenu?.path, items, project, select],
+  );
+
+  const pendingDeleteLabel = useMemo(() => {
+    if (!pendingDeletePath) return null;
+    const deleteTarget = buildDefLookup(items).get(pendingDeletePath)?.item;
+    return typeof deleteTarget?.label === 'string' && deleteTarget.label.trim()
+      ? deleteTarget.label
+      : pendingDeletePath.split('.').pop() ?? pendingDeletePath;
+  }, [items, pendingDeletePath]);
 
   const handleAddFromPalette = useCallback(
     (opt: FieldTypeOption) => {
@@ -204,12 +346,62 @@ export function StructureTree() {
                   item={item}
                   depth={0}
                   pathPrefix=""
+                  onItemContextMenu={onItemContextMenu}
                 />
               ))
             )}
           </div>
         </section>
       </div>
+
+      <ConfirmDialog
+        open={pendingDeletePath !== null}
+        title={`Delete ${pendingDeleteLabel ?? 'item'}?`}
+        description="This will remove the selected item from the form definition."
+        confirmLabel="Confirm Delete"
+        cancelLabel="Cancel Delete"
+        onCancel={() => setPendingDeletePath(null)}
+        onConfirm={() => {
+          if (pendingDeletePath) {
+            project.removeItem(pendingDeletePath);
+            deselect();
+          }
+          setPendingDeletePath(null);
+        }}
+      />
+
+      {wrapGroupDraft && (
+        <WrapInGroupDialog
+          draft={wrapGroupDraft}
+          onCancel={() => setWrapGroupDraft(null)}
+          onConfirm={(groupKey, groupLabel) => {
+            const result = project.wrapItemsInGroup([wrapGroupDraft.itemPath], groupKey, groupLabel);
+            const groupPath = result.affectedPaths?.[0];
+            if (groupPath) {
+              select(groupPath, 'group', { tab: 'editor' });
+            }
+            setWrapGroupDraft(null);
+          }}
+        />
+      )}
+
+      {rowMenu && (
+        <FloatingPortal>
+          <div
+            ref={refs.setFloating}
+            style={floatingStyles}
+            className="z-[200]"
+            {...getFloatingProps()}
+          >
+            <EditorContextMenu
+              onAction={handleContextAction}
+              onClose={() => setRowMenu(null)}
+              items={contextMenuItems}
+              testId="context-menu"
+            />
+          </div>
+        </FloatingPortal>
+      )}
     </>
   );
 }

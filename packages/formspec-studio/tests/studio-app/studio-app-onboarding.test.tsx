@@ -17,7 +17,7 @@ describe('StudioApp assistant workspace', () => {
     window.addEventListener('formspec:onboarding-telemetry', listener);
     try {
       render(<StudioApp />);
-      fireEvent.click(screen.getAllByRole('button', { name: /Enter workspace/i })[0]);
+      fireEvent.click(screen.getAllByRole('button', { name: /Open manual controls/i })[0]);
 
       expect(localStorage.getItem('formspec-studio:onboarding-completed:v1')).toBe('1');
       expect(screen.getByTestId('shell')).toBeInTheDocument();
@@ -39,7 +39,7 @@ describe('StudioApp assistant workspace', () => {
     expect(screen.getByTestId('assistant-workspace')).toBeInTheDocument();
 
     await act(async () => {
-      fireEvent.click(screen.getAllByRole('button', { name: /Enter workspace/i })[0]);
+      fireEvent.click(screen.getAllByRole('button', { name: /Open manual controls/i })[0]);
     });
     expect(screen.getByTestId('shell')).toBeInTheDocument();
 
@@ -76,7 +76,7 @@ describe('StudioApp assistant workspace', () => {
     localStorage.clear();
     render(<StudioApp />);
     await act(async () => {
-      fireEvent.click(screen.getAllByRole('button', { name: /Enter workspace/i })[0]);
+      fireEvent.click(screen.getAllByRole('button', { name: /Open manual controls/i })[0]);
     });
     expect(screen.getByTestId('shell')).toBeInTheDocument();
 
@@ -89,7 +89,7 @@ describe('StudioApp assistant workspace', () => {
     expect(screen.getByTestId('assistant-workspace')).toBeInTheDocument();
 
     await act(async () => {
-      fireEvent.click(screen.getAllByRole('button', { name: /Enter workspace/i })[0]);
+      fireEvent.click(screen.getAllByRole('button', { name: /Open manual controls/i })[0]);
     });
     expect(screen.getByTestId('shell')).toBeInTheDocument();
   });

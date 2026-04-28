@@ -8,11 +8,13 @@ interface ImportDialogProps {
   onClose: () => void;
   /** When false or resolved false, load is aborted. May return a Promise (e.g. in-app confirm). */
   onBeforeLoad?: () => boolean | Promise<boolean>;
+  /** Called after a successful load, before `onClose`. */
+  onImportSuccess?: () => void;
 }
 
 const ARTIFACT_TYPES = ['Definition', 'Component', 'Theme', 'Mapping'] as const;
 
-export function ImportDialog({ open, onClose, onBeforeLoad }: ImportDialogProps) {
+export function ImportDialog({ open, onClose, onBeforeLoad, onImportSuccess }: ImportDialogProps) {
   const project = useProject();
   const titleId = useId();
   const descriptionId = useId();
@@ -135,6 +137,7 @@ export function ImportDialog({ open, onClose, onBeforeLoad }: ImportDialogProps)
                 const parsed = JSON.parse(jsonText);
                 const artifactKey = selectedType.toLowerCase();
                 project.loadBundle({ [artifactKey]: parsed });
+                onImportSuccess?.();
                 onClose();
               } catch (e) {
                 setParseError((e as SyntaxError).message);

@@ -2,6 +2,8 @@
 export const ONBOARDING_COMPLETED_KEY = 'formspec-studio:onboarding-completed:v1';
 /** Dismissed setup tip card in first-run onboarding (re-shown after `resetOnboardingPreferences`). */
 export const ONBOARDING_ORIENTATION_KEY = 'formspec-studio:onboarding-orientation:v1';
+/** When set, assistant workspace opens the Start (templates/import) panel on load (large screens). */
+export const ASSISTANT_START_DRAWER_PINNED_KEY = 'formspec-studio:assistant-start-drawer-pinned:v1';
 /** Last explicit assistant vs workspace shell choice (after first-run defaults). */
 export const STUDIO_VIEW_PREFERENCE_KEY = 'formspec-studio:studio-view:v1';
 
@@ -15,6 +17,15 @@ export function getPersistedStudioView(storage: Storage = localStorage): StudioV
 
 export function setPersistedStudioView(view: StudioViewPreference, storage: Storage = localStorage): void {
   storage.setItem(STUDIO_VIEW_PREFERENCE_KEY, view);
+}
+
+export function isAssistantStartDrawerPinned(storage: Storage = localStorage): boolean {
+  return storage.getItem(ASSISTANT_START_DRAWER_PINNED_KEY) === '1';
+}
+
+export function setAssistantStartDrawerPinned(pinned: boolean, storage: Storage = localStorage): void {
+  if (pinned) storage.setItem(ASSISTANT_START_DRAWER_PINNED_KEY, '1');
+  else storage.removeItem(ASSISTANT_START_DRAWER_PINNED_KEY);
 }
 
 export function clearStudioViewPreference(storage: Storage = localStorage): void {
@@ -38,6 +49,7 @@ export function resetOnboardingPreferences(storage: Storage = localStorage): voi
   clearOnboardingCompleted(storage);
   storage.removeItem(ONBOARDING_ORIENTATION_KEY);
   clearStudioViewPreference(storage);
+  storage.removeItem(ASSISTANT_START_DRAWER_PINNED_KEY);
 }
 
 export function shouldShowOnboarding(location: Location = window.location, storage: Storage = localStorage): boolean {

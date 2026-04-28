@@ -21,6 +21,8 @@ export interface StudioWorkspaceModalsProps {
   showAppSettings: boolean;
   setShowAppSettings: (show: boolean) => void;
   importOnBeforeLoad?: () => boolean | Promise<boolean>;
+  /** Runs after a successful import load, before the dialog closes. */
+  importOnSuccess?: () => void;
   /** Runs after the import dialog closes (in addition to `setShowImport(false)`). */
   onImportClosed?: () => void;
   commandPaletteSurface?: 'studio' | 'assistant';
@@ -36,6 +38,7 @@ export function StudioWorkspaceModals({
   showAppSettings,
   setShowAppSettings,
   importOnBeforeLoad,
+  importOnSuccess,
   onImportClosed,
   commandPaletteSurface = 'studio',
 }: StudioWorkspaceModalsProps) {
@@ -53,6 +56,7 @@ export function StudioWorkspaceModals({
           onImportClosed?.();
         }}
         onBeforeLoad={importOnBeforeLoad}
+        onImportSuccess={importOnSuccess}
       />
       <SettingsDialog open={showSettings} onClose={() => setShowSettings(false)} />
       <AppSettingsDialog open={showAppSettings} onClose={() => setShowAppSettings(false)} />

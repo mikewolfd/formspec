@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import {
+  ASSISTANT_START_DRAWER_PINNED_KEY,
   ONBOARDING_COMPLETED_KEY,
   ONBOARDING_ORIENTATION_KEY,
   STUDIO_VIEW_PREFERENCE_KEY,
@@ -64,6 +65,12 @@ describe('onboarding storage policy', () => {
     localStorage.setItem(STUDIO_VIEW_PREFERENCE_KEY, 'workspace');
     resetOnboardingPreferences();
     expect(localStorage.getItem(STUDIO_VIEW_PREFERENCE_KEY)).toBeNull();
+  });
+
+  it('resetOnboardingPreferences clears assistant start drawer pin', () => {
+    localStorage.setItem(ASSISTANT_START_DRAWER_PINNED_KEY, '1');
+    resetOnboardingPreferences();
+    expect(localStorage.getItem(ASSISTANT_START_DRAWER_PINNED_KEY)).toBeNull();
   });
 
   it('initial studio view follows onboarding policy and persistence', () => {

@@ -7,13 +7,13 @@ test.describe('Studio first-run onboarding', () => {
 
   test('opens the assistant workspace before the shell and continues with the same blank project', async ({ page }) => {
     await expect(page.locator('[data-testid="assistant-workspace"]')).toBeVisible();
-    await expect(page.getByText('What form are you building?')).toBeVisible();
-    await expect(page.getByText('Untitled form · Assistant workspace')).toBeVisible();
+    await expect(page.getByText('Describe the form once. Iterate quickly.')).toBeVisible();
+    await expect(page.getByText('Untitled form · AI authoring')).toBeVisible();
     await expect(page.getByTestId('source-dropzone')).toBeVisible();
-    await expect(page.getByText('Drop PDF, form, or JSON')).toBeVisible();
+    await expect(page.getByText('Upload source document')).toBeVisible();
     await expect(page.getByRole('button', { name: /Section 8 HCV intake ready/i })).toBeVisible();
 
-    await page.getByRole('button', { name: 'Enter workspace' }).first().click();
+    await page.getByRole('button', { name: 'Open manual controls' }).first().click();
 
     await expect(page.locator('[data-testid="shell"]')).toBeVisible();
     await expect(page.locator('[data-testid="assistant-workspace"]')).toHaveCount(0);
@@ -22,10 +22,11 @@ test.describe('Studio first-run onboarding', () => {
   });
 
   test('can load the starter before entering Studio', async ({ page }) => {
-    await page.getByRole('button', { name: /Use selected starter/i }).click();
+    await page.getByRole('button', { name: /^Use starter$/i }).first().click();
     await expect(page.getByRole('heading', { name: 'Section 8 HCV — Intake' })).toBeVisible();
+    await expect(page.getByText('Describe the form once. Iterate quickly.')).toBeHidden();
 
-    await page.getByRole('button', { name: 'Enter workspace' }).first().click();
+    await page.getByRole('button', { name: 'Open manual controls' }).first().click();
 
     await expect(page.locator('[data-testid="shell"]')).toBeVisible();
     await expect(page.getByTestId('tree-item-app')).toBeVisible();
@@ -51,8 +52,9 @@ test.describe('Studio first-run onboarding', () => {
 
     await expect(page.getByText('definition.json loaded as current draft')).toBeVisible();
     await expect(page.getByRole('heading', { name: 'Dropped Source Form' })).toBeVisible();
+    await expect(page.getByText('Describe the form once. Iterate quickly.')).toBeHidden();
 
-    await page.getByRole('button', { name: 'Enter workspace' }).first().click();
+    await page.getByRole('button', { name: 'Open manual controls' }).first().click();
 
     await expect(page.locator('[data-testid="shell"]')).toBeVisible();
     await expect(page.getByTestId('tree-item-fullName')).toBeVisible();
@@ -87,4 +89,5 @@ test.describe('Studio first-run onboarding', () => {
     await page.keyboard.press('Escape');
     await expect(page.getByText('Form overview')).toHaveCount(0);
   });
+
 });

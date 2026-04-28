@@ -127,7 +127,7 @@ describe('Header', () => {
     expect(screen.queryByRole('tab', { name: 'Data' })).not.toBeInTheDocument();
   });
 
-  it('assistantSurface replaces tabs with assistant status and Enter workspace', async () => {
+  it('assistantSurface replaces tabs with AI-method status and manual-controls CTA', async () => {
     const onEnterWorkspace = vi.fn();
     render(
       <ProjectProvider project={createProject()}>
@@ -149,7 +149,7 @@ describe('Header', () => {
     );
     expect(screen.getByTestId('assistant-enter-workspace')).toBeInTheDocument();
     expect(screen.queryByRole('tab', { name: 'Layout' })).not.toBeInTheDocument();
-    expect(screen.getByRole('status', { name: 'Assistant workspace' })).toBeInTheDocument();
+    expect(screen.getByRole('status', { name: 'AI method active' })).toBeInTheDocument();
     await act(async () => {
       screen.getByTestId('assistant-enter-workspace').click();
     });

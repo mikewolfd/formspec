@@ -1,5 +1,6 @@
 /** @filedesc Telemetry helpers for first-run onboarding events. */
 import { loadProviderConfig } from '../lib/provider-config-storage.js';
+import type { AuthoringCapability, AuthoringMethod } from './authoring-method-telemetry.js';
 import type { EnterWorkspaceSource } from './enter-workspace-source.js';
 
 export type OnboardingEventName =
@@ -8,7 +9,9 @@ export type OnboardingEventName =
   | 'onboarding_first_meaningful_edit'
   | 'onboarding_starter_selected'
   | 'onboarding_diagnostics_snapshot'
-  | 'onboarding_enter_workspace_intent';
+  | 'onboarding_enter_workspace_intent'
+  | 'onboarding_capability_method_used'
+  | 'onboarding_capability_fallback';
 
 export interface OnboardingTelemetryDetail {
   schemaVersion: 1;
@@ -21,6 +24,9 @@ export interface OnboardingTelemetryDetail {
   diagnosticErrors?: number;
   diagnosticWarnings?: number;
   enterWorkspaceSource?: EnterWorkspaceSource;
+  capability?: AuthoringCapability;
+  method?: AuthoringMethod;
+  fallbackReason?: string;
 }
 
 function resolveBuildMode(): OnboardingTelemetryDetail['buildMode'] {

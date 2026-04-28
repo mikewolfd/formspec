@@ -8,7 +8,7 @@ import type { FormShape, FormVariable } from '@formspec-org/types';
 interface CommandPaletteProps {
   open: boolean;
   onClose: () => void;
-  /** Assistant workspace uses tighter copy before the user enters tabbed Studio. */
+  /** AI authoring surface uses tighter copy before users switch to manual controls. */
   surface?: 'studio' | 'assistant';
 }
 

@@ -12,6 +12,8 @@ interface BlueprintSidebarProps {
   activeEditorView: EditorView | undefined;
   compactLayout: boolean;
   leftWidth: number;
+  /** Full-width column (e.g. assistant setup drawer) instead of shell clamp width. */
+  embedded?: boolean;
 }
 
 export function BlueprintSidebar({
@@ -21,6 +23,7 @@ export function BlueprintSidebar({
   activeEditorView,
   compactLayout,
   leftWidth,
+  embedded = false,
 }: BlueprintSidebarProps) {
   const layoutModeCtx = useOptionalLayoutMode();
   const { visibleSections, resolvedSection, SidebarComponent } = useBlueprintSectionResolution(activeTab, activeSection);
@@ -40,8 +43,12 @@ export function BlueprintSidebar({
   return (
     <aside
       data-testid="blueprint-sidebar"
-      className="overflow-y-auto flex flex-col shrink-0 border-r border-border/70 bg-[linear-gradient(180deg,rgba(255,252,247,0.94),rgba(248,241,231,0.88))] dark:bg-[linear-gradient(180deg,rgba(26,35,47,0.94),rgba(32,44,59,0.92))] backdrop-blur-sm"
-      style={{ width: `clamp(140px, ${leftWidth}px, calc(50vw - 340px))` }}
+      className={
+        embedded
+          ? 'flex min-h-0 w-full min-w-0 flex-1 flex-col overflow-y-auto border-0 bg-[linear-gradient(180deg,rgba(255,252,247,0.94),rgba(248,241,231,0.88))] dark:bg-[linear-gradient(180deg,rgba(26,35,47,0.94),rgba(32,44,59,0.92))] backdrop-blur-sm'
+          : 'flex shrink-0 flex-col overflow-y-auto border-r border-border/70 bg-[linear-gradient(180deg,rgba(255,252,247,0.94),rgba(248,241,231,0.88))] dark:bg-[linear-gradient(180deg,rgba(26,35,47,0.94),rgba(32,44,59,0.92))] backdrop-blur-sm'
+      }
+      style={embedded ? undefined : { width: `clamp(140px, ${leftWidth}px, calc(50vw - 340px))` }}
       aria-label="Blueprint sidebar"
     >
       <Blueprint activeSection={resolvedSection} onSectionChange={onSectionChange} sections={visibleSections} activeEditorView={activeEditorView} activeTab={activeTab} />

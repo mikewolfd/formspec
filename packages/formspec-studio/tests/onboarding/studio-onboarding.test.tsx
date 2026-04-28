@@ -1,5 +1,6 @@
 /** @filedesc Tests for the first-run onboarding workspace and source/start controls. */
 import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { createProject, type Project } from '@formspec-org/studio-core';
 import { AssistantWorkspace } from '../../src/onboarding/AssistantWorkspace';
@@ -39,17 +40,19 @@ describe('AssistantWorkspace', () => {
   it('loads the selected starter into the same project', async () => {
     const { project } = renderOnboarding();
 
-    expect(screen.getByText('Choose a starting path')).toBeInTheDocument();
-    expect(screen.getByText('Workspace status')).toBeInTheDocument();
-
     await act(async () => {
-      screen.getByRole('button', { name: /Use selected starter/i }).click();
+      screen.getAllByRole('button', { name: /^Use starter$/i })[0]!.click();
     });
 
     expect(project.definition.title).toBe('Section 8 HCV — Intake');
     expect(project.statistics().fieldCount).toBeGreaterThan(20);
-    expect(screen.getByRole('heading', { name: 'Section 8 HCV — Intake' })).toBeInTheDocument();
-    expect(screen.getByText('Applicant Information')).toBeInTheDocument();
+    expect(screen.getByText(/Section 8 HCV — Intake/)).toBeInTheDocument();
+    expect(screen.queryByText('Describe the form once. Iterate quickly.')).not.toBeInTheDocument();
+    expect(
+      project.definition.items.some(
+        (item) => item.type === 'group' && item.label === 'Applicant Information',
+      ),
+    ).toBe(true);
   });
 
   it('loads a dropped JSON definition without requiring an assistant provider', async () => {
@@ -76,6 +79,7 @@ describe('AssistantWorkspace', () => {
     expect(project.definition.items.map((item) => item.label)).toEqual(['Full Name', 'Income']);
     expect(screen.getByText('definition.json loaded as current draft')).toBeInTheDocument();
     expect(screen.getAllByText(/Loaded definition.json/).length).toBeGreaterThan(0);
+    expect(screen.queryByText('Describe the form once. Iterate quickly.')).not.toBeInTheDocument();
   });
 
   it('opens provider settings for non-JSON source files when no assistant is configured', async () => {
@@ -128,7 +132,7 @@ describe('AssistantWorkspace', () => {
     });
 
     await act(async () => {
-      screen.getByRole('button', { name: /Use selected starter/i }).click();
+      screen.getAllByRole('button', { name: /^Use starter$/i })[0]!.click();
     });
 
     await waitFor(() => {
@@ -214,7 +218,10 @@ describe('AssistantWorkspace', () => {
     project.proposals?.acceptChangeset();
 
     await act(async () => {
-      fireEvent.click(screen.getByRole('button', { name: /Use selected starter/i }));
+      fireEvent.click(screen.getByTestId('assistant-start-open'));
+    });
+    await act(async () => {
+      screen.getAllByRole('button', { name: /^Use starter$/i })[0]!.click();
     });
 
     await waitFor(() => {
@@ -243,16 +250,20 @@ describe('AssistantWorkspace', () => {
     localStorage.setItem(STORAGE_KEY, JSON.stringify({ provider: 'google', apiKey: 'test-key' }));
     renderOnboarding();
 
-    const describeButton = screen.getByRole('button', { name: 'Describe it' });
-    const starterButton = screen.getByRole('button', { name: 'Browse starters' });
-    const composer = screen.getByLabelText('Assistant composer');
-    const starterRail = screen.getByLabelText('Start controls and starter catalog');
+    const startRail = screen.getByLabelText('Start — templates, import, and starter catalog');
+    await waitFor(() => {
+      expect(startRail).toHaveFocus();
+    });
 
-    fireEvent.click(describeButton);
+    const user = userEvent.setup();
+    const composer = screen.getByLabelText('Assistant composer');
+    await user.click(composer);
     expect(composer).toHaveFocus();
 
-    fireEvent.click(starterButton);
-    expect(starterRail).toHaveFocus();
+    await act(async () => {
+      startRail.focus();
+    });
+    expect(startRail).toHaveFocus();
   });
 
   it('emits onboarding telemetry events with variant and build mode metadata', async () => {
@@ -270,7 +281,7 @@ describe('AssistantWorkspace', () => {
       });
 
       await act(async () => {
-        screen.getByRole('button', { name: /Use selected starter/i }).click();
+        screen.getAllByRole('button', { name: /^Use starter$/i })[0]!.click();
       });
 
       const viewed = telemetryEvents.find((event) => event.name === 'onboarding_viewed');

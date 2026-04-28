@@ -57,6 +57,7 @@ export function EditorPropertiesPanel({ showActions = true }: { showActions?: bo
       recordManualPatchAndProvenance(project, {
         summary: `Renamed ${currentKey ?? originalPath} to ${nextKey}.`,
         affectedRefs: [originalPath, nextPath],
+        capability: 'field_group_crud',
       });
       select(nextPath, selectedType ?? 'field', { tab: 'editor' });
     }
@@ -68,6 +69,7 @@ export function EditorPropertiesPanel({ showActions = true }: { showActions?: bo
       summary: `Deleted ${path}.`,
       affectedRefs: [path],
       reviewStatus: 'confirmed',
+      capability: 'field_group_crud',
     });
   }, [project]);
 
@@ -76,6 +78,7 @@ export function EditorPropertiesPanel({ showActions = true }: { showActions?: bo
     recordManualPatchAndProvenance(project, {
       summary: `Duplicated ${path}.`,
       affectedRefs: [path],
+      capability: 'field_group_crud',
     });
   }, [project]);
 
@@ -212,6 +215,7 @@ export function EditorPropertiesPanel({ showActions = true }: { showActions?: bo
                 recordManualPatchAndProvenance(project, {
                   summary: `Updated label for ${path}.`,
                   affectedRefs: [path],
+                  capability: 'field_group_crud',
                 });
               }}
             />
