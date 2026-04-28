@@ -49,7 +49,7 @@ fixtures/stack-integration/
     src/
       main.rs                           # CLI entry; walks bundles/ and reports
       formspec_step.rs                  # feed canonical response through Formspec
-      wos_step.rs                       # feed through WOS kernel; check provenance emission
+      wos_step.rs                       # WOS acceptance step (workflow envelope / runtime); check provenance emission
       trellis_step.rs                   # verify Trellis export bundle
       crossref.rs                       # check cross-layer hash references resolve
       report.rs                         # pin format for expected-verification-report.toml
@@ -104,7 +104,7 @@ trellis_export       = "trellis-export.zip"
 
 [expected_report]
 formspec_verified     = true      # Formspec server-side revalidation accepts the response
-wos_kernel_accepts    = true      # WOS kernel accepts the provenance sequence
+wos_workflow_accepts  = true      # WOS accepts the provenance sequence (against `$wosWorkflow` author-time envelope)
 trellis_verified      = true      # Trellis verifier reports structure + integrity + readability
 crossref_resolved     = true      # canonical_response_hash, SignatureAffirmation.responseRef, Trellis event chain all agree
 signer_count          = 1
@@ -136,7 +136,7 @@ trellis   = "<sha-at-bundle-landing>"
 Each `from` / `to` string is a **dotted logical path** resolved by the stack runner — not arbitrary prose and not filesystem paths.
 
 1. **Syntax:** `layer(.segment)+` where `layer` is one of `formspec`, `wos`, `trellis` (extend via registry if new subsystems join). Each `segment` matches `[A-Za-z0-9_]+`; hashes/refs use the **final segment** name (e.g. `canonical_response_hash`).
-2. **Resolution source:** For layer `formspec`, values MUST be read from the **Formspec step output object** produced from `inputs.formspec_response` in the same run — never short-circuit by re-reading `_common/` unless the manifest declares `inputs.formspec_response = "_common/..."` and the runner hashes that file as the Formspec input. Same rule for `wos` / `trellis`: resolve from the **emitted** WOS kernel output and the **opened** Trellis export ZIP / verifier report for this bundle, not from a stale sibling file.
+2. **Resolution source:** For layer `formspec`, values MUST be read from the **Formspec step output object** produced from `inputs.formspec_response` in the same run — never short-circuit by re-reading `_common/` unless the manifest declares `inputs.formspec_response = "_common/..."` and the runner hashes that file as the Formspec input. Same rule for `wos` / `trellis`: resolve from the **emitted** WOS step output and the **opened** Trellis export ZIP / verifier report for this bundle, not from a stale sibling file.
 3. **Equality rule:** For a row with `from = A`, `to = B`, the runner extracts **typed byte strings** (or UTF-8 strings where explicitly specified) at both paths and requires **exact byte equality** after any declared decoding (hex → raw, JSON field → digest). If either path is missing, `crossref_resolved = false`.
 4. **Anti-tautology:** Two different rows MUST NOT resolve to the **same physical field** in a single artifact unless `from` and `to` are identical strings (identity row). The runner MUST fail closed if two rows both read from `_common/canonical-response-001.json` → `canonical_response_hash` without traversing distinct producer outputs — that pattern can fake `crossref_resolved = true` while skipping WOS/Trellis.
 
@@ -147,7 +147,7 @@ The `expected_report` section is hand-authored from the running submodule confor
 `cargo run -p stack-integration-verify -- --bundle bundles/001-signature-complete-workflow/`:
 
 1. **Formspec layer.** Feed `formspec-response.json` through the Formspec reference validator. Compare result to `expected_report.formspec_verified`.
-2. **WOS layer.** Feed the canonical response through `wos-formspec-binding::interpret` + `wos-runtime::accept_intake_handoff` (or the signing-workflow equivalent). Compare emitted provenance sequence to `wos-provenance-events.json` byte-for-byte.
+2. **WOS layer.** Feed the canonical response through `wos-formspec-binding::interpret` + `wos-runtime::accept_intake_handoff` (or the signing-workflow equivalent). Compare emitted provenance sequence to `wos-provenance-events.json` byte-for-byte. Compare the WOS acceptance outcome to `expected_report.wos_workflow_accepts`.
 3. **Trellis layer.** Open `trellis-export.zip`, run `trellis-verify` against it, compare `VerificationReport` to `expected_report.trellis_verified`.
 4. **Cross-reference resolution.** For each row in `expected_report.cross_references.row`, resolve both endpoints from their source submodule's output and confirm byte-equality. Any mismatch flips `crossref_resolved = false`.
 5. **Emit the full report.** Compare to `expected-verification-report.toml` byte-for-byte. Exit 0 if match, 1 if mismatch.
