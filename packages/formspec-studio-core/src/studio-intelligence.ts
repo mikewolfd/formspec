@@ -7,6 +7,8 @@ export type StudioOrigin = 'brief' | 'manual' | 'ai' | 'evidence' | 'playthrough
 export type StudioConfidence = 'low' | 'medium' | 'high';
 export type StudioReviewStatus = 'unreviewed' | 'confirmed' | 'conflict' | 'missing';
 
+export type MutationClass = 'bind' | 'shape' | 'Variable' | 'Mapping' | 'OptionSet';
+
 export interface FieldProvenance {
   objectRef: string;
   origin: StudioOrigin;
@@ -16,6 +18,10 @@ export interface FieldProvenance {
   author?: string;
   patchRefs: string[];
   reviewStatus: StudioReviewStatus;
+  /** Mutation class for AI-provenance entries (ADR 0087). */
+  mutationClass?: MutationClass;
+  /** Human-readable before/after summary (ADR 0087). */
+  beforeAfterSummary?: string;
 }
 
 export interface EvidenceDocument {
@@ -143,6 +149,7 @@ function normalizeProvenance(value: unknown): FieldProvenance[] {
     if (!isRecord(entry)) return [];
     const objectRef = asString(entry.objectRef);
     if (!objectRef) return [];
+    const mc = entry.mutationClass;
     return [{
       objectRef,
       origin: origin(entry.origin),
@@ -152,6 +159,8 @@ function normalizeProvenance(value: unknown): FieldProvenance[] {
       author: asString(entry.author),
       patchRefs: asStringArray(entry.patchRefs),
       reviewStatus: reviewStatus(entry.reviewStatus),
+      mutationClass: mc === 'bind' || mc === 'shape' || mc === 'Variable' || mc === 'Mapping' || mc === 'OptionSet' ? mc : undefined,
+      beforeAfterSummary: asString(entry.beforeAfterSummary),
     }];
   });
 }

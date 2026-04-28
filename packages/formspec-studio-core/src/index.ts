@@ -32,6 +32,7 @@ export type {
   EvidenceDocument,
   EvidenceWorkbench,
   FieldProvenance,
+  MutationClass,
   LayoutDocument,
   LayoutDrift,
   LayoutPlacement,
