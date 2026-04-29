@@ -47,7 +47,6 @@ const STORAGE_SCOPE_PREFIX = 'formspec-chat:scope:';
 const SESSION_KEY_PREFIX = 'formspec-chat:session:';
 const SESSION_INDEX_KEY = 'formspec-chat:session-index';
 const SESSION_SCHEMA_VERSION = 1;
-const MIGRATION_FLAG_PREFIX = 'formspec-chat:migrated:scope:';
 
 interface SessionEnvelopeV1 {
   schemaVersion: 1;
@@ -161,7 +160,6 @@ export class LocalChatThreadRepository implements ChatThreadRepository {
 
   async listThreads(input?: ListThreadsInput): Promise<ListThreadsResult> {
     const scope = toScope(input?.projectScope);
-    this.migrateLegacyScopeIfNeeded(scope);
     const summaries = this.storeForScope(scope).list();
     const offset = parseCursor(input?.cursor);
     const limit = input?.limit && input.limit > 0 ? input.limit : summaries.length;
@@ -173,13 +171,11 @@ export class LocalChatThreadRepository implements ChatThreadRepository {
 
   async loadThread(id: string, input?: LoadThreadInput): Promise<ChatSessionState | null> {
     const scope = toScope(input?.projectScope);
-    this.migrateLegacyScopeIfNeeded(scope);
     return this.storeForScope(scope).load(id);
   }
 
   async saveThread(state: ChatSessionState, input?: SaveThreadInput): Promise<SaveThreadResult> {
     const scope = toScope(input?.projectScope);
-    this.migrateLegacyScopeIfNeeded(scope);
     const store = this.storeForScope(scope);
 
     if (input?.expectedRevision) {
@@ -196,13 +192,11 @@ export class LocalChatThreadRepository implements ChatThreadRepository {
 
   async deleteThread(id: string, input?: LoadThreadInput): Promise<void> {
     const scope = toScope(input?.projectScope);
-    this.migrateLegacyScopeIfNeeded(scope);
     this.storeForScope(scope).delete(id);
   }
 
   async clearThreads(input?: ClearThreadsInput): Promise<void> {
     const scope = toScope(input?.projectScope);
-    this.migrateLegacyScopeIfNeeded(scope);
     const store = this.storeForScope(scope);
     for (const summary of store.list()) {
       store.delete(summary.id);
@@ -221,45 +215,6 @@ export class LocalChatThreadRepository implements ChatThreadRepository {
     }
   }
 
-  private migrateLegacyScopeIfNeeded(scope: string): void {
-    if (scope !== DEFAULT_SCOPE) return;
-    // Migrate only once per scope and only when scoped index is absent.
-    const migrationFlag = `${MIGRATION_FLAG_PREFIX}${scope}`;
-    if (this.storage.getItem(migrationFlag) === '1') return;
-
-    const scopedIndexKey = `${STORAGE_SCOPE_PREFIX}${scope}:${SESSION_INDEX_KEY}`;
-    const hasScopedIndex = this.storage.getItem(scopedIndexKey) !== null;
-    if (hasScopedIndex) {
-      this.storage.setItem(migrationFlag, '1');
-      return;
-    }
-
-    const legacyIndexRaw = this.storage.getItem(SESSION_INDEX_KEY);
-    if (!legacyIndexRaw) {
-      this.storage.setItem(migrationFlag, '1');
-      return;
-    }
-
-    let legacyIds: string[] = [];
-    try {
-      legacyIds = JSON.parse(legacyIndexRaw) as string[];
-    } catch {
-      this.storage.setItem(migrationFlag, '1');
-      return;
-    }
-
-    this.storage.setItem(scopedIndexKey, legacyIndexRaw);
-    for (const id of legacyIds) {
-      const legacyKey = `${SESSION_KEY_PREFIX}${id}`;
-      const scopedKey = `${STORAGE_SCOPE_PREFIX}${scope}:${legacyKey}`;
-      const existing = this.storage.getItem(scopedKey);
-      if (existing !== null) continue;
-      const legacy = this.storage.getItem(legacyKey);
-      if (legacy !== null) this.storage.setItem(scopedKey, legacy);
-    }
-
-    this.storage.setItem(migrationFlag, '1');
-  }
 }
 
 export function createLocalChatThreadRepository(storage?: StorageBackend, options?: LocalChatThreadRepositoryOptions): ChatThreadRepository {
@@ -300,11 +255,6 @@ export function clearAllLocalChatThreadScopes(storage: StorageBackend): void {
   }
   for (const key of keys) storage.removeItem(key);
   if (storageSupportsClear(storage)) {
-    const migrationKeys: string[] = [];
-    for (let i = 0; i < storage.length; i += 1) {
-      const key = storage.key(i);
-      if (key && key.startsWith(MIGRATION_FLAG_PREFIX)) migrationKeys.push(key);
-    }
-    for (const key of migrationKeys) storage.removeItem(key);
+    // no-op: migration flags were removed after legacy scope bootstrap deletion
   }
 }

@@ -33,9 +33,6 @@ export function writePreviewVisibility(open: boolean): void {
   else localStorage.removeItem(PREVIEW_PERSIST_KEY);
 }
 
-/** @deprecated Use writePreviewVisibility. Retained as alias to avoid churn during the rename. */
-export const persistPreview = writePreviewVisibility;
-
 export function useShellPanels(): ShellPanelsState {
   const [showPalette, setShowPalette] = useState(false);
   const [showImport, setShowImport] = useState(false);

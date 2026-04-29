@@ -2,15 +2,10 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import {
   CANONICAL_PROVIDER_CONFIG_KEY,
-  LEGACY_PROVIDER_CONFIG_KEYS,
   loadProviderConfig,
   saveProviderConfig,
   clearProviderConfig,
-  migrateLegacyProviderConfigKeys,
 } from '../../src/lib/provider-config-storage';
-
-const STUDIO_LEGACY = 'formspec-studio:provider-config';
-const CHAT_LEGACY = 'formspec-chat:provider';
 
 beforeEach(() => {
   localStorage.clear();
@@ -19,11 +14,6 @@ beforeEach(() => {
 describe('provider-config storage key', () => {
   it('uses a single canonical key not tied to either surface', () => {
     expect(CANONICAL_PROVIDER_CONFIG_KEY).toBe('formspec:provider-config');
-  });
-
-  it('lists both historical keys as legacy', () => {
-    expect(LEGACY_PROVIDER_CONFIG_KEYS).toContain(STUDIO_LEGACY);
-    expect(LEGACY_PROVIDER_CONFIG_KEYS).toContain(CHAT_LEGACY);
   });
 });
 
@@ -49,107 +39,6 @@ describe('loadProviderConfig / saveProviderConfig / clearProviderConfig', () => 
     saveProviderConfig({ provider: 'anthropic', apiKey: 'k' });
     clearProviderConfig();
     expect(localStorage.getItem(CANONICAL_PROVIDER_CONFIG_KEY)).toBeNull();
-  });
-});
-
-describe('migrateLegacyProviderConfigKeys', () => {
-  it('copies studio legacy key to the canonical key and deletes it', () => {
-    localStorage.setItem(STUDIO_LEGACY, JSON.stringify({ provider: 'google', apiKey: 'studio-k' }));
-
-    migrateLegacyProviderConfigKeys();
-
-    expect(localStorage.getItem(CANONICAL_PROVIDER_CONFIG_KEY)).toBe(
-      JSON.stringify({ provider: 'google', apiKey: 'studio-k' }),
-    );
-    expect(localStorage.getItem(STUDIO_LEGACY)).toBeNull();
-  });
-
-  it('copies chat legacy key to the canonical key and deletes it', () => {
-    localStorage.setItem(CHAT_LEGACY, JSON.stringify({ provider: 'anthropic', apiKey: 'chat-k' }));
-
-    migrateLegacyProviderConfigKeys();
-
-    expect(localStorage.getItem(CANONICAL_PROVIDER_CONFIG_KEY)).toBe(
-      JSON.stringify({ provider: 'anthropic', apiKey: 'chat-k' }),
-    );
-    expect(localStorage.getItem(CHAT_LEGACY)).toBeNull();
-  });
-
-  it('does NOT overwrite an existing canonical value', () => {
-    saveProviderConfig({ provider: 'openai', apiKey: 'current' });
-    localStorage.setItem(STUDIO_LEGACY, JSON.stringify({ provider: 'google', apiKey: 'stale' }));
-
-    migrateLegacyProviderConfigKeys();
-
-    // Canonical untouched
-    expect(loadProviderConfig()).toEqual({ provider: 'openai', apiKey: 'current' });
-    // Legacy still cleared — it's stale and no longer needed
-    expect(localStorage.getItem(STUDIO_LEGACY)).toBeNull();
-  });
-
-  it('prefers studio legacy over chat legacy when both exist (studio is primary surface)', () => {
-    localStorage.setItem(STUDIO_LEGACY, JSON.stringify({ provider: 'google', apiKey: 'studio-wins' }));
-    localStorage.setItem(CHAT_LEGACY, JSON.stringify({ provider: 'anthropic', apiKey: 'chat-loses' }));
-
-    migrateLegacyProviderConfigKeys();
-
-    expect(loadProviderConfig()).toEqual({ provider: 'google', apiKey: 'studio-wins' });
-    expect(localStorage.getItem(STUDIO_LEGACY)).toBeNull();
-    expect(localStorage.getItem(CHAT_LEGACY)).toBeNull();
-  });
-
-  it('is a no-op when no legacy keys are present', () => {
-    migrateLegacyProviderConfigKeys();
-    expect(localStorage.getItem(CANONICAL_PROVIDER_CONFIG_KEY)).toBeNull();
-  });
-
-  it('does NOT promote a corrupt-JSON legacy value to the canonical key', () => {
-    localStorage.setItem(STUDIO_LEGACY, '{not valid json');
-
-    migrateLegacyProviderConfigKeys();
-
-    expect(localStorage.getItem(CANONICAL_PROVIDER_CONFIG_KEY)).toBeNull();
-    expect(localStorage.getItem(STUDIO_LEGACY)).toBeNull();
-  });
-
-  it('does not promote legacy when canonical key exists even if value is malformed JSON', () => {
-    localStorage.setItem(CANONICAL_PROVIDER_CONFIG_KEY, '{not valid json');
-    localStorage.setItem(STUDIO_LEGACY, JSON.stringify({ provider: 'google', apiKey: 'from-legacy' }));
-
-    migrateLegacyProviderConfigKeys();
-
-    expect(localStorage.getItem(CANONICAL_PROVIDER_CONFIG_KEY)).toBe('{not valid json');
-    expect(localStorage.getItem(STUDIO_LEGACY)).toBeNull();
-  });
-
-  it('does NOT promote a schema-invalid legacy value to the canonical key', () => {
-    localStorage.setItem(STUDIO_LEGACY, JSON.stringify({ provider: 'google' }));
-
-    migrateLegacyProviderConfigKeys();
-
-    expect(localStorage.getItem(CANONICAL_PROVIDER_CONFIG_KEY)).toBeNull();
-    expect(localStorage.getItem(STUDIO_LEGACY)).toBeNull();
-  });
-
-  it('falls through to the next legacy key when the first one is corrupt', () => {
-    localStorage.setItem(STUDIO_LEGACY, '{corrupt');
-    localStorage.setItem(CHAT_LEGACY, JSON.stringify({ provider: 'anthropic', apiKey: 'chat-k' }));
-
-    migrateLegacyProviderConfigKeys();
-
-    expect(loadProviderConfig()).toEqual({ provider: 'anthropic', apiKey: 'chat-k' });
-    expect(localStorage.getItem(STUDIO_LEGACY)).toBeNull();
-    expect(localStorage.getItem(CHAT_LEGACY)).toBeNull();
-  });
-
-  it('is idempotent — running twice has the same effect as once', () => {
-    localStorage.setItem(STUDIO_LEGACY, JSON.stringify({ provider: 'google', apiKey: 'k' }));
-
-    migrateLegacyProviderConfigKeys();
-    migrateLegacyProviderConfigKeys();
-
-    expect(loadProviderConfig()).toEqual({ provider: 'google', apiKey: 'k' });
-    expect(localStorage.getItem(STUDIO_LEGACY)).toBeNull();
   });
 });
 

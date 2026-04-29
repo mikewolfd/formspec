@@ -7,7 +7,6 @@ import { FormspecRender } from '@formspec-org/webcomponent';
 import { App } from './App';
 import {
   CANONICAL_PROVIDER_CONFIG_KEY,
-  migrateLegacyProviderConfigKeys,
 } from './lib/provider-config-storage';
 import './index.css';
 
@@ -16,7 +15,6 @@ if (!customElements.get('formspec-render')) {
 }
 
 async function bootstrap(): Promise<void> {
-  migrateLegacyProviderConfigKeys();
   const devKey = import.meta.env.VITE_GEMINI_DEV_KEY;
   if (devKey && !localStorage.getItem(CANONICAL_PROVIDER_CONFIG_KEY)) {
     localStorage.setItem(
