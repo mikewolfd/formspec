@@ -31,7 +31,7 @@ test.describe('Grant App: Review & Submit Page', () => {
 
   test('should render both FileUpload components with drag-drop zones on Review page', async ({ page }) => {
     await goToPage(page, 'Review & Submit');
-    const dropZones = page.locator('.formspec-drop-zone');
+    const dropZones = page.locator('.formspec-file-drop-zone');
     // Both narrativeDoc and budgetJustification should have drop zones
     await expect(dropZones).toHaveCount(2);
   });
