@@ -35,7 +35,7 @@ python3 -m pip install --no-build-isolation ./crates/formspec-py
 
 ```bash
 # From repository root
-cargo test -p formspec-py
+cargo nextest run -p formspec-py
 cargo clippy -p formspec-py --all-targets
 ```
 

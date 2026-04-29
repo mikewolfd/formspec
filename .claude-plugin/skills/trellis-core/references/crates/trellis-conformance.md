@@ -4,7 +4,7 @@
 
 ## Overview
 
-`trellis-conformance` is a **workspace test crate** with **no exported Rust public API**: `src/lib.rs` contains only crate-level documentation, `#![forbid(unsafe_code)]`, and two `#[cfg(test)]` modules (`tests`, `model_checks`). Running `cargo test -p trellis-conformance` replays the committed fixture tree under `trellis/fixtures/vectors/` and asserts byte-identical outputs against the reference Trellis Rust stack (`trellis-core` append path, `trellis-export` ZIP bytes, `trellis-verify` reports, and CBOR/hash helpers from `trellis-cddl` / `trellis-types`). It sits **below** production crates as an **oracle**: vectors and Rust implementations are expected to move in lockstep per Trellis workflow (`trellis/CLAUDE.md`).
+`trellis-conformance` is a **workspace test crate** with **no exported Rust public API**: `src/lib.rs` contains only crate-level documentation, `#![forbid(unsafe_code)]`, and two `#[cfg(test)]` modules (`tests`, `model_checks`). Running `cargo nextest run -p trellis-conformance` replays the committed fixture tree under `trellis/fixtures/vectors/` and asserts byte-identical outputs against the reference Trellis Rust stack (`trellis-core` append path, `trellis-export` ZIP bytes, `trellis-verify` reports, and CBOR/hash helpers from `trellis-cddl` / `trellis-types`). It sits **below** production crates as an **oracle**: vectors and Rust implementations are expected to move in lockstep per Trellis workflow (`trellis/CLAUDE.md`).
 
 ## Authority claim
 

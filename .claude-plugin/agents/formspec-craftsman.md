@@ -235,7 +235,7 @@ Know where tests live:
 - `packages/formspec-mcp/tests/` — MCP tests (`.test.ts`, vitest)
 - `tests/` — Python conformance suite (pytest + jsonschema + hypothesis)
 - `tests/e2e/` — Playwright browser tests
-- Rust crates: `cargo test` in each crate directory
+- Rust crates: `cargo nextest run` in each crate directory
 
 Match the existing test style in each package. Engine uses `.mjs` with Node's test runner. Everything else uses vitest `.ts`. Python uses pytest. Don't mix them. When a feature spans TS + Python (e.g., FEL behavior), write tests for BOTH before implementing either.
 

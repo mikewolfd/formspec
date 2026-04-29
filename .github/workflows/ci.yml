@@ -30,6 +30,7 @@ jobs:
       - run: npm install
       - run: npm run build
       - run: npm run test:unit
+      - run: npm run test:scripts
 
   python-tests:
     name: Python Tests
@@ -80,7 +81,8 @@ jobs:
         with:
           python-version: "3.12"
       - uses: dtolnay/rust-toolchain@stable
-      - run: cargo test --workspace
+      - uses: taiki-e/install-action@nextest
+      - run: cargo nextest run --workspace
 
   studio-e2e-tests:
     name: Studio E2E Tests

@@ -35,13 +35,13 @@ Sibling binding: **[`formspec-py`](../formspec-py/)** (`formspec_rust`) targets 
 | `registry` | `registry-api`: parse/find/lifecycle/well-known + `validateExtensionUsage` |
 | `changelog` | `changelog-api`: `generateChangelog` |
 | `lib.rs` | Crate docs and `mod` wiring only |
-| `wasm_tests` | Native `cargo test` for string-JSON helpers (`#[cfg(test)]` only) |
+| `wasm_tests` | Native `cargo nextest run` for string-JSON helpers (`#[cfg(test)]` only) |
 
 ## Development
 
 ```bash
-cargo test -p formspec-wasm
-cargo test -p formspec-wasm --no-default-features   # minimal wasm_bindgen surface (42 tests; skips tools-only cases)
+cargo nextest run -p formspec-wasm
+cargo nextest run -p formspec-wasm --no-default-features   # minimal wasm_bindgen surface (42 tests; skips tools-only cases)
 # Runtime WASM (minimal features — see table above):
 wasm-pack build crates/formspec-wasm --target web --no-opt -- --no-default-features
 # Full / tools WASM:

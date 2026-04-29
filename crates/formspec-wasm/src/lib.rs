@@ -14,7 +14,7 @@
 //! - `registry` — `registry-api`
 //! - `changelog` — `changelog-api`
 //! - `fel` — core eval + analysis + path utils always; `fel-authoring`: tokenize/parse/print/rewrites/catalog
-//! - `wasm_tests` — native `cargo test` coverage (`#[cfg(test)]` only)
+//! - `wasm_tests` — native `cargo nextest run` coverage (`#[cfg(test)]` only)
 
 #[cfg(feature = "changelog-api")]
 mod changelog;

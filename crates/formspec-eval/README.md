@@ -115,7 +115,7 @@ cargo clippy -p formspec-eval --no-deps -- -D clippy::missing_docs_in_private_it
 ## Tests
 
 ```bash
-cargo test -p formspec-eval
+cargo nextest run -p formspec-eval
 ```
 
 - **Library tests** — Under `src/**` (including `rebuild::tests`, `recalculate`, `revalidate`, …).

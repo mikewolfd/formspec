@@ -1,2 +1,7 @@
 [target.wasm32-unknown-unknown]
 rustflags = ['--cfg', 'getrandom_backend="wasm_js"']
+
+[build]
+# Favor faster local iteration in large workspaces.
+incremental = true
+rustc-wrapper = "sccache"

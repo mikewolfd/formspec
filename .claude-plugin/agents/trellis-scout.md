@@ -254,7 +254,7 @@ When you have a clear diagnosis and the fix is actionable, dispatch via Task too
 - Writes failing tests first (RED) — for Trellis, often a new fixture vector under `trellis/fixtures/vectors/`
 - Makes the minimal fix (GREEN) — at the right authority-ladder layer
 - Cleans up smells it encounters along the way
-- Verifies no regressions — runs `cargo test --workspace`, `python3 -m pytest` (trellis-py), `python3 scripts/check-specs.py`
+- Verifies no regressions — runs `cargo nextest run --workspace`, `python3 -m pytest` (trellis-py), `python3 scripts/check-specs.py`
 
 Give it everything it needs in the brief: subsystem (explicitly mark **TRELLIS**), authority-ladder layer to fix, exact files, what to change, where the fixture lives, which conformance tests must pass. The craftsman doesn't re-diagnose — it trusts your trace and executes. Caveat: the craftsman's deepest mental model is the Formspec 7-layer stack; for Trellis-internal byte work it relies on your trace, the trellis-core skill, and the authority ladder. Brief it accordingly.
 

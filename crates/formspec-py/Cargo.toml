@@ -24,7 +24,7 @@ serde = "1"
 serde_json = "1"
 
 [features]
-# Empty default so `cargo test --workspace` links libpython. Maturin enables
+# Empty default so `cargo nextest run --workspace` links libpython. Maturin enables
 # `extension-module` via pyproject.toml (extension wheels must not link libpython).
 default = []
 extension-module = ["pyo3/extension-module"]

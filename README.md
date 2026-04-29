@@ -366,7 +366,7 @@ npm run docs:check         # Enforce doc/schema freshness gates
 make api-docs              # Generate Python + TypeScript API reference
 make docs                  # Full doc build (specs + API + HTML)
 
-cargo test --workspace     # Rust test suite (1,533 tests)
+cargo nextest run --workspace     # Rust test suite (1,533 tests)
 python3 -m pytest tests/   # Python conformance suite
 npm run test:unit          # TypeScript unit tests (all packages)
 npm test                   # Playwright E2E (auto-starts dev server)

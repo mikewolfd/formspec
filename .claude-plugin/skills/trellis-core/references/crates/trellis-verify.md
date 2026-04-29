@@ -116,7 +116,7 @@ None (`pub use` not used).
 
 - **In-crate:** `#[cfg(test)] mod tests` from `lib.rs:3160` — fixture-driven `verify_single_event`, `verify_export_zip`, `verify_tampered_ledger`, ZIP rebuild helpers, attachment topology unit tests, RFC6962 Merkle tests, CBOR map semantic equality, parser edge cases.
 - **Fixtures (relative to `trellis/crates/trellis-verify/`):** `../../fixtures/vectors/append/` (e.g. `001-minimal-inline-payload`, `009-signing-key-revocation`), `../../fixtures/vectors/verify/001-export-001-two-event-chain/input-export.zip`, `../../fixtures/vectors/tamper/001-signature-flip`.
-- **Workspace:** Run `cargo test -p trellis-verify` (`trellis/CLAUDE.md`). No `trellis-conformance` / `trellis-cli` Cargo dependency on this crate at time of writing; conformance is via shared vectors and this package’s tests.
+- **Workspace:** Run `cargo nextest run -p trellis-verify` (`trellis/CLAUDE.md`). No `trellis-conformance` / `trellis-cli` Cargo dependency on this crate at time of writing; conformance is via shared vectors and this package’s tests.
 
 ## When to Read the Source
 

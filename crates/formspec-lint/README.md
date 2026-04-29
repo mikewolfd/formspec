@@ -113,7 +113,7 @@ cargo clippy -p formspec-lint --no-deps -- -D clippy::missing_docs_in_private_it
 ## Tests
 
 ```bash
-cargo test -p formspec-lint
+cargo nextest run -p formspec-lint
 ```
 
 ## License

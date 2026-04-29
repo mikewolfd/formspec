@@ -92,6 +92,7 @@ Full target list: [`Makefile`](Makefile). Key invocations:
 
 - `make build` — full monorepo (Rust + npm + pip).
 - `make test` — unit + python + rust + e2e + studio-e2e + submodule.
+- `make test-rust` — Rust workspace via `cargo nextest run --workspace`. Required runner — do not use bare `cargo test`.
 - `npm run build` — TypeScript packages only.
 - `npm run docs:generate` / `npm run docs:check` — schema-driven artifacts + doc gate.
 - `npm run check:deps` — package layering enforcement.
@@ -100,6 +101,16 @@ Full target list: [`Makefile`](Makefile). Key invocations:
 - `python3 -m pytest tests/ -v` — Python conformance.
 - `python3 -m pytest tests/test_fel_evaluator.py::TestClass::test_name -v` — single Python test.
 - `python3 -m formspec.validate <dir> --registry registries/formspec-common.registry.json` — validate artifacts.
+
+**Rust test invocations** (use `cargo nextest`, never bare `cargo test`):
+
+- `cargo nextest run --workspace` — full Rust workspace.
+- `cargo nextest run -p <crate>` — single crate (e.g., `-p formspec-eval`, `-p wos-core`).
+- `cargo nextest run -p <crate> <test_name>` — single test by name substring.
+- `cargo nextest run -p <crate> --test <integration_file>` — single integration-test file under `tests/`.
+- `cargo nextest run -E 'test(/<regex>/)'` — filter expression across the workspace.
+
+Submodules (`trellis/`, `wos-spec/`) follow the same rule — `cargo nextest run --workspace` from the submodule root.
 
 ## Package layering
 

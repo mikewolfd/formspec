@@ -94,7 +94,7 @@ There are **no `pub fn`** items exported for other crates. The table below maps 
 ## Test Surface
 
 - `src/main.rs` — `#[cfg(test)] mod tests` (lines ~195–223): `dispatch_rejects_unknown_command`; `dispatch_accepts_fixture_command_names` (runs all six commands end-to-end against committed vectors — requires fixture tree present).
-- Broader corpus: **`trellis-conformance`** workspace package and `cargo test -p trellis-conformance` per `trellis/CLAUDE.md` (G-4 oracle), not this binary.
+- Broader corpus: **`trellis-conformance`** workspace package and `cargo nextest run -p trellis-conformance` per `trellis/CLAUDE.md` (G-4 oracle), not this binary.
 
 ## When to Read the Source
 

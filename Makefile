@@ -5,7 +5,7 @@ TEMPLATE = docs/template.html
 DOCS_DIR = docs
 SPECS_DIR = specs
 
-all: docs
+all: build
 
 spec-artifacts:
 	npm run docs:generate
@@ -13,7 +13,7 @@ spec-artifacts:
 docs-check:
 	npm run docs:check
 
-test-unit:
+test-unit: build-js
 	npm run test:unit
 
 test-e2e:
@@ -22,11 +22,14 @@ test-e2e:
 test-studio-e2e:
 	npm run test:studio:e2e
 
-test-python:
-	pytest
+test-python: build-python
+	python3 -m pytest tests/
+
+test-scripts:
+	npm run test:scripts
 
 build-wasm:
-	npm run build:wasm --workspace=@formspec/engine
+	npm run build:wasm --workspace=@formspec-org/engine
 
 # Full compile: Rust workspace + npm workspaces (WASM via formspec-engine) + formspec_rust into active Python.
 # Also builds wos-spec and trellis submodules; these are auto-initialized on demand (see submodule rule below).
@@ -78,33 +81,42 @@ build-python:
 # Force-rebuild the Python extension from scratch. Use this when tests pick up
 # stale bindings — typical symptom: a function signature was changed in Rust
 # but Python still sees the old shape.
-#
-# Maturin installs the compiled `_native` module into site-packages, but
-# `src/formspec/_rust.py` imports it as `from formspec import _native`, which
-# requires the `.so` to live inside `src/formspec/`. We wipe, rebuild, then
-# copy the fresh artifact back into the source tree.
+# maturin develop with python-source="src" places the .so directly in src/formspec/.
 rebuild-python:
 	rm -f src/formspec/_native*.so
 	maturin develop --release --manifest-path crates/formspec-py/Cargo.toml
-	@SITE_PKG_SO=$$(python3 -c "import _native as m, os; print(os.path.dirname(m.__file__))")/_native.cpython-*.so; \
-	cp $$SITE_PKG_SO src/formspec/ && echo "✓ copied fresh _native.so to src/formspec/"
 
 test-rust:
-	cargo test --workspace
+	cargo nextest run --workspace
 
 # After pulling, if `git status` shows trellis/ or wos-spec/ submodule drift, run
 # `git submodule update --init --recursive` (or `make submodules`) so local
 # `make test` matches CI SHAs. Missing submodules are auto-initialized on first use.
-test: test-unit test-python test-rust test-e2e test-studio-e2e test-wos-spec test-trellis
+test: test-unit test-python test-rust test-scripts test-e2e test-studio-e2e test-wos-spec test-trellis
 
-check: docs-check test
+test-engine-isolation: build-js
+	npm run --workspace=@formspec-org/engine test:init-entry-runtime-only
+	npm run --workspace=@formspec-org/engine test:render-entry-runtime-only
+	npm run --workspace=@formspec-org/engine test:fel-runtime-entry-only
+	npm run --workspace=@formspec-org/engine test:wasm-runtime-isolation
+	npm run --workspace=@formspec-org/engine test:wasm-tools-import-count
+
+check: docs-check test test-engine-isolation
+	npm run check:deps
+	npm run check:studio-source-sizes
 
 api-docs:
 	PYTHONPATH=src python3 -c "import importlib.util, sys; sys.exit(0 if importlib.util.find_spec('pdoc') else 1)" || python3 -m pip install -e '.[docs]'
 	PYTHONPATH=src python3 -m pdoc formspec --output-directory $(DOCS_DIR)/api/formspec
+	npx typedoc --entryPoints packages/formspec-types/src/index.ts --tsconfig packages/formspec-types/tsconfig.json --out $(DOCS_DIR)/api/formspec-types
 	npx typedoc --entryPoints packages/formspec-engine/src/index.ts --tsconfig packages/formspec-engine/tsconfig.json --out $(DOCS_DIR)/api/formspec-engine
+	npx typedoc --entryPoints packages/formspec-layout/src/index.ts --tsconfig packages/formspec-layout/tsconfig.json --out $(DOCS_DIR)/api/formspec-layout
 	npx typedoc --entryPoints packages/formspec-webcomponent/src/index.ts --tsconfig packages/formspec-webcomponent/tsconfig.json --out $(DOCS_DIR)/api/formspec-webcomponent
+	npx typedoc --entryPoints packages/formspec-adapters/src/index.ts --tsconfig packages/formspec-adapters/tsconfig.json --out $(DOCS_DIR)/api/formspec-adapters
+	npx typedoc --entryPoints packages/formspec-assist/src/index.ts --tsconfig packages/formspec-assist/tsconfig.json --out $(DOCS_DIR)/api/formspec-assist
+	npx typedoc --entryPoints packages/formspec-react/src/index.ts --tsconfig packages/formspec-react/tsconfig.json --out $(DOCS_DIR)/api/formspec-react
 	npx typedoc --entryPoints packages/formspec-core/src/index.ts --tsconfig packages/formspec-core/tsconfig.json --out $(DOCS_DIR)/api/formspec-core
+	npx typedoc --entryPoints packages/formspec-studio-core/src/index.ts --tsconfig packages/formspec-studio-core/tsconfig.json --out $(DOCS_DIR)/api/formspec-studio-core
 	npx typedoc --entryPoints packages/formspec-chat/src/index.ts --tsconfig packages/formspec-chat/tsconfig.json --out $(DOCS_DIR)/api/formspec-chat
 	npx typedoc --entryPoints packages/formspec-mcp/src/index.ts --tsconfig packages/formspec-mcp/tsconfig.json --out $(DOCS_DIR)/api/formspec-mcp
 	npm run --workspace=@formspec-org/studio-core build
@@ -163,6 +175,7 @@ $(DOCS_DIR)/grant-application.html: docs/grant-application-guide.md $(TEMPLATE)
 
 setup:
 	python3 -m venv .venv
+	.venv/bin/pip install -e '.[test]'
 	.venv/bin/pip install pre-commit
 	.venv/bin/pre-commit install
 
@@ -184,10 +197,11 @@ clean: clean-wos-spec clean-trellis
 	rm -rf $(DOCS_DIR)/api
 	rm -f src/formspec/API.llm.md \
 	      packages/formspec-engine/API.llm.md \
+	      packages/formspec-layout/API.llm.md \
 	      packages/formspec-webcomponent/API.llm.md \
 	      packages/formspec-core/API.llm.md \
 	      packages/formspec-chat/API.llm.md \
 	      packages/formspec-mcp/API.llm.md \
 	      packages/formspec-studio-core/API.llm.md
 
-.PHONY: all spec-artifacts docs-check check docs html-docs api-docs build build-rust build-js build-python rebuild-python build-wasm submodules build-wos-spec build-trellis test test-unit test-python test-rust test-e2e test-studio-e2e test-wos-spec test-trellis setup serve clean clean-wos-spec clean-trellis
+.PHONY: all spec-artifacts docs-check check docs html-docs api-docs build build-rust build-js build-python rebuild-python build-wasm submodules build-wos-spec build-trellis test test-unit test-engine-isolation test-python test-rust test-scripts test-e2e test-studio-e2e test-wos-spec test-trellis setup serve clean clean-wos-spec clean-trellis
