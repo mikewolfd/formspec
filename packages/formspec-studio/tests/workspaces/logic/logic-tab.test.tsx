@@ -8,15 +8,15 @@ import { LogicTab } from '../../../src/workspaces/logic/LogicTab';
 const logicDef = {
   $formspec: '1.0', url: 'urn:test', version: '1.0.0',
   items: [
-    { key: 'name', type: 'field', dataType: 'string' },
-    { key: 'age', type: 'field', dataType: 'integer' },
+    { key: 'name', type: 'field', label: 'Name', dataType: 'string' },
+    { key: 'age', type: 'field', label: 'Age', dataType: 'integer' },
   ],
   binds: [
     { path: 'name', required: 'true', relevant: '$age >= 18' },
     { path: 'age', required: 'true' },
   ],
   shapes: [
-    { name: 'ageCheck', severity: 'error', constraint: '$age >= 0', targets: ['age'] },
+    { id: 'ageCheck', target: 'age', severity: 'error', constraint: '$age >= 0', message: 'Age must be non-negative' },
   ],
   variables: [
     { name: 'isAdult', expression: '$age >= 18' },

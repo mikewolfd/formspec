@@ -225,3 +225,33 @@ body {
     radial-gradient(circle at 100% 0%, color-mix(in srgb, var(--color-teal) 5%, transparent) 0, transparent 32%),
     linear-gradient(180deg, #181819 0%, var(--color-bg-default) 42%, #121213 100%);
 }
+
+/* ChangesetReviewSection — JS picks compact-vs-full based on container width (ResizeObserver). CSS only owns the compact bar's chrome. */
+.changeset-compact-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-bottom: 1px solid color-mix(in srgb, var(--color-border) 60%, transparent);
+}
+
+/* Changeset detail drawer (opened from compact bar's "View →") */
+.changeset-drawer-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  background: color-mix(in srgb, var(--color-ink) 30%, transparent);
+}
+.changeset-drawer {
+  width: 100%;
+  max-width: 480px;
+  max-height: 80vh;
+  background: var(--color-surface);
+  border-radius: 12px 12px 0 0;
+  box-shadow: 0 -4px 24px color-mix(in srgb, var(--color-ink) 12%, transparent);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}

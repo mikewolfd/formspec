@@ -6,6 +6,7 @@ import {
   parseCommaSeparatedKeywords,
   sanitizeIdentifier,
 } from '@formspec-org/studio-core';
+import type { FormOption } from '@formspec-org/types';
 import { useDefinition } from '../../state/useDefinition';
 import { useProject } from '../../state/useProject';
 import { InlineExpression } from '../../components/ui/InlineExpression';
@@ -13,19 +14,6 @@ import { ExpandableCard } from '../../components/shared/ExpandableCard';
 import { InlineCreateForm } from '../../components/shared/InlineCreateForm';
 import { ConfirmDialog } from '../../components/ConfirmDialog';
 import { EmptyWorkspaceState } from '../../components/shared/EmptyWorkspaceState';
-
-interface OptionEntry {
-  value: string;
-  label: string;
-  keywords?: string[];
-}
-
-interface OptionSetDef {
-  options?: OptionEntry[];
-  source?: string;
-  valueField?: string;
-  labelField?: string;
-}
 
 export function OptionSets() {
   const definition = useDefinition();
@@ -246,7 +234,7 @@ export function OptionSets() {
                                     onChange={(e) => {
                                       const keywords = parseCommaSeparatedKeywords(e.target.value);
                                       const next = [...(os.options || [])];
-                                      const row: OptionEntry = { ...next[i], value: next[i].value, label: next[i].label };
+                                      const row: FormOption = { ...next[i], value: next[i].value, label: next[i].label };
                                       if (keywords) row.keywords = keywords;
                                       else delete row.keywords;
                                       next[i] = row;

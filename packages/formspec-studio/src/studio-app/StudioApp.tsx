@@ -5,23 +5,14 @@ import commonRegistry from '../../../../registries/formspec-common.registry.json
 
 const COMMON_REGISTRY_URL = 'https://formspec.org/registries/formspec-common.registry.json';
 import { ProjectProvider } from '../state/ProjectContext';
-import { SelectionProvider } from '../state/useSelection';
+import { SelectionProvider, useSelection } from '../state/useSelection';
 import { ActiveGroupProvider } from '../state/useActiveGroup';
 import { Shell } from '../components/Shell';
 import { blankDefinition } from '../fixtures/blank-definition';
-import { useColorScheme } from '../hooks/useColorScheme';
-import { useChatSessionController } from '../hooks/useChatSessionController';
+import { useColorScheme, type ColorScheme } from '../hooks/useColorScheme';
+import { useChatSessionController, type ChatSessionController } from '../hooks/useChatSessionController';
 import { ChatSessionControllerProvider } from '../state/ChatSessionControllerContext';
 import { AssistantWorkspace } from '../onboarding/AssistantWorkspace';
-import {
-  createLocalChatThreadRepository,
-  deriveChatProjectScope,
-  type ChatThreadRepository,
-} from '../components/chat/chat-thread-repository';
-import {
-  createLocalVersionRepository,
-  type VersionRepository,
-} from '../components/chat/version-repository';
 import {
   getInitialStudioWorkspaceView,
   markOnboardingCompleted,
@@ -84,11 +75,6 @@ export function StudioApp({ project }: StudioAppProps = {}): ReactElement {
   });
   const colorScheme = useColorScheme();
 
-  // Repositories constructed once at app level — converges Shell + AssistantWorkspace duplicates
-  const chatThreadRepository = useMemo(() => createLocalChatThreadRepository(), []);
-  const versionRepository = useMemo(() => createLocalVersionRepository(), []);
-  const chatProjectScope = useMemo(() => deriveChatProjectScope(activeProject), [activeProject]);
-
   const openAssistantWorkspace = useCallback(() => {
     setPersistedStudioView('assistant');
     setStudioView('assistant');
@@ -138,33 +124,83 @@ export function StudioApp({ project }: StudioAppProps = {}): ReactElement {
     setStudioView('workspace');
   };
 
-  const controller = useChatSessionController({
-    project: activeProject,
-    chatThreadRepository,
-    chatProjectScope,
-    versionRepository,
-  });
-
   return (
     <ProjectProvider project={activeProject}>
       <SelectionProvider project={activeProject}>
-        <ActiveGroupProvider>
-          <ChatSessionControllerProvider controller={controller}>
-            {studioView === 'assistant' ? (
-              <AssistantWorkspace
-              project={activeProject}
-              onEnterStudio={enterWorkspaceFromAssistant}
-              colorScheme={colorScheme}
-              chatThreadRepository={chatThreadRepository}
-              versionRepository={versionRepository}
-              chatProjectScope={chatProjectScope}
-            />
-          ) : (
-              <Shell colorScheme={colorScheme} chatThreadRepository={chatThreadRepository} versionRepository={versionRepository} chatProjectScope={chatProjectScope} />
-          )}
-          </ChatSessionControllerProvider>
-        </ActiveGroupProvider>
+        <StudioAppInner
+          studioView={studioView}
+          colorScheme={colorScheme}
+          activeProject={activeProject}
+          enterWorkspaceFromAssistant={enterWorkspaceFromAssistant}
+          onSwitchToAssistant={openAssistantWorkspace}
+        />
       </SelectionProvider>
     </ProjectProvider>
+  );
+}
+
+function StudioAppInner({
+  studioView,
+  colorScheme,
+  activeProject,
+  enterWorkspaceFromAssistant,
+  onSwitchToAssistant,
+}: {
+  studioView: 'assistant' | 'workspace';
+  colorScheme: ColorScheme;
+  activeProject: Project;
+  enterWorkspaceFromAssistant: () => void;
+  onSwitchToAssistant: () => void;
+}) {
+  const { reveal, selectedKeyForTab, selectionScopeTab } = useSelection();
+  const getWorkspaceContext = useCallback(() => {
+    const path = selectedKeyForTab(selectionScopeTab);
+    return {
+      selection: path ? { path, sourceTab: selectionScopeTab } : null,
+      // Viewport is not yet plumbed from Shell.previewViewport; surface deliberately reports null
+      // until that wiring lands. The chat ToolContext type permits null; AI adapters that need
+      // device hints should treat null as "unknown" not "desktop".
+      viewport: null as ('desktop' | 'tablet' | 'mobile' | null),
+    };
+  }, [selectionScopeTab, selectedKeyForTab]);
+  const studioUIHandlers = useMemo(() => ({
+    revealField: (path: string) => {
+      if (!activeProject.itemAt(path)) {
+        return { ok: false, reason: `Path "${path}" not found in current definition.` };
+      }
+      reveal(path);
+      return { ok: true };
+    },
+    setRightPanelOpen: (open: boolean) => {
+      if (studioView === 'assistant') {
+        return {
+          ok: false,
+          reason: 'Preview companion is only available in workspace view; switch views first.',
+        };
+      }
+      window.dispatchEvent(new CustomEvent('formspec:toggle-preview-companion', { detail: { open } }));
+      return { ok: true };
+    },
+  }), [activeProject, reveal, studioView]);
+  const controller = useChatSessionController({
+    project: activeProject,
+    studioUIHandlers,
+    getWorkspaceContext,
+  });
+
+  return (
+    <ActiveGroupProvider>
+      <ChatSessionControllerProvider controller={controller}>
+        {studioView === 'assistant' ? (
+          <AssistantWorkspace
+            project={activeProject}
+            onEnterStudio={enterWorkspaceFromAssistant}
+            colorScheme={colorScheme}
+          />
+        ) : (
+          <Shell colorScheme={colorScheme} onSwitchToAssistant={onSwitchToAssistant} />
+        )}
+      </ChatSessionControllerProvider>
+    </ActiveGroupProvider>
   );
 }

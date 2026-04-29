@@ -45,9 +45,9 @@ describe('Logic Workflow', () => {
   it('renders shapes with severity', () => {
     renderLogic({
       $formspec: '1.0', url: 'urn:test', version: '1.0.0', title: 'Test',
-      items: [{ key: 'age', type: 'field', dataType: 'integer' }],
+      items: [{ key: 'age', type: 'field', label: 'Age', dataType: 'integer' }],
       shapes: [
-        { name: 'ageValid', severity: 'error', constraint: '$age >= 0' },
+        { id: 'ageValid', target: 'age', severity: 'error', constraint: '$age >= 0', message: 'Age must be valid' },
       ],
     });
     expect(screen.getByText('ageValid')).toBeInTheDocument();

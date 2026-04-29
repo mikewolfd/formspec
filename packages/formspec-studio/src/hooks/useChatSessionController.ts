@@ -1,7 +1,7 @@
 /** @filedesc Session controller hook — owns ChatSession lifecycle, tool dispatch, thread list, version rail. */
 import { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import { ChatSession, GeminiAdapter, type ChatMessage, type SessionSummary, type ToolContext } from '@formspec-org/chat';
-import { type Project, type MergeResult, type ProposalManager, type Diagnostics, type FormDefinition } from '@formspec-org/studio-core';
+import { type Project, type ProposalManager, type FormDefinition } from '@formspec-org/studio-core';
 import { ProjectRegistry } from '@formspec-org/mcp/registry';
 import { createToolDispatch } from '@formspec-org/mcp/dispatch';
 import {
@@ -18,6 +18,7 @@ import { emitAuthoringTelemetry, type AuthoringCapability } from '../onboarding/
 import { AUTHORING_FALLBACK_REASONS } from '../onboarding/authoring-fallback-reasons';
 import { emitModelRoutingDecision, selectModelForOperation } from '../onboarding/authoring-model-routing';
 import { getSavedProviderConfig } from '../components/AppSettingsDialog';
+import { createStudioUITools, type StudioUIHandlers } from '../components/chat/studio-ui-tools';
 
 function capabilityForCommand(command: { kind: string; intent?: string }): AuthoringCapability {
   if (command.kind === 'init') return 'field_group_crud';
@@ -112,12 +113,8 @@ export interface ChatSessionController {
   setCompareBaseId: React.Dispatch<React.SetStateAction<string | null>>;
   /** Set compareTargetId. */
   setCompareTargetId: React.Dispatch<React.SetStateAction<string | null>>;
-  /** Set versionMessage. */
-  setVersionMessage: React.Dispatch<React.SetStateAction<string | null>>;
   /** Load a definition as a changeset. */
   loadDefinitionAsChangeset: (label: string, definition: NonNullable<ReturnType<ChatSession['getDefinition']>>) => void;
-  /** Apply merge result diagnostics. */
-  applyMergeResult: (result: MergeResult) => void;
 }
 
 export interface UseChatSessionControllerOptions {
@@ -128,10 +125,12 @@ export interface UseChatSessionControllerOptions {
   versionScope?: string;
   /** When provided, exposes workspace selection + viewport to the AI via ToolContext. */
   getWorkspaceContext?: () => { selection: { path: string; sourceTab: string } | null; viewport: 'desktop' | 'tablet' | 'mobile' | null };
+  /** Studio-local UI tool handlers (ADR 0086). Passed from Shell which owns the React contexts. */
+  studioUIHandlers?: StudioUIHandlers;
 }
 
 export function useChatSessionController(options: UseChatSessionControllerOptions): ChatSessionController {
-  const { project, chatThreadRepository, chatProjectScope, versionRepository, versionScope, getWorkspaceContext } = options;
+  const { project, chatThreadRepository, chatProjectScope, versionRepository, versionScope, getWorkspaceContext, studioUIHandlers } = options;
 
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [recentSessions, setRecentSessions] = useState<SessionSummary[]>([]);
@@ -141,26 +140,38 @@ export function useChatSessionController(options: UseChatSessionControllerOption
   const [versions, setVersions] = useState<VersionRecord[]>([]);
   const [compareBaseId, setCompareBaseId] = useState<string | null>(null);
   const [compareTargetId, setCompareTargetId] = useState<string | null>(null);
-  const [versionMessage, setVersionMessage] = useState<string | null>(null);
   const [hasApiKey, setHasApiKey] = useState(() => !!getSavedProviderConfig()?.apiKey);
 
   const sessionRef = useRef<ChatSession | null>(null);
   const activeRevisionRef = useRef<string | null>(null);
   const initializingRef = useRef(false);
-  const forkLineageParentIdRef = useRef<string | null>(null);
 
   const repository = useMemo(() => chatThreadRepository ?? createLocalChatThreadRepository(), [chatThreadRepository]);
   const projectScope = useMemo(() => chatProjectScope ?? deriveChatProjectScope(project), [chatProjectScope, project]);
   const resolvedVersionScope = useMemo(() => versionScope ?? projectScope, [projectScope, versionScope]);
   const versionStore = useMemo(() => versionRepository ?? createLocalVersionRepository(), [versionRepository]);
 
+  const studioTools = useMemo(() => createStudioUITools(studioUIHandlers ?? {}), [studioUIHandlers]);
+
   const { toolContext, proposalManager } = useMemo(() => {
     const registry = new ProjectRegistry();
     const projectId = registry.registerOpen('studio://current', project);
     const dispatch = createToolDispatch(registry, projectId);
+    // ADR 0086: studio-local UI tools are a closed taxonomy. New entries require a new ADR slot.
+    // Fail loudly if a future MCP tool would shadow a studio handler — silent shadowing is the bug.
+    const mcpNames = new Set(dispatch.declarations.map((d) => d.name));
+    const collision = Object.keys(studioTools.handlers).find((name) => mcpNames.has(name));
+    if (collision) {
+      throw new Error(
+        `Studio UI tool "${collision}" collides with an MCP tool of the same name. ` +
+          `Rename in studio-ui-tools.ts and bump the closed taxonomy ADR (0086).`,
+      );
+    }
     const ctx: ToolContext = {
-      tools: dispatch.declarations,
+      tools: [...dispatch.declarations, ...studioTools.declarations],
       async callTool(name: string, args: Record<string, unknown>) {
+        const studioHandler = studioTools.handlers[name];
+        if (studioHandler) return studioHandler(args);
         return dispatch.call(name, args);
       },
       async getProjectSnapshot() {
@@ -170,7 +181,7 @@ export function useChatSessionController(options: UseChatSessionControllerOption
     };
     const pm: ProposalManager | null = project.proposals;
     return { toolContext: ctx, proposalManager: pm };
-  }, [project]);
+  }, [project, studioTools, getWorkspaceContext]);
 
   const createSession = useCallback(() => {
     const config = getSavedProviderConfig();
@@ -353,11 +364,6 @@ export function useChatSessionController(options: UseChatSessionControllerOption
     [project, proposalManager],
   );
 
-  const applyMergeResult = useCallback((result: MergeResult) => {
-    // Intentionally no-op in controller; ChatPanel owns diagnostics display
-    void result;
-  }, []);
-
   return {
     messages,
     readyToScaffold,
@@ -389,8 +395,6 @@ export function useChatSessionController(options: UseChatSessionControllerOption
     setInitNotice,
     setCompareBaseId,
     setCompareTargetId,
-    setVersionMessage,
     loadDefinitionAsChangeset,
-    applyMergeResult,
   };
 }

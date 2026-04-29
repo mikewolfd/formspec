@@ -17,6 +17,8 @@ interface TabSelection {
 }
 
 interface SelectionState {
+  /** Tab scope key for the most recently updated selection (`_default`, `editor`, `layout`, …). Not the Shell workspace tab. */
+  selectionScopeTab: string;
   // Multi-select state (reflects active tab)
   selectedKeys: Set<string>;
   primaryKey: string | null;
@@ -61,9 +63,24 @@ function emptyTabSelection(): TabSelection {
   return { selectedKeys: EMPTY_SET, primaryKey: null, primaryType: null };
 }
 
+/**
+ * Whether a scoped selection primary key should survive definition sync against `fieldPaths`.
+ * Layout canvas nodes use synthetic `__node:…` keys; definition items use paths present in `fieldPaths`.
+ * Extend here if new non-definition keys must be preserved (single place for the stale-selection effect).
+ */
+export function selectionPrimaryKeyRetainedAfterDefinitionChange(
+  key: string,
+  fieldPaths: Set<string>,
+): boolean {
+  if (fieldPaths.has(key)) return true;
+  if (key.startsWith('__node:')) return true;
+  return false;
+}
+
 export function SelectionProvider({ children, project }: { children: ReactNode; project?: import('@formspec-org/studio-core').Project }) {
   const [tabSelections, setTabSelections] = useState<Map<string, TabSelection>>(EMPTY_MAP);
-  const [activeTab, setActiveTab] = useState<string>(DEFAULT_TAB);
+  /** Last selection tab scope passed to `select` / `updateTab` (`_default`, `editor`, `layout`, …) — not Shell workspace tab. */
+  const [selectionScopeTab, setSelectionScopeTab] = useState<string>(DEFAULT_TAB);
   const [focusInspector, setFocusInspector] = useState(false);
   const [revealPath, setRevealPath] = useState<string | null>(null);
   // Ref to avoid stale closure in isSelected — always points to current active tab's keys
@@ -82,7 +99,7 @@ export function SelectionProvider({ children, project }: { children: ReactNode; 
       next.set(tab, updater(current));
       return next;
     });
-    setActiveTab(tab);
+    setSelectionScopeTab(tab);
   }, []);
 
   const select = useCallback((key: string, type: string, opts?: SelectionOptions) => {
@@ -141,11 +158,11 @@ export function SelectionProvider({ children, project }: { children: ReactNode; 
 
   const deselect = useCallback(() => {
     setTabSelections(EMPTY_MAP);
-    setActiveTab(DEFAULT_TAB);
+    setSelectionScopeTab(DEFAULT_TAB);
   }, []);
 
   // Derive active tab's state
-  const active = getTabState(activeTab);
+  const active = getTabState(selectionScopeTab);
   activeKeysRef.current = active.selectedKeys;
 
   const isSelected = useCallback((key: string) => {
@@ -181,7 +198,8 @@ export function SelectionProvider({ children, project }: { children: ReactNode; 
       let changed = false;
       const next = new Map(prev);
       for (const [tab, sel] of prev) {
-        if (sel.primaryKey && !paths.has(sel.primaryKey)) {
+        const key = sel.primaryKey;
+        if (key && !selectionPrimaryKeyRetainedAfterDefinitionChange(key, paths)) {
           next.set(tab, emptyTabSelection());
           changed = true;
         }
@@ -206,6 +224,7 @@ export function SelectionProvider({ children, project }: { children: ReactNode; 
   }, [revealPath]);
 
   const value = useMemo<SelectionState>(() => ({
+    selectionScopeTab,
     selectedKeys: active.selectedKeys,
     primaryKey: active.primaryKey,
     primaryType: active.primaryType,
@@ -232,6 +251,7 @@ export function SelectionProvider({ children, project }: { children: ReactNode; 
     reveal,
     consumeRevealedPath,
   }), [
+    selectionScopeTab,
     active.selectedKeys, active.primaryKey, active.primaryType,
     select, toggleSelect, rangeSelect,
     deselect, isSelected, selectedKeyForTab, selectedTypeForTab,

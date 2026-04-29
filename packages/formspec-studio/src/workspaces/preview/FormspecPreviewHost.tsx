@@ -60,26 +60,42 @@ function findPreviewFieldRoot(previewHost: HTMLElement, fieldPath: string): HTML
 interface FormspecPreviewHostProps {
   width: string | number;
   /**
-   * When set, forces `<formspec-render>` light/dark appearance to match the Studio shell.
-   * Otherwise the web component follows `prefers-color-scheme`, which diverges from the
-   * shell when the user picks Light/Dark explicitly or uses a non-system preference.
+   * Forces `<formspec-render>` light/dark to match the Studio shell. Without this,
+   * the web component follows `prefers-color-scheme`, which diverges from an explicit Studio theme pick.
    */
   appearance?: ResolvedTheme;
   /**
-   * When provided (Layout live preview), keeps wizard/tab step in sync with the Layout canvas page.
+   * Layout-tab live preview only: keeps wizard/tab step in sync with the Layout canvas page.
    * Omit on the Preview tab so layout navigation does not affect that host.
    */
   layoutPreviewPageIndex?: number | null;
-  /**
-   * When set (Layout live preview), outlines the matching field in the preview (definition path / `data-name`).
-   */
+  /** Layout-tab live preview only: outlines the matching field in the preview (definition path / `data-name`). */
   layoutHighlightFieldPath?: string | null;
   /**
-   * When set (Behavior lab), hydrates the live engine with the same nested object shape as
-   * response `data`. `null` skips re-apply (e.g. invalid JSON) so the last good state remains.
-   * Omit on Form / JSON preview.
+   * Behavior-lab only: hydrates the live engine with the same nested object shape as response `data`.
+   * `null` skips re-apply (e.g. invalid JSON) so the last good state remains. Omit on Form / JSON preview.
    */
   scenarioData?: Record<string, unknown> | null;
+  /**
+   * When set, clicking a non-interactive field surface (label/wrapper) calls back with the field's `data-name` path.
+   * Clicks on form inputs (`<input>`, `<select>`, `<textarea>`, `<button>`, `<a>`) do NOT fire — they keep their native behavior so the preview stays a working playground.
+   * Stabilize this callback (e.g. useCallback) to avoid listener thrash.
+   */
+  onFieldClick?: (path: string) => void;
+}
+
+const INTERACTIVE_TAGS = new Set(['INPUT', 'SELECT', 'TEXTAREA', 'BUTTON', 'A']);
+
+/** True when a click on `node` should keep its native behavior (input focus, button press, link nav). */
+export function isInteractiveTarget(node: EventTarget | null): boolean {
+  if (!(node instanceof HTMLElement)) return false;
+  for (let el: HTMLElement | null = node; el; el = el.parentElement) {
+    if (INTERACTIVE_TAGS.has(el.tagName)) return true;
+    if (el.isContentEditable) return true;
+    if (el.getAttribute('role') === 'button') return true;
+    if (el.hasAttribute('data-name')) return false; // reached the field root before any interactive ancestor
+  }
+  return false;
 }
 
 type FormspecRenderElement = HTMLElement & {
@@ -165,6 +181,7 @@ export function FormspecPreviewHost({
   layoutPreviewPageIndex,
   layoutHighlightFieldPath,
   scenarioData,
+  onFieldClick,
 }: FormspecPreviewHostProps) {
   const state = useProjectState();
   const project = useProject();
@@ -483,6 +500,24 @@ export function FormspecPreviewHost({
       host.removeEventListener('formspec-screener-state-change', onScreenerStateChange);
     };
   }, []);
+
+  // Bidirectional selection bridge: click on a non-interactive field surface → onFieldClick callback.
+  // Skips clicks on form inputs so the preview remains a working playground.
+  useEffect(() => {
+    const host = hostRef.current;
+    if (!host || !onFieldClick) return;
+
+    const handleClick = (e: MouseEvent) => {
+      if (isInteractiveTarget(e.target)) return;
+      const fieldRoot = (e.target as HTMLElement).closest('[data-name]');
+      if (!fieldRoot) return;
+      const path = fieldRoot.getAttribute('data-name');
+      if (path) onFieldClick(path);
+    };
+
+    host.addEventListener('click', handleClick);
+    return () => host.removeEventListener('click', handleClick);
+  }, [onFieldClick]);
 
   return (
     <div

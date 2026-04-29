@@ -3,12 +3,6 @@ import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, use
 import type { DragEvent, RefObject } from 'react';
 import type { Project, ProjectBundle } from '@formspec-org/studio-core';
 import { ChatPanel, type SourceUploadSummary, type WorkspaceRailPlacement } from '../components/ChatPanel.js';
-import {
-  createLocalChatThreadRepository,
-  deriveChatProjectScope,
-  type ChatThreadRepository,
-} from '../components/chat/chat-thread-repository.js';
-import { createLocalVersionRepository, type VersionRepository } from '../components/chat/version-repository.js';
 import { Header } from '../components/Header.js';
 import { StatusBar } from '../components/StatusBar.js';
 import { ConfirmDialog } from '../components/ConfirmDialog.js';
@@ -44,15 +38,13 @@ import {
   IconUpload,
   IconWarning,
 } from '../components/icons/index.js';
+import { PreviewCompanionPanel } from '../components/PreviewCompanionPanel.js';
+import { readPreviewVisibility, writePreviewVisibility } from '../hooks/useShellPanels.js';
 
 export interface AssistantWorkspaceProps {
   project: Project;
   onEnterStudio: () => void;
-  /** When provided, theme toggle matches the tabbed Studio shell. */
   colorScheme?: ColorScheme;
-  chatThreadRepository?: import('../components/chat/chat-thread-repository').ChatThreadRepository;
-  versionRepository?: import('../components/chat/version-repository').VersionRepository;
-  chatProjectScope?: string;
 }
 
 type MobileSheet = 'start' | 'snapshot' | 'diagnostics' | null;
@@ -69,10 +61,10 @@ interface SourceState {
   message?: string;
 }
 
-export function AssistantWorkspace({ project, onEnterStudio, colorScheme, chatThreadRepository, versionRepository, chatProjectScope }: AssistantWorkspaceProps) {
+export function AssistantWorkspace({ project, onEnterStudio, colorScheme }: AssistantWorkspaceProps) {
   const { compactLayout, leftWidth } = useShellLayout();
   const projectFromContext = useProject();
-  const { selectedKeyForTab, deselect } = useSelection();
+  const { selectedKeyForTab, deselect, select } = useSelection();
   const scopedEditorSelection = selectedKeyForTab('editor');
   const shellBackgroundImage = getShellBackgroundImage(colorScheme?.resolvedTheme ?? 'light');
   const [selectedStarterId, setSelectedStarterId] = useState(starterCatalog[0]?.id ?? '');
@@ -93,6 +85,11 @@ export function AssistantWorkspace({ project, onEnterStudio, colorScheme, chatTh
   const [assistantBlueprintSection, setAssistantBlueprintSection] = useState('Structure');
   const startDrawerPinnedRef = useRef(startDrawerPinned);
   const [assistantTouched, setAssistantTouched] = useState(false);
+  const [showPreview, setShowPreviewState] = useState(readPreviewVisibility);
+  const setShowPreview = useCallback((open: boolean) => {
+    setShowPreviewState(open);
+    writePreviewVisibility(open);
+  }, []);
   const replaceResolveRef = useRef<((confirmed: boolean) => void) | null>(null);
   const [replaceConfirmOpen, setReplaceConfirmOpen] = useState(false);
   const [replaceConfirmDescription, setReplaceConfirmDescription] = useState('');
@@ -187,24 +184,22 @@ export function AssistantWorkspace({ project, onEnterStudio, colorScheme, chatTh
     }));
   }, [diagnostics]);
 
-  const localChatRepoRef = useRef<import('../components/chat/chat-thread-repository').ChatThreadRepository | null>(null);
-  const localVersionRepoRef = useRef<import('../components/chat/version-repository').VersionRepository | null>(null);
-  if (!chatThreadRepository && !localChatRepoRef.current) {
-    localChatRepoRef.current = createLocalChatThreadRepository();
-  }
-  if (!versionRepository && !localVersionRepoRef.current) {
-    localVersionRepoRef.current = createLocalVersionRepository();
-  }
-  const derivedChatProjectScope = useMemo(() => deriveChatProjectScope(project), [project]);
-  const assistantChatRepository = chatThreadRepository ?? localChatRepoRef.current!;
-  const assistantVersionRepository = versionRepository ?? localVersionRepoRef.current!;
-  const assistantPersistenceScope = chatProjectScope ?? derivedChatProjectScope;
-
   useEffect(() => {
+    // The studio-ui-tools `setRightPanelOpen` handler returns a structured error in assistant view
+    // (StudioApp.tsx), so the `formspec:toggle-preview-companion` event never reaches this mount
+    // through the documented dispatch path. Persistence on view switch is handled by useState's
+    // initializer reading writePreviewVisibility's storage.
     const openSettings = () => setShowAppSettings(true);
     window.addEventListener('formspec:open-app-settings', openSettings);
-    return () => window.removeEventListener('formspec:open-app-settings', openSettings);
+    return () => {
+      window.removeEventListener('formspec:open-app-settings', openSettings);
+    };
   }, []);
+
+  const handlePreviewFieldClick = useCallback(
+    (path: string) => select(path, 'field', { tab: 'editor' }),
+    [select],
+  );
 
   const dismissOrientation = useCallback(() => {
     localStorage.setItem(ONBOARDING_ORIENTATION_KEY, 'dismissed');
@@ -225,6 +220,15 @@ export function AssistantWorkspace({ project, onEnterStudio, colorScheme, chatTh
   );
 
   const onAssistantEscape = useCallback(() => {
+    // Dismiss blocking orientation overlay before closing the start drawer (both can be open on tablet).
+    if (orientationOpen && compactLayout) {
+      dismissOrientation();
+      return;
+    }
+    if (mobileSheet) {
+      setMobileSheet(null);
+      return;
+    }
     if (startDrawerOpen) {
       setStartDrawerOpen(false);
       return;
@@ -243,14 +247,6 @@ export function AssistantWorkspace({ project, onEnterStudio, colorScheme, chatTh
     }
     if (showPalette) {
       setShowPalette(false);
-      return;
-    }
-    if (mobileSheet) {
-      setMobileSheet(null);
-      return;
-    }
-    if (orientationOpen && compactLayout) {
-      dismissOrientation();
       return;
     }
     deselect();
@@ -626,6 +622,15 @@ export function AssistantWorkspace({ project, onEnterStudio, colorScheme, chatTh
               </div>
             )}
 
+            {hasFormStructure && (
+              <div className="shrink-0 border-b border-border/80 bg-surface/95 px-6 py-4 backdrop-blur-sm supports-[backdrop-filter]:bg-surface/85">
+                <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-muted">Current draft</p>
+                <h2 className="mt-1 font-display text-[22px] font-semibold leading-tight text-ink">
+                  {project.definition.title ?? 'Untitled form'}
+                </h2>
+              </div>
+            )}
+
             {orientationOpen && (
             <aside className="absolute right-4 top-24 z-20 hidden w-[min(320px,calc(100vw-2rem))] rounded-xl border border-border/90 bg-surface/98 p-5 shadow-xl ring-1 ring-ink/5 backdrop-blur-sm dark:ring-white/10 lg:block onboarding-slide-in" aria-label="Studio setup orientation">
               <div className="flex items-start justify-between gap-3">
@@ -651,10 +656,6 @@ export function AssistantWorkspace({ project, onEnterStudio, colorScheme, chatTh
               onUploadHandlerReady={handleUploadHandlerReady}
               onSourceUploadStart={handleSourceUploadStart}
               onSourceUploadComplete={handleSourceUploadComplete}
-              chatThreadRepository={assistantChatRepository}
-              chatProjectScope={assistantPersistenceScope}
-              versionRepository={assistantVersionRepository}
-              versionScope={assistantPersistenceScope}
               workspaceRail={onboardingWorkspaceRail}
             />
             </div>
@@ -674,6 +675,15 @@ export function AssistantWorkspace({ project, onEnterStudio, colorScheme, chatTh
             </div>
           </div>
         </section>
+        {showPreview && (
+          <PreviewCompanionPanel
+            width={380}
+            appearance={colorScheme?.resolvedTheme ?? 'light'}
+            highlightFieldPath={scopedEditorSelection}
+            onClose={() => setShowPreview(false)}
+            onFieldClick={handlePreviewFieldClick}
+          />
+        )}
       </main>
 
       <StatusBar variant="assistant" />
@@ -746,10 +756,6 @@ function OnboardingChatPanel({
   onUploadHandlerReady,
   onSourceUploadStart,
   onSourceUploadComplete,
-  chatThreadRepository,
-  chatProjectScope,
-  versionRepository,
-  versionScope,
   workspaceRail,
 }: {
   project: Project;
@@ -758,10 +764,6 @@ function OnboardingChatPanel({
   onUploadHandlerReady: (handler: ((file: File) => void) | null) => void;
   onSourceUploadStart: (file: File) => void;
   onSourceUploadComplete: (summary: SourceUploadSummary) => void;
-  chatThreadRepository: ChatThreadRepository;
-  chatProjectScope: string;
-  versionRepository: VersionRepository;
-  versionScope: string;
   workspaceRail: WorkspaceRailPlacement;
 }) {
   return (
@@ -771,10 +773,6 @@ function OnboardingChatPanel({
         project={project}
         onClose={() => {}}
         hideHeader
-        chatThreadRepository={chatThreadRepository}
-        chatProjectScope={chatProjectScope}
-        versionRepository={versionRepository}
-        versionScope={versionScope}
         onUserMessage={onUserMessage}
         onUploadHandlerReady={onUploadHandlerReady}
         onSourceUploadStart={onSourceUploadStart}

@@ -14,7 +14,13 @@ const LOGIC_DEFINITION = {
     income: { calculate: '$age * 1000', readonly: 'true' },
   },
   shapes: [
-    { name: 'ageValid', severity: 'error', constraint: '$age >= 0 and $age <= 120' },
+    {
+      id: 'ageValid',
+      target: 'age',
+      severity: 'error',
+      constraint: '$age >= 0 and $age <= 120',
+      message: 'Age must be in range',
+    },
   ],
   variables: [
     { name: 'taxRate', expression: '0.25' },

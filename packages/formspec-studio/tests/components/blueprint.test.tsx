@@ -26,7 +26,7 @@ describe('Blueprint', () => {
     renderBlueprint();
     const sections = [
       'Structure', 'Component Tree', 'Theme', 'Screener', 'Calculations',
-      'External data', 'Option Sets', 'Mappings', 'Settings'
+      'External data', 'Reusable choices', 'Field mappings', 'Settings'
     ];
     for (const name of sections) {
       expect(screen.getByText(name)).toBeInTheDocument();

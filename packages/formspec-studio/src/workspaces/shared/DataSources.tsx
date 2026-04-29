@@ -1,6 +1,7 @@
 /** @filedesc Panel for viewing and editing inline data sources attached to the form definition. */
 import { useState } from 'react';
 import { sanitizeIdentifier } from '@formspec-org/studio-core';
+import type { FormInstance } from '@formspec-org/types';
 import { useProject } from '../../state/useProject';
 import { useDefinition } from '../../state/useDefinition';
 import { InlineExpression } from '../../components/ui/InlineExpression';
@@ -67,14 +68,8 @@ function InlineDataEditor({ data, hasSource, onSave }: {
   );
 }
 
-interface Instance {
+interface NamedInstance extends FormInstance {
   name: string;
-  source?: string;
-  description?: string;
-  data?: unknown;
-  schema?: Record<string, string>;
-  static?: boolean;
-  readonly?: boolean;
 }
 
 export function DataSources() {
@@ -86,9 +81,9 @@ export function DataSources() {
   const [newName, setNewName] = useState('');
   const [deleteTarget, setDeleteTarget] = useState<string | null>(null);
 
-  const instances: Instance[] = Object.entries(rawInstances || {}).map(([name, inst]) => ({
+  const instances: NamedInstance[] = Object.entries(rawInstances || {}).map(([name, inst]) => ({
     name,
-    ...(inst as object),
+    ...(inst as FormInstance),
   }));
 
   const handleAdd = () => {

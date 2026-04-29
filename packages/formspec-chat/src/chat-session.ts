@@ -258,6 +258,9 @@ export class ChatSession {
     if (!this.toolContext) {
       throw new Error('No tool context available. Call setToolContext() before initialization.');
     }
+    if (!this.toolContext.getProjectSnapshot) {
+      throw new Error('Tool context does not support getProjectSnapshot(). Cannot initialize chat refinement context.');
+    }
     const snapshot = await this.toolContext.getProjectSnapshot();
     if (!snapshot?.definition) {
       throw new Error('Project snapshot is unavailable. Cannot initialize chat refinement context.');

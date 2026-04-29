@@ -1,26 +1,14 @@
 /** @filedesc Logic tab section for creating and editing cross-field shape validation rules. */
 import { useState } from 'react';
+import type { FormShape } from '@formspec-org/types';
 import { useProject } from '../../state/useProject';
 import { ShapeCard } from '../../components/ui/ShapeCard';
 import { InlineExpression } from '../../components/ui/InlineExpression';
 
 import { InlineCreateForm } from '../../components/shared/InlineCreateForm';
 
-interface Shape {
-  id?: string;
-  name: string;
-  severity?: string;
-  constraint?: string;
-  target?: string;
-  and?: string[];
-  or?: string[];
-  targets?: string[];
-  message?: string;
-  code?: string;
-}
-
 interface ShapesSectionProps {
-  shapes: Shape[];
+  shapes: FormShape[];
 }
 
 export function ShapesSection({ shapes }: ShapesSectionProps) {
@@ -95,7 +83,7 @@ export function ShapesSection({ shapes }: ShapesSectionProps) {
       )}
 
       {shapes.map((shape) => {
-        const id = shape.id || shape.name;
+        const id = shape.id;
         const constraint = shape.constraint
           ?? (Array.isArray(shape.or) ? shape.or.join(' or ') : undefined)
           ?? (Array.isArray(shape.and) ? shape.and.join(' and ') : '');
@@ -108,7 +96,7 @@ export function ShapesSection({ shapes }: ShapesSectionProps) {
               onClick={() => setExpandedId(isExpanded ? null : id)}
             >
               <ShapeCard
-                name={shape.name}
+                name={shape.id}
                 severity={shape.severity}
                 constraint={constraint}
                 message={shape.message}

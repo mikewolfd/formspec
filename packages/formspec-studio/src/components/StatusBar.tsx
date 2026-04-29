@@ -21,11 +21,11 @@ function setAdvanced(value: boolean): void {
 }
 
 interface StatusBarProps {
-  /** Hides intelligence rows that rarely matter before the tabbed workspace. */
   variant?: 'full' | 'assistant';
+  onAskAI?: () => void;
 }
 
-export function StatusBar({ variant = 'full' }: StatusBarProps) {
+export function StatusBar({ variant = 'full', onAskAI }: StatusBarProps) {
   const state = useProjectState();
   const project = useProject();
   const [copied, setCopied] = useState(false);
@@ -88,7 +88,11 @@ export function StatusBar({ variant = 'full' }: StatusBarProps) {
   };
 
   const handleAskAI = () => {
-    window.dispatchEvent(new CustomEvent('formspec:open-assistant-workspace'));
+    if (onAskAI) {
+      onAskAI();
+    } else {
+      window.dispatchEvent(new CustomEvent('formspec:open-assistant-workspace'));
+    }
   };
 
   const handleToggleAdvanced = () => {
@@ -151,11 +155,17 @@ export function StatusBar({ variant = 'full' }: StatusBarProps) {
               <>
                 <div className="fixed inset-0 z-40" onClick={() => setMenuOpen(false)} />
                 <div className="absolute bottom-full left-0 z-50 mb-2 w-56 rounded-lg border border-border bg-surface shadow-lg p-2 space-y-1">
-                  <div className="flex items-center justify-between px-2 py-1 text-[11px] uppercase tracking-[0.18em] text-muted">
+                  <div
+                    data-testid="status-metric-binds"
+                    className="flex items-center justify-between px-2 py-1 text-[11px] uppercase tracking-[0.18em] text-muted"
+                  >
                     <span>Data connections</span>
                     <span className="text-ink">{bindCount}</span>
                   </div>
-                  <div className="flex items-center justify-between px-2 py-1 text-[11px] uppercase tracking-[0.18em] text-muted">
+                  <div
+                    data-testid="status-metric-shapes"
+                    className="flex items-center justify-between px-2 py-1 text-[11px] uppercase tracking-[0.18em] text-muted"
+                  >
                     <span>Cross-field rules</span>
                     <span className="text-ink">{shapeCount}</span>
                   </div>
@@ -182,15 +192,15 @@ export function StatusBar({ variant = 'full' }: StatusBarProps) {
                   </div>
                   {advanced && (
                     <div className="space-y-1 border-t border-border pt-1">
-                      <div className="px-2 py-1 text-[10px] uppercase tracking-[0.18em] text-muted/60">Raw</div>
-                      <div className="px-2 py-0.5 text-[10px] font-mono text-ink/70">bind: {bindCount}</div>
-                      <div className="px-2 py-0.5 text-[10px] font-mono text-ink/70">shape: {shapeCount}</div>
-                      <div className="px-2 py-0.5 text-[10px] font-mono text-ink/70">evidence: {evidence.linkedFields}/{evidence.totalFields}</div>
-                      <div className="px-2 py-0.5 text-[10px] font-mono text-ink/70">provenance: {confirmedProvenanceCount}</div>
-                      <div className="px-2 py-0.5 text-[10px] font-mono text-ink/70">patches: {openPatchCount}</div>
-                      <div className="px-2 py-0.5 text-[10px] font-mono text-ink/70">layout drift: {layoutDriftCount}</div>
-                      <div className="px-2 py-0.5 text-[10px] font-mono text-ink/70">validation errors: {validationErrorCount}</div>
-                      <div className="px-2 py-0.5 text-[10px] font-mono text-ink/70">validation warnings: {validationWarningCount}</div>
+                      <div className="px-2 py-1 text-[11px] uppercase tracking-[0.18em] text-muted/60">Raw</div>
+                      <div className="px-2 py-0.5 text-[11px] font-mono text-ink/70">bind: {bindCount}</div>
+                      <div className="px-2 py-0.5 text-[11px] font-mono text-ink/70">shape: {shapeCount}</div>
+                      <div className="px-2 py-0.5 text-[11px] font-mono text-ink/70">evidence: {evidence.linkedFields}/{evidence.totalFields}</div>
+                      <div className="px-2 py-0.5 text-[11px] font-mono text-ink/70">provenance: {confirmedProvenanceCount}</div>
+                      <div className="px-2 py-0.5 text-[11px] font-mono text-ink/70">patches: {openPatchCount}</div>
+                      <div className="px-2 py-0.5 text-[11px] font-mono text-ink/70">layout drift: {layoutDriftCount}</div>
+                      <div className="px-2 py-0.5 text-[11px] font-mono text-ink/70">validation errors: {validationErrorCount}</div>
+                      <div className="px-2 py-0.5 text-[11px] font-mono text-ink/70">validation warnings: {validationWarningCount}</div>
                     </div>
                   )}
                 </div>

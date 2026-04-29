@@ -1,5 +1,5 @@
 /** @filedesc Main studio shell; composes the header, blueprint sidebar, workspace tabs, and status bar. */
-import { useEffect, useMemo, useCallback, useRef } from 'react';
+import { useEffect, useMemo, useCallback } from 'react';
 import { type ColorScheme } from '../hooks/useColorScheme';
 import { useWorkspaceRouter } from '../hooks/useWorkspaceRouter';
 import { useEditorState } from '../hooks/useEditorState';
@@ -13,6 +13,7 @@ import {
   IconActivity,
   IconChevronRight,
   IconChevronLeft,
+  IconMonitor,
 } from './icons';
 import { Header } from './Header';
 import { StatusBar } from './StatusBar';
@@ -20,10 +21,9 @@ import { Blueprint } from './Blueprint';
 
 import { FormHealthPanel } from '../workspaces/editor/FormHealthPanel';
 import { LayoutLivePreviewSection } from '../workspaces/layout/LayoutLivePreviewSection';
+import { PreviewCompanionPanel } from './PreviewCompanionPanel';
 import { LayoutPreviewNavProvider } from '../workspaces/layout/LayoutPreviewNavContext';
 import { ChatPanel } from './ChatPanel';
-import { createLocalChatThreadRepository, deriveChatProjectScope } from './chat/chat-thread-repository';
-import { createLocalVersionRepository } from './chat/version-repository';
 import { ResizeHandle } from './ui/ResizeHandle';
 import { CanvasTargetsProvider } from '../state/useCanvasTargets';
 import { LayoutModeProvider } from '../workspaces/layout/LayoutModeContext';
@@ -35,6 +35,7 @@ import {
 } from '../state/OpenDefinitionInEditorContext';
 
 import { BlueprintSidebar } from './shell/BlueprintSidebar';
+import { UnloadGuard } from './UnloadGuard';
 import { WorkspaceContent } from './shell/WorkspaceContent';
 import { ShellDialogs } from './shell/ShellDialogs';
 import { useBlueprintSectionResolution } from './shell/useBlueprintSectionResolution';
@@ -42,25 +43,11 @@ import { getShellBackgroundImage } from './shell/shell-background-image';
 
 interface ShellProps {
   colorScheme?: ColorScheme;
-  chatThreadRepository?: import('./chat/chat-thread-repository').ChatThreadRepository;
-  versionRepository?: import('./chat/version-repository').VersionRepository;
-  chatProjectScope?: string;
+  onSwitchToAssistant?: () => void;
 }
 
-export function Shell({ colorScheme, chatThreadRepository, versionRepository, chatProjectScope }: ShellProps = {}) {
+export function Shell({ colorScheme, onSwitchToAssistant }: ShellProps = {}) {
   const project = useProject();
-  const localChatRepoRef = useRef<import('./chat/chat-thread-repository').ChatThreadRepository | null>(null);
-  const localVersionRepoRef = useRef<import('./chat/version-repository').VersionRepository | null>(null);
-  if (!chatThreadRepository && !localChatRepoRef.current) {
-    localChatRepoRef.current = createLocalChatThreadRepository();
-  }
-  if (!versionRepository && !localVersionRepoRef.current) {
-    localVersionRepoRef.current = createLocalVersionRepository();
-  }
-  const derivedChatProjectScope = useMemo(() => deriveChatProjectScope(project), [project]);
-  const shellChatThreadRepository = chatThreadRepository ?? localChatRepoRef.current!;
-  const shellVersionRepository = versionRepository ?? localVersionRepoRef.current!;
-  const shellAssistantPersistenceScope = chatProjectScope ?? derivedChatProjectScope;
   const { selectedKey, selectedKeyForTab, deselect, select } = useSelection();
 
   const router = useWorkspaceRouter();
@@ -117,6 +104,8 @@ export function Shell({ colorScheme, chatThreadRepository, versionRepository, ch
     setShowAppSettings,
     assistantOpen,
     setAssistantOpen,
+    showPreview,
+    setShowPreview,
   } = panels;
 
   const activeTabScope = activeTab.toLowerCase();
@@ -206,7 +195,15 @@ export function Shell({ colorScheme, chatThreadRepository, versionRepository, ch
     />
   );
 
-  const handleExport = () => exportProjectZip(project.export());
+  const handleExport = async () => {
+    await exportProjectZip(project.export());
+    project.markClean();
+  };
+
+  const handlePreviewFieldClick = useCallback(
+    (path: string) => select(path, 'field', { tab: 'editor' }),
+    [select],
+  );
 
   return (
     <div
@@ -214,6 +211,7 @@ export function Shell({ colorScheme, chatThreadRepository, versionRepository, ch
       className="relative flex h-screen flex-col overflow-hidden bg-bg-default text-ink font-ui"
       style={{ backgroundImage: shellBackgroundImage }}
     >
+      <UnloadGuard project={project} />
       <Header
         activeTab={activeTab}
         onTabChange={setActiveTab}
@@ -233,6 +231,7 @@ export function Shell({ colorScheme, chatThreadRepository, versionRepository, ch
           onCloseAllChat: () => setAssistantOpen(false),
           onOpenOverlayChat: () => setAssistantOpen(true),
         }}
+        onSwitchToAssistant={onSwitchToAssistant}
         isCompact={compactLayout}
         colorScheme={colorScheme}
       />
@@ -272,7 +271,7 @@ export function Shell({ colorScheme, chatThreadRepository, versionRepository, ch
                 <div className="sticky top-0 z-20 border-b border-border/70 bg-[linear-gradient(180deg,rgba(255,252,247,0.94),rgba(248,241,231,0.9))] dark:bg-[linear-gradient(180deg,rgba(26,35,47,0.94),rgba(32,44,59,0.9))] px-3 py-3 backdrop-blur" data-testid="mobile-editor-chrome">
                   <div className="flex items-center justify-between">
                     <div data-testid="mobile-selection-context" className="min-h-10 flex-1 rounded-[14px] border border-border/60 bg-bg-default/75 px-3 py-2">
-                      <div className="text-[10px] font-mono uppercase tracking-[0.16em] text-muted">Selected</div>
+                      <div className="text-[11px] font-mono uppercase tracking-[0.16em] text-muted">Selected</div>
                       <div className="truncate text-[13px] font-medium text-ink">
                         {selectedItemLabel ?? 'Nothing selected'}
                       </div>
@@ -317,7 +316,7 @@ export function Shell({ colorScheme, chatThreadRepository, versionRepository, ch
               </div>
             </div>
           </main>
-          {activeTab === 'Editor' && !compactLayout && !assistantOpen && (
+          {activeTab === 'Editor' && !compactLayout && !assistantOpen && !showPreview && (
             showRightPanel ? (
               <>
                 <ResizeHandle side="right" onResize={onResizeRight} />
@@ -353,7 +352,7 @@ export function Shell({ colorScheme, chatThreadRepository, versionRepository, ch
               </button>
             )
           )}
-          {activeTab === 'Layout' && !compactLayout && !assistantOpen && (
+          {activeTab === 'Layout' && !compactLayout && !assistantOpen && !showPreview && (
             showLayoutPreviewPanel ? (
               <>
                 <ResizeHandle side="right" onResize={onResizeRight} />
@@ -395,6 +394,29 @@ export function Shell({ colorScheme, chatThreadRepository, versionRepository, ch
               </button>
             )
           )}
+          {showPreview && !assistantOpen && !compactLayout && (
+            <>
+              <ResizeHandle side="right" onResize={onResizeRight} />
+              <PreviewCompanionPanel
+                width={rightWidth}
+                appearance={colorScheme?.resolvedTheme ?? 'light'}
+                highlightFieldPath={selectedKey}
+                onClose={() => setShowPreview(false)}
+                onFieldClick={handlePreviewFieldClick}
+              />
+            </>
+          )}
+          {!showPreview && !assistantOpen && !compactLayout && (
+            <button
+              type="button"
+              aria-label="Show live preview companion"
+              title="Live preview"
+              className="shrink-0 border-l border-border/70 bg-surface px-1.5 py-3 text-muted hover:text-accent hover:bg-accent/5 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/35"
+              onClick={() => setShowPreview(true)}
+            >
+              <IconMonitor size={14} />
+            </button>
+          )}
           {assistantOpen && (
             <div
               id="chat-panel-container"
@@ -405,10 +427,6 @@ export function Shell({ colorScheme, chatThreadRepository, versionRepository, ch
               <ChatPanel
                 project={project}
                 surfaceLayout="rail"
-                chatThreadRepository={shellChatThreadRepository}
-                chatProjectScope={shellAssistantPersistenceScope}
-                versionRepository={shellVersionRepository}
-                versionScope={shellAssistantPersistenceScope}
                 onClose={() => setAssistantOpen(false)}
               />
             </div>
@@ -486,7 +504,7 @@ export function Shell({ colorScheme, chatThreadRepository, versionRepository, ch
       </LayoutModeProvider>
       </LayoutPreviewNavProvider>
       </OpenDefinitionInEditorProvider>
-      <StatusBar />
+      <StatusBar onAskAI={onSwitchToAssistant} />
       <ShellDialogs
         showPalette={showPalette}
         setShowPalette={setShowPalette}

@@ -15,7 +15,7 @@ export interface StarterCatalogEntry {
   };
   integrationIndicators: string[];
   diagnosticStatus: 'ready' | 'warning';
-  bundle: ProjectBundle;
+  bundle: Partial<ProjectBundle>;
 }
 
 export const starterCatalog: StarterCatalogEntry[] = [

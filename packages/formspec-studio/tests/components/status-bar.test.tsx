@@ -1,6 +1,6 @@
 import { render, screen, act } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import { createProject } from '@formspec-org/studio-core';
 import { ProjectProvider } from '../../src/state/ProjectContext';
 import { StatusBar } from '../../src/components/StatusBar';
@@ -157,5 +157,17 @@ describe('StatusBar', () => {
       'href',
       'https://example.com/forms/lease'
     );
+  });
+
+  it('calls onAskAI prop when Ask AI button clicked', () => {
+    const onAskAI = vi.fn();
+    render(
+      <ProjectProvider project={createProject()}>
+        <StatusBar onAskAI={onAskAI} />
+      </ProjectProvider>,
+    );
+
+    screen.getByText('Ask AI').click();
+    expect(onAskAI).toHaveBeenCalledOnce();
   });
 });

@@ -1,5 +1,5 @@
 /** @filedesc Blueprint section rendering the definition item tree with inline add-item palette support. */
-import { useState, useCallback, useLayoutEffect, useMemo, useRef } from 'react';
+import { useEffect, useState, useCallback, useLayoutEffect, useMemo, useRef } from 'react';
 import type { MouseEvent as ReactMouseEvent } from 'react';
 import {
   autoUpdate,
@@ -11,7 +11,7 @@ import {
   useFloating,
   useInteractions,
 } from '@floating-ui/react';
-import { buildDefLookup } from '@formspec-org/studio-core';
+import { buildDefLookup, type FormItem } from '@formspec-org/studio-core';
 import { useDefinition } from '../../state/useDefinition';
 import { useSelection } from '../../state/useSelection';
 import { useProject } from '../../state/useProject';
@@ -23,29 +23,19 @@ import { ConfirmDialog } from '../ConfirmDialog';
 import { EditorContextMenu } from '../../workspaces/editor/EditorContextMenu';
 import { WrapInGroupDialog } from '../../workspaces/editor/WrapInGroupDialog';
 import type { ContextMenuItem } from '../ui/context-menu-utils';
-
-interface ItemNode {
-  key: string;
-  type: string;
-  dataType?: string;
-  label?: string;
-  children?: ItemNode[];
-  [k: string]: unknown;
-}
-
 let nextItemId = 1;
 function uniqueKey(prefix: string): string {
   return `${prefix}${nextItemId++}`;
 }
 
-function collectSiblingKeys(items: ItemNode[], targetParentPath?: string): Set<string> {
+function collectSiblingKeys(items: FormItem[], targetParentPath?: string): Set<string> {
   if (!targetParentPath) {
     return new Set(items.map((item) => item.key));
   }
 
   const parts = targetParentPath.split('.');
   let currentItems = items;
-  let currentNode: ItemNode | undefined;
+  let currentNode: FormItem | undefined;
 
   for (const part of parts) {
     currentNode = currentItems.find((item) => item.key === part);
@@ -55,7 +45,7 @@ function collectSiblingKeys(items: ItemNode[], targetParentPath?: string): Set<s
   return new Set((currentNode?.children ?? []).map((item) => item.key));
 }
 
-function uniqueSiblingKey(items: ItemNode[], parentPath: string | undefined, prefix: string): string {
+function uniqueSiblingKey(items: FormItem[], parentPath: string | undefined, prefix: string): string {
   const siblingKeys = collectSiblingKeys(items, parentPath);
   let candidate = uniqueKey(prefix);
   while (siblingKeys.has(candidate)) {
@@ -70,7 +60,7 @@ function TreeNode({
   pathPrefix,
   onItemContextMenu,
 }: {
-  item: ItemNode;
+  item: FormItem;
   depth: number;
   pathPrefix: string;
   onItemContextMenu: (e: ReactMouseEvent, fullPath: string, itemType: string) => void;
@@ -168,8 +158,15 @@ interface RowContextMenu {
 export function StructureTree() {
   const definition = useDefinition();
   const project = useProject();
-  const { selectedKeyForTab, select, selectedKeysForTab, deselect } = useSelection();
-  const items = (definition.items ?? []) as ItemNode[];
+  const { selectedKeyForTab, select, selectedKeysForTab, deselect, revealedPath, consumeRevealedPath } = useSelection();
+  const { scrollToTarget } = useCanvasTargets();
+  const items = (definition.items ?? []);
+
+  useEffect(() => {
+    if (!revealedPath) return;
+    scrollToTarget(revealedPath);
+    consumeRevealedPath();
+  }, [revealedPath, scrollToTarget, consumeRevealedPath]);
   const [paletteOpen, setPaletteOpen] = useState(false);
   const [rowMenu, setRowMenu] = useState<RowContextMenu | null>(null);
   const [pendingDeletePath, setPendingDeletePath] = useState<string | null>(null);
@@ -237,7 +234,7 @@ export function StructureTree() {
           const result = project.copyItem(path);
           const nextPath = result.affectedPaths[0];
           if (nextPath) {
-            const nextItems = (project.state.definition.items ?? []) as ItemNode[];
+            const nextItems = (project.state.definition.items ?? []);
             const nextType = buildDefLookup(nextItems).get(nextPath)?.item?.type ?? 'field';
             select(nextPath, nextType, { tab: 'editor' });
           }

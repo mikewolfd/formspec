@@ -5,6 +5,7 @@ import { useProject } from '../state/useProject';
 import { useEscapeKey } from '../hooks/useEscapeKey';
 import type { MetadataChanges } from '@formspec-org/studio-core';
 import { HelpTip } from './ui/HelpTip';
+import { BLANK_URL_PLACEHOLDER, mintUrlFromName } from '../fixtures/blank-definition';
 
 interface SettingsDialogProps {
   open: boolean;
@@ -191,7 +192,6 @@ export function SettingsDialog({ open, onClose }: SettingsDialogProps) {
           {/* Read-only identity */}
           <div className="space-y-2.5">
             <ReadOnlyRow label="$formspec" value={definition.$formspec} help="Specification version. Always 1.0." />
-            <ReadOnlyRow label="URL" value={definition.url} help="Canonical URI identifier. Stable across versions — all versions of the same form share this URL." />
           </div>
 
           <div className="border-t border-border" />
@@ -200,7 +200,14 @@ export function SettingsDialog({ open, onClose }: SettingsDialogProps) {
           <div className="space-y-4">
             <SectionHeading>Identity</SectionHeading>
             <TextInputField id="settings-title" label="Title" value={definition.title ?? ''} onCommit={(v) => setProperty('title', v)} help="Human-readable display name shown by authoring tools and form renderers." />
-            <TextInputField id="settings-name" label="Name" value={definition.name ?? ''} onCommit={(v) => setProperty('name', v)} help="Machine-readable short name. Letters, digits, and hyphens only." />
+            <TextInputField id="settings-name" label="Name" value={definition.name ?? ''} onCommit={(v) => {
+              const changes: MetadataChanges = { name: v || undefined } as MetadataChanges;
+              if (definition.url === BLANK_URL_PLACEHOLDER && v) {
+                (changes as Record<string, unknown>).url = mintUrlFromName(v);
+              }
+              project.setMetadata(changes);
+            }} help="Machine-readable short name. Letters, digits, and hyphens only." />
+            <TextInputField id="settings-url" label="URL" value={definition.url ?? ''} onCommit={(v) => setProperty('url', v)} help="Canonical URI identifier. Stable across versions — all versions of the same form share this URL. Auto-derived from Name on first edit." />
             <TextAreaField id="settings-description" label="Description" value={definition.description ?? ''} onCommit={(v) => setProperty('description', v)} help="Human-readable description of the form's purpose and scope." />
             <TextInputField id="settings-version" label="Version" value={definition.version ?? ''} onCommit={(v) => setProperty('version', v)} help="Version identifier. Format governed by versionAlgorithm (default: semver)." />
             <SelectField id="settings-status" label="Status" value={definition.status ?? 'draft'} options={STATUS_OPTIONS} onChange={(v) => setProperty('status', v)} help="Lifecycle state. draft → active → retired. Active definitions are immutable." />

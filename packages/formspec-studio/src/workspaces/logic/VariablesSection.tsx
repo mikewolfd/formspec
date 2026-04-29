@@ -1,17 +1,13 @@
 /** @filedesc Logic tab section for creating and editing named FEL variable expressions. */
 import { useState } from 'react';
+import type { FormVariable } from '@formspec-org/types';
 import { useProject } from '../../state/useProject';
 import { InlineExpression } from '../../components/ui/InlineExpression';
 import { InlineCreateForm } from '../../components/shared/InlineCreateForm';
 import { IconEdit } from '../../components/icons';
 
-interface Variable {
-  name: string;
-  expression: string;
-}
-
 interface VariablesSectionProps {
-  variables: Variable[];
+  variables: FormVariable[];
 }
 
 export function VariablesSection({ variables }: VariablesSectionProps) {

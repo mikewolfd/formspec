@@ -137,7 +137,7 @@ describe('studio-intelligence-writer', () => {
         affectedRefs: ['items.name'],
         status: 'rejected',
         capability: 'patch_lifecycle',
-        fallbackReason: 'rejected_in_review',
+        fallbackReason: 'ai_changeset_rejected',
       });
     } finally {
       window.removeEventListener('formspec:authoring-telemetry', listener);
@@ -147,7 +147,7 @@ describe('studio-intelligence-writer', () => {
     expect(telemetry.some((detail) => (
       detail.name === 'authoring_capability_fallback'
       && detail.outcome === 'fallback'
-      && detail.fallbackReason === 'rejected_in_review'
+      && detail.fallbackReason === 'ai_changeset_rejected'
     ))).toBe(true);
   });
 });

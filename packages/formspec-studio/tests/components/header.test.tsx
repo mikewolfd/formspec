@@ -178,4 +178,68 @@ describe('Header', () => {
     );
     expect(screen.getByRole('button', { name: /studio setup help/i })).toBeInTheDocument();
   });
+
+  it('renders Ask AI toggle when onSwitchToAssistant provided (workspace mode)', () => {
+    const onSwitch = vi.fn();
+    render(
+      <ProjectProvider project={createProject()}>
+        <SelectionProvider>
+          <Header
+            activeTab="Editor"
+            onTabChange={() => {}}
+            onImport={() => {}}
+            onSearch={() => {}}
+            onSwitchToAssistant={onSwitch}
+          />
+        </SelectionProvider>
+      </ProjectProvider>,
+    );
+
+    const btn = screen.getByTestId('toggle-to-assistant');
+    expect(btn).toBeInTheDocument();
+    expect(btn).toHaveTextContent('Ask AI');
+
+    btn.click();
+    expect(onSwitch).toHaveBeenCalledOnce();
+  });
+
+  it('omits Ask AI toggle when onSwitchToAssistant is null', () => {
+    render(
+      <ProjectProvider project={createProject()}>
+        <SelectionProvider>
+          <Header
+            activeTab="Editor"
+            onTabChange={() => {}}
+            onImport={() => {}}
+            onSearch={() => {}}
+            onSwitchToAssistant={null}
+          />
+        </SelectionProvider>
+      </ProjectProvider>,
+    );
+
+    expect(screen.queryByTestId('toggle-to-assistant')).not.toBeInTheDocument();
+  });
+
+  it('Ask AI toggle uses compact styling on compact layout', () => {
+    const onSwitch = vi.fn();
+    render(
+      <ProjectProvider project={createProject()}>
+        <SelectionProvider>
+          <Header
+            activeTab="Editor"
+            onTabChange={() => {}}
+            onImport={() => {}}
+            onSearch={() => {}}
+            onSwitchToAssistant={onSwitch}
+            isCompact
+          />
+        </SelectionProvider>
+      </ProjectProvider>,
+    );
+
+    const btn = screen.getByTestId('toggle-to-assistant');
+    expect(btn).toBeInTheDocument();
+    expect(btn.textContent).toBe('Ask AI');
+  });
 });

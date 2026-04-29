@@ -1,6 +1,6 @@
 /** @filedesc Recursive Layout canvas renderer for authored Page sections, layout containers, and bound nodes. */
 import React, { type Key, type ReactNode } from 'react';
-import type { CompNode, ContainerLayoutProps, DefLookupEntry } from '@formspec-org/studio-core';
+import type { CompNode, ContainerLayoutProps, DefLookupEntry, FormItem } from '@formspec-org/studio-core';
 import { LayoutPageSection } from './LayoutPageSection';
 import { LayoutContainer } from './LayoutContainer';
 import { FieldBlock, type LayoutContext } from './FieldBlock';
@@ -11,13 +11,6 @@ import {
   parseRowSpan,
   buildContainerLayoutProps,
 } from './layout-tree-utils';
-
-interface Item {
-  key: string;
-  type: string;
-  dataType?: string;
-  label?: string;
-}
 
 type DisplayNode = CompNode & {
   label?: string;
@@ -151,7 +144,7 @@ export function collectLayoutFlatSelectionKeys(
       );
       const defEntry = defPath ? defLookup.get(defPath) : null;
       if (!defPath || !defEntry) continue;
-      const item = defEntry.item as Item;
+      const item = defEntry.item;
       if (item.type === 'group') {
         keys.push(defPath);
         if (node.children) {
@@ -328,7 +321,7 @@ export function renderLayoutTree(
       const defPath = resolveDefPath(node.bind, defPathPrefix, ctx, node.definitionItemPath);
       const defEntry = defPath ? ctx.defLookup.get(defPath) : null;
       if (!defPath || !defEntry) continue;
-      const item = defEntry.item as Item;
+      const item = defEntry.item;
 
       if (item.type === 'group') {
         const innerSortGroup = node.nodeId ? node.nodeId : `bind:${node.bind}`;
@@ -386,8 +379,8 @@ export function renderLayoutTree(
       const defPath = resolveDefPath(node.nodeId, defPathPrefix, ctx, node.definitionItemPath);
       const defEntry = defPath ? ctx.defLookup.get(defPath) : null;
       const displayNode = node as DisplayNode;
-      const label = (defEntry?.item as Item | undefined)?.label || displayNode.text || node.nodeId;
-      const defItem = defEntry?.item as Item | undefined;
+      const label = defEntry?.item.label || displayNode.text || node.nodeId;
+      const defItem: FormItem | undefined = defEntry?.item;
       const isDefinitionDisplay = defItem?.type === 'display' && !!defPath;
       const defRec = defItem ? (defItem as unknown as Record<string, unknown>) : null;
       const displaySelKey = defPath || node.nodeId;

@@ -2,7 +2,7 @@ import { render, screen, act } from '@testing-library/react';
 import { describe, it, expect } from 'vitest';
 import { createProject } from '@formspec-org/studio-core';
 import { ProjectProvider } from '../../src/state/ProjectContext';
-import { SelectionProvider, useSelection } from '../../src/state/useSelection';
+import { SelectionProvider, useSelection, selectionPrimaryKeyRetainedAfterDefinitionChange } from '../../src/state/useSelection';
 
 function SelectionDisplay() {
   const { selectedKey, selectedType, revealedPath, select, deselect, reveal, consumeRevealedPath } = useSelection();
@@ -141,7 +141,7 @@ describe('useSelection', () => {
           url: 'urn:test',
           version: '1.0.0',
           title: 'Selection cleanup',
-          items: [{ key: 'name', type: 'field', dataType: 'string' }],
+          items: [{ key: 'name', type: 'field', label: 'Name', dataType: 'string' }],
         },
       },
     });
@@ -169,5 +169,14 @@ describe('useSelection', () => {
       });
     });
     expect(screen.getByTestId('cleanup-key')).toHaveTextContent('none');
+  });
+});
+
+describe('selectionPrimaryKeyRetainedAfterDefinitionChange', () => {
+  it('retains layout synthetic keys and valid field paths only', () => {
+    const paths = new Set(['name', 'age']);
+    expect(selectionPrimaryKeyRetainedAfterDefinitionChange('name', paths)).toBe(true);
+    expect(selectionPrimaryKeyRetainedAfterDefinitionChange('__node:layout-1', paths)).toBe(true);
+    expect(selectionPrimaryKeyRetainedAfterDefinitionChange('deletedField', paths)).toBe(false);
   });
 });

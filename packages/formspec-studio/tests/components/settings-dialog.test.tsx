@@ -102,9 +102,20 @@ describe('SettingsDialog', () => {
       expect(screen.getByText('1.0')).toBeInTheDocument();
     });
 
-    it('shows url as read-only', () => {
+    it('displays the URL in an editable input', () => {
       renderDialog();
-      expect(screen.getByText('urn:formspec:test')).toBeInTheDocument();
+      expect(screen.getByLabelText('URL')).toHaveValue('urn:formspec:test');
+    });
+
+    it('calls setMetadata when URL changes', () => {
+      const { project } = renderDialog();
+      const spy = vi.spyOn(project, 'setMetadata');
+
+      const input = screen.getByLabelText('URL');
+      fireEvent.change(input, { target: { value: 'formspec://studio/my-custom-url' } });
+      fireEvent.blur(input);
+
+      expect(spy).toHaveBeenCalledWith({ url: 'formspec://studio/my-custom-url' });
     });
   });
 
@@ -229,6 +240,63 @@ describe('SettingsDialog', () => {
       expect(screen.getByLabelText('Name')).toHaveValue('');
       expect(screen.getByLabelText('Description')).toHaveValue('');
       expect(screen.getByLabelText('Date')).toHaveValue('');
+    });
+  });
+
+  describe('URL auto-mint from name', () => {
+    const placeholderDef = {
+      $formspec: '1.0',
+      url: 'formspec://studio/untitled-form',
+      version: '0.0.1',
+      status: 'draft',
+      name: 'untitled-form',
+      title: 'Untitled form',
+      items: [],
+    };
+
+    it('auto-mints URL from name when URL is still placeholder (single dispatch)', () => {
+      const { project } = renderDialog({ def: placeholderDef });
+      const spy = vi.spyOn(project, 'setMetadata');
+
+      const nameInput = screen.getByLabelText('Name');
+      fireEvent.change(nameInput, { target: { value: 'my-cool-form' } });
+      fireEvent.blur(nameInput);
+
+      // Both keys land in a single setMetadata call so the change is one undo entry.
+      expect(spy).toHaveBeenCalledTimes(1);
+      expect(spy).toHaveBeenCalledWith({ name: 'my-cool-form', url: 'formspec://studio/my-cool-form' });
+    });
+
+    it('does not auto-mint URL when URL has been customized', () => {
+      const customDef = {
+        ...placeholderDef,
+        url: 'formspec://studio/already-set',
+      };
+      const { project } = renderDialog({ def: customDef });
+      const spy = vi.spyOn(project, 'setMetadata');
+
+      const nameInput = screen.getByLabelText('Name');
+      fireEvent.change(nameInput, { target: { value: 'new-name' } });
+      fireEvent.blur(nameInput);
+
+      expect(spy).toHaveBeenCalledTimes(1);
+      expect(spy).toHaveBeenCalledWith({ name: 'new-name' });
+      expect(spy).not.toHaveBeenCalledWith(expect.objectContaining({ url: expect.anything() }));
+    });
+
+    it('slugifies special characters in name for URL', () => {
+      const { project } = renderDialog({ def: placeholderDef });
+      const spy = vi.spyOn(project, 'setMetadata');
+
+      const nameInput = screen.getByLabelText('Name');
+      fireEvent.change(nameInput, { target: { value: 'My Cool Form 2026!' } });
+      fireEvent.blur(nameInput);
+
+      expect(spy).toHaveBeenCalledTimes(1);
+      expect(spy).toHaveBeenCalledWith({
+        name: 'My Cool Form 2026!',
+        url: 'formspec://studio/my-cool-form-2026',
+      });
     });
   });
 });

@@ -7,8 +7,6 @@ import { AssistantWorkspace } from '../../src/onboarding/AssistantWorkspace';
 import { ProjectProvider } from '../../src/state/ProjectContext';
 import { SelectionProvider } from '../../src/state/useSelection';
 import { ActiveGroupProvider } from '../../src/state/useActiveGroup';
-import { createLocalChatThreadRepository } from '../../src/components/chat/chat-thread-repository';
-import { createLocalVersionRepository } from '../../src/components/chat/version-repository';
 
 vi.mock('@formspec-org/chat', async (importOriginal) => {
   const actual = await importOriginal<typeof import('@formspec-org/chat')>();
@@ -39,32 +37,14 @@ describe('AssistantWorkspace', () => {
     localStorage.clear();
   });
 
-  it('supports toggling injected chat repositories across rerenders', () => {
+  it('renders without chat repository props (context-driven architecture)', () => {
     const project = createProject();
     const onEnterStudio = vi.fn();
-    const threadRepository = createLocalChatThreadRepository(localStorage);
-    const versionRepository = createLocalVersionRepository(localStorage);
-    const { rerender } = render(
+    render(
       <ProjectProvider project={project}>
         <SelectionProvider>
           <ActiveGroupProvider>
             <AssistantWorkspace project={project} onEnterStudio={onEnterStudio} />
-          </ActiveGroupProvider>
-        </SelectionProvider>
-      </ProjectProvider>
-    );
-
-    rerender(
-      <ProjectProvider project={project}>
-        <SelectionProvider>
-          <ActiveGroupProvider>
-            <AssistantWorkspace
-              project={project}
-              onEnterStudio={onEnterStudio}
-              chatThreadRepository={threadRepository}
-              versionRepository={versionRepository}
-              chatProjectScope="assistant-test-scope"
-            />
           </ActiveGroupProvider>
         </SelectionProvider>
       </ProjectProvider>
@@ -82,7 +62,7 @@ describe('AssistantWorkspace', () => {
 
     expect(project.definition.title).toBe('Section 8 HCV — Intake');
     expect(project.statistics().fieldCount).toBeGreaterThan(20);
-    expect(screen.getByText(/Section 8 HCV — Intake/)).toBeInTheDocument();
+    expect(screen.getByRole('heading', { level: 2, name: 'Section 8 HCV — Intake' })).toBeInTheDocument();
     expect(screen.queryByText('Describe the form once. Iterate quickly.')).not.toBeInTheDocument();
     expect(
       project.definition.items.some(
@@ -98,6 +78,8 @@ describe('AssistantWorkspace', () => {
       name: 'dropped-source',
       title: 'Dropped Source Form',
       status: 'draft',
+      url: 'formspec://studio/dropped-source',
+      version: '0.0.1',
       items: [
         { key: 'fullName', type: 'field', label: 'Full Name', dataType: 'string' },
         { key: 'income', type: 'field', label: 'Income', dataType: 'decimal' },
@@ -192,6 +174,8 @@ describe('AssistantWorkspace', () => {
         name: 'manual-edit',
         title: 'Manual Edit',
         status: 'draft',
+        url: 'formspec://studio/existing',
+        version: '0.0.1',
         items: [{ key: 'a', type: 'field', label: 'A', dataType: 'string' }],
       },
     });
@@ -217,6 +201,8 @@ describe('AssistantWorkspace', () => {
         name: 'existing',
         title: 'Existing Form',
         status: 'draft',
+        url: 'formspec://studio/existing',
+        version: '0.0.1',
         items: [{ key: 'name', type: 'field', label: 'Name', dataType: 'string' }],
       },
     });
@@ -225,6 +211,8 @@ describe('AssistantWorkspace', () => {
       name: 'incoming',
       title: 'Incoming Form',
       status: 'draft',
+      url: 'formspec://studio/incoming',
+      version: '0.0.1',
       items: [{ key: 'income', type: 'field', label: 'Income', dataType: 'decimal' }],
     })], 'definition.json', { type: 'application/json' });
 

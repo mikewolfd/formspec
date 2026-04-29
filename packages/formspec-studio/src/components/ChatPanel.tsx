@@ -1,7 +1,7 @@
 /** @filedesc Integrated studio chat panel — shares the studio Project, routes AI through MCP, shows changeset review. */
 import { useState, useRef, useEffect, useCallback, useMemo, useSyncExternalStore } from 'react';
 import { createPortal } from 'react-dom';
-import { ChatSession, GeminiAdapter, type Attachment, type ChatMessage, type SessionSummary, type ToolContext } from '@formspec-org/chat';
+import { ChatSession, type Attachment, type ChatMessage, type SessionSummary } from '@formspec-org/chat';
 import {
   type Project,
   type Changeset,
@@ -11,8 +11,6 @@ import {
   type Diagnostics,
   type FormDefinition,
 } from '@formspec-org/studio-core';
-import { ProjectRegistry } from '@formspec-org/mcp/registry';
-import { createToolDispatch } from '@formspec-org/mcp/dispatch';
 import { type ChangesetReviewData } from './ChangesetReview.js';
 import { getSavedProviderConfig } from './AppSettingsDialog.js';
 import { IconSparkle, IconArrowUp, IconClose, IconUpload, IconPlus, IconTrash } from './icons/index.js';
@@ -34,6 +32,8 @@ import { ASSISTANT_COMPOSER_INPUT_TEST_ID } from '../constants/assistant-dom.js'
 import { emitAuthoringTelemetry, type AuthoringCapability } from '../onboarding/authoring-method-telemetry.js';
 import { AUTHORING_FALLBACK_REASONS } from '../onboarding/authoring-fallback-reasons.js';
 import { emitModelRoutingDecision, selectModelForOperation } from '../onboarding/authoring-model-routing.js';
+import { useChatSessionControllerContext } from '../state/ChatSessionControllerContext.js';
+import { useChatSessionController, type ChatSessionController } from '../hooks/useChatSessionController.js';
 
 // ── Types ──────────────────────────────────────────────────────────
 
@@ -247,211 +247,60 @@ export function ChatPanel({
   composerInputTestId = ASSISTANT_COMPOSER_INPUT_TEST_ID,
   inputAriaLabel,
 }: ChatPanelProps) {
-  const [messages, setMessages] = useState<ChatMessage[]>([]);
-  const [recentSessions, setRecentSessions] = useState<SessionSummary[]>([]);
-  const [activeSessionId, setActiveSessionId] = useState<string | null>(null);
+  const ctxController = useChatSessionControllerContext();
+  const localController = useChatSessionController({
+    project,
+    chatThreadRepository,
+    chatProjectScope,
+    versionRepository,
+    versionScope,
+  });
+  const ctrl: ChatSessionController = ctxController ?? localController;
+
   const [inputValue, setInputValue] = useState('');
   const [sending, setSending] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [diagnostics, setDiagnostics] = useState<DiagnosticEntry[]>([]);
   const [mergeMessage, setMergeMessage] = useState<string | null>(null);
-  const [hasApiKey, setHasApiKey] = useState(() => !!getSavedProviderConfig()?.apiKey);
-  const inputRef = useRef<HTMLTextAreaElement>(null);
-  const fileInputRef = useRef<HTMLInputElement>(null);
-  const messagesEndRef = useRef<HTMLDivElement>(null);
-  const sessionRef = useRef<ChatSession | null>(null);
-  const activeRevisionRef = useRef<string | null>(null);
-  const initializingRef = useRef(false);
-
-  const [readyToScaffold, setReadyToScaffold] = useState(false);
   const [scaffolding, setScaffolding] = useState(false);
-  const [initNotice, setInitNotice] = useState(false);
   const [threadsCollapsed, setThreadsCollapsed] = useState(false);
-  const [versions, setVersions] = useState<VersionRecord[]>([]);
   const [authoringMode, setAuthoringMode] = useState<AuthoringMode>('intent');
   const [versionMessage, setVersionMessage] = useState<string | null>(null);
   const [detailsOpen, setDetailsOpen] = useState(false);
-  const [compareBaseId, setCompareBaseId] = useState<string | null>(null);
-  const [compareTargetId, setCompareTargetId] = useState<string | null>(null);
+  const inputRef = useRef<HTMLTextAreaElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const messagesEndRef = useRef<HTMLDivElement>(null);
   const forkLineageParentIdRef = useRef<string | null>(null);
-  const repository = useMemo(() => chatThreadRepository ?? createLocalChatThreadRepository(), [chatThreadRepository]);
-  const projectScope = useMemo(() => chatProjectScope ?? deriveChatProjectScope(project), [chatProjectScope, project]);
-  const resolvedVersionScope = useMemo(() => versionScope ?? projectScope, [projectScope, versionScope]);
-  const versionStore = useMemo(() => versionRepository ?? createLocalVersionRepository(), [versionRepository]);
+
+  const {
+    messages,
+    recentSessions,
+    activeSessionId,
+    readyToScaffold,
+    initNotice,
+    versions,
+    compareBaseId,
+    compareTargetId,
+    hasApiKey,
+    sessionRef,
+    proposalManager,
+    ensureSession,
+    startNewSession,
+    switchToSession,
+    deleteSession,
+    clearSessions,
+    refreshVersions,
+    loadDefinitionAsChangeset,
+    setMessages,
+    setReadyToScaffold,
+    setInitNotice,
+    setCompareBaseId,
+    setCompareTargetId,
+    versionStore,
+    resolvedVersionScope,
+  } = ctrl;
+
   const hasThreadHistory = recentSessions.length > 0;
-
-  const refreshVersions = useCallback(async () => {
-    const next = await versionStore.listVersions({ scope: resolvedVersionScope });
-    setVersions(next);
-    return next;
-  }, [resolvedVersionScope, versionStore]);
-
-  // Re-check API key when panel gains focus (user may have just saved one)
-  useEffect(() => {
-    const check = () => setHasApiKey(!!getSavedProviderConfig()?.apiKey);
-    window.addEventListener('focus', check);
-    return () => window.removeEventListener('focus', check);
-  }, []);
-
-  // Create the in-process tool context once
-  const { toolContext, proposalManager } = useMemo(() => {
-    const registry = new ProjectRegistry();
-    const projectId = registry.registerOpen('studio://current', project);
-    const dispatch = createToolDispatch(registry, projectId);
-
-    const ctx: ToolContext = {
-      tools: dispatch.declarations,
-      async callTool(name: string, args: Record<string, unknown>) {
-        return dispatch.call(name, args);
-      },
-      async getProjectSnapshot() {
-        return { definition: project.definition };
-      },
-    };
-
-    const pm: ProposalManager | null = project.proposals;
-    return { toolContext: ctx, proposalManager: pm };
-  }, [project]);
-
-  const createSession = useCallback(() => {
-    const config = getSavedProviderConfig();
-    if (!config?.apiKey) return null;
-    const route = selectModelForOperation('assistant_session');
-    emitModelRoutingDecision(route);
-    const adapter = new GeminiAdapter(config.apiKey, config.model ?? route.model, '');
-    const session = new ChatSession({ adapter });
-    session.setToolContext(toolContext);
-    return session;
-  }, [toolContext]);
-
-  const syncSessionSnapshot = useCallback((session: ChatSession) => {
-    setMessages(session.getMessages());
-    setReadyToScaffold(session.isReadyToScaffold());
-    setInitNotice(false);
-  }, []);
-
-  const refreshRecentSessions = useCallback(async () => {
-    const listed = await repository.listThreads({ projectScope, limit: 100 });
-    setRecentSessions(listed.items);
-    return listed.items;
-  }, [projectScope, repository]);
-
-  const setActiveSession = useCallback((session: ChatSession, revision: string | null) => {
-    session.setToolContext(toolContext);
-    sessionRef.current = session;
-    setActiveSessionId(session.id);
-    activeRevisionRef.current = revision;
-    syncSessionSnapshot(session);
-  }, [syncSessionSnapshot, toolContext]);
-
-  const persistSession = useCallback(async (session: ChatSession) => {
-    const state = session.toState();
-    const saved = await repository.saveThread(state, {
-      projectScope,
-      expectedRevision: activeRevisionRef.current,
-    });
-    activeRevisionRef.current = saved.revision ?? null;
-  }, [projectScope, repository]);
-
-  const startNewSession = useCallback(async () => {
-    const session = createSession();
-    if (!session) return;
-    setActiveSession(session, null);
-  }, [createSession, setActiveSession]);
-
-  const ensureSession = useCallback(async (): Promise<ChatSession> => {
-    if (sessionRef.current) return sessionRef.current;
-    const session = createSession();
-    if (!session) throw new Error('Assistant session is not ready. Add API credentials and retry.');
-    setActiveSession(session, null);
-    return session;
-  }, [createSession, setActiveSession]);
-
-  const switchToSession = useCallback(async (sessionId: string) => {
-    const config = getSavedProviderConfig();
-    if (!config?.apiKey) return;
-    const route = selectModelForOperation('assistant_session');
-    emitModelRoutingDecision(route);
-    const adapter = new GeminiAdapter(config.apiKey, config.model ?? route.model, '');
-    const restored = await repository.loadThread(sessionId, { projectScope });
-    if (!restored) return;
-    const session = await ChatSession.fromState(restored, adapter);
-    setActiveSession(session, String(restored.updatedAt || ''));
-  }, [projectScope, repository, setActiveSession]);
-
-  const deleteSession = useCallback(async (sessionId: string) => {
-    await repository.deleteThread(sessionId, { projectScope });
-    const refreshed = await refreshRecentSessions();
-    if (activeSessionId && sessionId === activeSessionId) {
-      if (refreshed.length > 0) {
-        await switchToSession(refreshed[0].id);
-      } else {
-        await startNewSession();
-      }
-    }
-  }, [activeSessionId, projectScope, refreshRecentSessions, repository, startNewSession, switchToSession]);
-
-  const clearSessions = useCallback(async () => {
-    await repository.clearThreads({ projectScope });
-    setRecentSessions([]);
-    await startNewSession();
-  }, [projectScope, repository, startNewSession]);
-
-  // Initialize/resume thread state when API key becomes available.
-  useEffect(() => {
-    if (!hasApiKey || initializingRef.current) return;
-    initializingRef.current = true;
-    let cancelled = false;
-    void (async () => {
-      try {
-        const listed = await repository.listThreads({ projectScope, limit: 100 });
-        if (cancelled) return;
-        setRecentSessions(listed.items);
-        if (sessionRef.current) return;
-        if (listed.items.length === 0) {
-          const session = createSession();
-          if (session) setActiveSession(session, null);
-          return;
-        }
-        await switchToSession(listed.items[0].id);
-      } catch (error) {
-        if (!cancelled) {
-          setMessages([{
-            id: `err-${Date.now()}`,
-            role: 'system',
-            content: `Thread history unavailable: ${error instanceof Error ? error.message : String(error)}`,
-            timestamp: Date.now(),
-          }]);
-          const session = createSession();
-          if (session) setActiveSession(session, null);
-        }
-      } finally {
-        if (!cancelled) initializingRef.current = false;
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [createSession, hasApiKey, projectScope, repository, setActiveSession, switchToSession]);
-
-  useEffect(() => {
-    const session = sessionRef.current;
-    if (!session || !hasApiKey) return;
-    return session.onChange(() => {
-      void (async () => {
-        try {
-          await persistSession(session);
-          await refreshRecentSessions();
-        } catch {
-          // Keep chat responsive even if persistence fails.
-        }
-      })();
-    });
-  }, [hasApiKey, persistSession, refreshRecentSessions, activeSessionId]);
-
-  useEffect(() => {
-    void refreshVersions();
-  }, [refreshVersions]);
 
   // Subscribe to changeset transitions — no polling.
   // useSyncExternalStore re-renders only when ProposalManager notifies.
@@ -774,18 +623,6 @@ export function ChatPanel({
     onUploadHandlerReady((file: File) => void handleUploadFile(file));
     return () => onUploadHandlerReady(null);
   }, [handleUploadFile, hasApiKey, onUploadHandlerReady]);
-
-  function loadDefinitionAsChangeset(label: string, definition: NonNullable<ReturnType<ChatSession['getDefinition']>>) {
-    if (proposalManager) {
-      proposalManager.openChangeset();
-      proposalManager.beginEntry('scaffold');
-      project.loadBundle({ definition });
-      proposalManager.endEntry(label);
-      proposalManager.closeChangeset(label);
-    } else {
-      project.loadBundle({ definition });
-    }
-  }
 
   function applyMergeResult(result: MergeResult) {
     if (result.ok) {

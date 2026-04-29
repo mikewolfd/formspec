@@ -44,8 +44,8 @@ const SECTIONS: SectionDef[] = [
   }, help: 'Pre-qualification gate before the main form', link: { tab: 'Editor', view: 'screener' } },
   { name: 'Variables', label: 'Calculations', countFn: (s) => s.definition.variables?.length ?? 0, help: 'Named computed values reusable across expressions', link: { tab: 'Editor', view: 'manage' } },
   { name: 'Data Sources', label: 'External data', countFn: (s) => Object.keys(s.definition.instances ?? {}).length, help: 'Secondary data instances for lookups and reference data', link: { tab: 'Editor', view: 'manage' } },
-  { name: 'Option Sets', countFn: (s) => Object.keys(s.definition.optionSets ?? {}).length, help: 'Reusable option lists for choice and multiChoice fields', link: { tab: 'Editor', view: 'manage' } },
-  { name: 'Mappings', countFn: (s) => Object.values(s.mappings ?? {}).reduce((sum, m) => sum + (m.rules?.length ?? 0), 0), help: 'Bidirectional data transforms for import/export', link: { tab: 'Mapping', subTab: 'rules' } },
+  { name: 'Option Sets', label: 'Reusable choices', countFn: (s) => Object.keys(s.definition.optionSets ?? {}).length, help: 'Reusable option lists for choice and multiChoice fields', link: { tab: 'Editor', view: 'manage' } },
+  { name: 'Mappings', label: 'Field mappings', countFn: (s) => Object.values(s.mappings ?? {}).reduce((sum, m) => sum + (m.rules?.length ?? 0), 0), help: 'Bidirectional data transforms for import/export', link: { tab: 'Mapping', subTab: 'rules' } },
   { name: 'Settings', countFn: null, help: 'Form identity, presentation, and behavioral defaults' },
   // Theme-mode sidebar sections (shown in Layout workspace Theme mode)
   { name: 'Colors', countFn: (s) => Object.keys(s.theme.tokens ?? {}).length, help: 'Color tokens and brand palette' },

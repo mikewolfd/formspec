@@ -1,6 +1,6 @@
 /** @filedesc "What changes behind the scenes" panel for AI-proposed changesets (ADR 0087). */
 import { useMemo } from 'react';
-import { getStudioIntelligence, type Project, type MutationClass } from '@formspec-org/studio-core';
+import { getStudioIntelligence, type FieldProvenance, type Project, type MutationClass } from '@formspec-org/studio-core';
 import type { ChangesetReviewData } from '../ChangesetReview.js';
 
 const MUTATION_CLASS_LABEL: Record<MutationClass, string> = {
@@ -38,7 +38,7 @@ export function MutationProvenancePanel({ changeset, project }: MutationProvenan
     const sourceRef = `changeset.${changeset.id}`;
     const patchRef = `changeset:${changeset.id}`;
     return intelligence.provenance.filter(
-      (p) => {
+      (p): p is FieldProvenance & { mutationClass: MutationClass } => {
         if (!p.mutationClass) return false;
         if (!affectedPaths.includes(normalizeRef(p.objectRef))) return false;
         const matchesSource = (p.sourceRefs ?? []).includes(sourceRef);

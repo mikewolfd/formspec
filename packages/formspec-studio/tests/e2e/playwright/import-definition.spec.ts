@@ -12,7 +12,15 @@ const IMPORT_DEFINITION = JSON.stringify({
     { key: 'notes', type: 'display', label: 'Please review carefully' },
   ],
   binds: { name: { required: 'true' } },
-  shapes: [{ name: 'ageValid', severity: 'error', constraint: '$age >= 0' }],
+  shapes: [
+    {
+      id: 'ageValid',
+      target: 'age',
+      severity: 'error',
+      constraint: '$age >= 0',
+      message: 'Age must be valid',
+    },
+  ],
 });
 
 test.describe('Import Definition', () => {
@@ -59,8 +67,10 @@ test.describe('Import Definition', () => {
 
     const statusBar = page.locator('[data-testid="status-bar"]');
     await expect(statusBar).toContainText('2 fields');
-    await expect(statusBar).toContainText('1 bind');
-    await expect(statusBar).toContainText('1 shape');
+    await statusBar.getByRole('button', { name: 'More metrics' }).click();
+    await expect(statusBar.locator('[data-testid="status-metric-binds"]')).toHaveText(/1/);
+    await expect(statusBar.locator('[data-testid="status-metric-shapes"]')).toHaveText(/1/);
+    await page.keyboard.press('Escape');
   });
 
   test('cancel closes dialog without changes', async ({ page }) => {

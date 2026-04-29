@@ -18,7 +18,7 @@ export function LogicTab() {
   const [activeFilter, setActiveFilter] = useState<'required' | 'relevant' | 'calculate' | 'constraint' | 'readonly' | 'pre-populate' | null>(null);
 
   const binds = normalizeBindsView(definition?.binds, definition?.items ?? []);
-  const shapes = Array.isArray(definition?.shapes) ? definition.shapes.map((s: FormShape) => ({ name: s.id, ...s })) : [];
+  const shapes: FormShape[] = definition?.shapes ?? [];
   const variables = Array.isArray(definition?.variables) ? definition.variables : [];
 
   const memoizedFieldPaths = useMemo(() => {

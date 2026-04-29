@@ -44,8 +44,10 @@ interface HeaderProps {
   onOpenMetadata?: () => void;
   onToggleAccountMenu?: () => void;
   onToggleMenu?: () => void;
-  /** Unified assistant control (full workspace + in-shell chat). Omitted when not in Shell context. */
+  /** In-shell chat control (dock/hide assistant panel within workspace). */
   assistantMenu?: AssistantEntryMenuProps | null;
+  /** Switches from workspace to full assistant surface. */
+  onSwitchToAssistant?: (() => void) | null;
   /** Replaces workspace tabs with AI-authoring labeling and adds manual-controls CTA (+ optional Help). */
   assistantSurface?: AssistantHeaderSurfaceProps | null;
   isCompact?: boolean;
@@ -90,6 +92,7 @@ export function Header({
   onToggleAccountMenu,
   onToggleMenu,
   assistantMenu,
+  onSwitchToAssistant,
   assistantSurface,
   isCompact = false,
   colorScheme,
@@ -247,7 +250,7 @@ export function Header({
         >
           <span className="text-[13px]">⌕</span>
           <span className="text-[13px] font-ui">Search…</span>
-          <span className="ml-auto rounded-full border border-border/50 px-1.5 py-0.5 font-mono text-[10px] text-muted group-hover:text-ink/80 transition-colors">
+          <span className="ml-auto rounded-full border border-border/50 px-1.5 py-0.5 font-mono text-[11px] text-muted group-hover:text-ink/80 transition-colors">
             ⌘K
           </span>
         </button>
@@ -285,6 +288,20 @@ export function Header({
       </button>
 
       {!assistantSurface && assistantMenu && <AssistantEntryMenu {...assistantMenu} />}
+
+      {!assistantSurface && onSwitchToAssistant && (
+        <button
+          type="button"
+          data-testid="toggle-to-assistant"
+          className={`shrink-0 rounded-full border border-accent/25 bg-accent/10 font-semibold text-accent hover:bg-accent/15 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/35 ${
+            isCompact ? 'p-2' : 'px-3 py-1.5 text-[12px]'
+          }`}
+          onClick={onSwitchToAssistant}
+          aria-label="Switch to AI authoring"
+        >
+          Ask AI
+        </button>
+      )}
 
       {assistantSurface?.showHelpButton && assistantSurface.onReopenHelp && (
         <button
