@@ -10,11 +10,18 @@ High-confidence compatibility surfaces from the finish plan:
   - `wos-spec/crates/wos-conformance/src/engine.rs`
   - `wos-spec/crates/wos-runtime/src/companion.rs`
   - `wos-spec/crates/wos-lint/src/rules/tier2.rs`
-- Packages:
+- Packages (high-confidence compat paths):
   - `packages/formspec-studio/src/components/chat/chat-thread-repository.ts`
   - `packages/formspec-react/src/screener/use-screener.ts`
   - `packages/formspec-layout/src/responsive.ts`
   - `packages/formspec-studio-core/src/layout-context-operations.ts`
+- Packages (strict-behavior surfaces, explicit-stance wave 2026-04-29):
+  - `packages/formspec-core/src/handlers/project.ts`
+  - `packages/formspec-core/src/raw-project.ts`
+  - `packages/formspec-types/src/widget-vocabulary.ts`
+  - `packages/formspec-layout/src/theme-resolver.ts`
+  - `packages/formspec-webcomponent/src/adapters/default/file-upload.ts`
+  - `packages/formspec-react/src/defaults/fields/default-field.tsx`
 
 `P3-11` remains explicitly deferred and is out of this decision record.
 
@@ -75,7 +82,29 @@ High-confidence compatibility surfaces from the finish plan:
    - Sunset precondition: all call sites always pass `layoutTargetKeys`.
    - Risk if removed now: low-medium (context menu selection edge cases/tests).
 
+### Packages strict-behavior stances (wave 2026-04-29)
+
+All six files below are **KEEP** — they implement intentional strict behavior, not legacy debt. No compat shims warranted.
+
+5. **`handlers/project.ts` — KEEP (handler pattern, any-typed payload by design)**
+   - Command handlers use `any` for payload; payload types are enforced at the dispatch boundary in `RawProject._execute`. This is the correct seam; tightening handler signatures would require a generic overload cascade with no user value.
+
+6. **`raw-project.ts` — KEEP (complete, correctly typed public surface)**
+   - All public APIs on `RawProject` / `createRawProject` are fully typed. Internal `any` casts are confined to state-mutation paths where the command pipeline provides the type contract. No compat concern.
+
+7. **`widget-vocabulary.ts` — KEEP (strict null return is spec-correct)**
+   - `widgetTokenToComponent` returns `null` for unrecognized tokens. This is intentional: callers fall back to the `COMPATIBILITY_MATRIX` default for the item's `dataType`. Returning a default widget silently would hide authoring errors.
+
+8. **`theme-resolver.ts` — KEEP (spec §7 warning + null return is correct)**
+   - `resolveWidget` emits `console.warn` and returns `null` when the preferred widget and entire fallback chain are unavailable. Spec §7 requires this diagnostic. Caller handles null by using the dataType default.
+
+9. **`file-upload.ts` (webcomponent) — KEEP (`formspec-file-drop-zone--active` is canonical)**
+   - The drag-active modifier class is consistent across the WC adapter and the React adapter (`default-field.tsx`). No rename in flight; CSS themes should target this class.
+
+10. **`default-field.tsx` — KEEP (CSS class parity with WC adapter confirmed)**
+    - `FileUploadControl` uses `formspec-file-drop-zone--active` via React `isDragOver` state — identical modifier to the WC adapter. No divergence.
+
 ## Closure notes
 
-- This triage records explicit keep-vs-sunset outcomes for all high-confidence paths in scope.
-- The immediate doc-truth mismatch remains in `wos-spec/crates/wos-server/COMPLETE.md` for WS-083 wording, handled in the same closure wave.
+- This triage records explicit keep-vs-sunset outcomes for all high-confidence paths in scope, including the wave 2 strict-behavior stances above.
+- COMPLETE.md WS-083 wording verified 2026-04-29: `require_role` free function is absent from `wos-server/src` (`grep` clean); COMPLETE.md claim that it was removed during legacy cleanup is accurate. No doc-truth mismatch.
