@@ -39,6 +39,21 @@ High-signal drift noted while reconciling crate reference maps with normative pr
    `parse_ed25519_cose_key` from a test module. Keep as dev-dep; do not
    drop. (The "ahead of wiring" framing in earlier syncs predated the
    wave-22 export-bundle test additions.)
+3. **ADR 0008 c2pa-manifest@v1 dispatched verifier — RESOLVED Wave 25.**
+   The Phase-1 lock-off narrows to "all kinds except `c2pa-manifest@v1`":
+   `trellis-verify::verify_interop_sidecars` dispatches the c2pa kind
+   under path-(b) (digest-binds only, no `source_ref` resolution); the
+   three other kinds (`scitt-receipt`, `vc-jose-cose-event`,
+   `did-key-view`) still emit `interop_sidecar_phase_1_locked`. The
+   adapter `trellis-interop-c2pa` ships the assertion emit/parse/cross-
+   check via hand-rolled CBOR (no `c2pa-rs` dep — 328-crate transitive
+   tree would have crossed ISC-05). Vendor-prefix label
+   `org.formspec.trellis.certificate-of-completion.v1` per ADR 0008
+   Open Q3 resolution. §28 CDDL backfilled mirror-discipline gap that
+   had accumulated over Waves 21-23 (`VerificationReport` gained
+   `posture_transitions`, `erasure_evidence`,
+   `certificates_of_completion`, `interop_sidecars` fields plus four
+   outcome struct definitions). G-5 109 → 114.
 
 ---
 
