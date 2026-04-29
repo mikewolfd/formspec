@@ -1,7 +1,7 @@
 /** @filedesc Chat rail — compact inspector for the selected form field, section, or content block (blueprint / editor). */
 import { useCallback, useEffect, useMemo, useState, useSyncExternalStore } from 'react';
 import type { FormItem, FormBind } from '@formspec-org/types';
-import type { Project } from '@formspec-org/studio-core';
+import { Project } from '@formspec-org/studio-core';
 import {
   bindsFor,
   buildDefLookup,

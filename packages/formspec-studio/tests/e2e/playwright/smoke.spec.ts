@@ -8,20 +8,24 @@ test.describe('Smoke — App Bootstrap', () => {
     // App title in the header
     await expect(page.locator('[data-testid="header"]')).toContainText('The Stack');
 
-    // Workspace tabs (theme authoring lives under Layout — Layout / Theme mode toggle)
-    const tabs = ['Editor', 'Layout', 'Evidence', 'Mapping', 'Preview'];
-    for (const tab of tabs) {
-      await expect(page.locator(`[data-testid="tab-${tab}"]`)).toBeVisible();
+    // Mode toggle instead of tabs
+    const modes = ['chat', 'edit', 'design', 'preview'];
+    for (const mode of modes) {
+      await expect(page.locator(`[data-testid="mode-toggle-${mode}"]`)).toBeVisible();
     }
 
-    // Default tab is Editor
-    await expect(page.locator('[data-testid="tab-Editor"]')).toHaveAttribute('aria-selected', 'true');
-    await expect(page.locator('[data-testid="workspace-Editor"]')).toBeVisible();
+    // Default mode is chat
+    await expect(page.locator('[data-testid="mode-toggle-chat"]')).toHaveClass(/bg-accent/);
+    await expect(page.locator('[data-testid="chat-panel"]')).toBeVisible();
 
     // StatusBar is visible at the bottom
     await expect(page.locator('[data-testid="status-bar"]')).toBeVisible();
 
-    // Blueprint sidebar is visible
+    // Blueprint sidebar is NOT visible in chat mode (it's for edit/design)
+    await expect(page.locator('[data-testid="blueprint"]')).not.toBeVisible();
+
+    // Switch to edit mode
+    await page.click('[data-testid="mode-toggle-edit"]');
     await expect(page.locator('[data-testid="blueprint"]')).toBeVisible();
   });
 });

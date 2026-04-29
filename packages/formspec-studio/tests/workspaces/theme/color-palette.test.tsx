@@ -37,7 +37,7 @@ describe('ColorPalette', () => {
     await act(async () => {
       fireEvent.input(colorInput, { target: { value: '#ff0000' } });
     });
-    expect((project.export().theme as any).tokens['color.primary']).toBe('#ff0000');
+    expect((project.exportBundle().theme as any).tokens['color.primary']).toBe('#ff0000');
   });
 
   it('hex edit dispatches on blur', async () => {
@@ -49,7 +49,7 @@ describe('ColorPalette', () => {
       fireEvent.change(hexInput, { target: { value: '#00ff00' } });
       fireEvent.blur(hexInput);
     });
-    expect((project.export().theme as any).tokens['color.primary']).toBe('#00ff00');
+    expect((project.exportBundle().theme as any).tokens['color.primary']).toBe('#00ff00');
   });
 
   it('delete dispatches with value null', async () => {
@@ -58,7 +58,7 @@ describe('ColorPalette', () => {
     await act(async () => {
       deleteBtn.click();
     });
-    expect((project.export().theme as any).tokens['color.primary']).toBeUndefined();
+    expect((project.exportBundle().theme as any).tokens['color.primary']).toBeUndefined();
   });
 
   it('add creates new color.* token', async () => {
@@ -70,7 +70,7 @@ describe('ColorPalette', () => {
       fireEvent.change(nameInput, { target: { value: 'brand' } });
       fireEvent.keyDown(nameInput, { key: 'Enter' });
     });
-    expect((project.export().theme as any).tokens['color.brand']).toBeDefined();
+    expect((project.exportBundle().theme as any).tokens['color.brand']).toBeDefined();
   });
 
   it('empty state when no color tokens', () => {

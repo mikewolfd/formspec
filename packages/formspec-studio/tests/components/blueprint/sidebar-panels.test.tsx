@@ -42,7 +42,7 @@ describe('DataSourcesList', () => {
     const project = createProject({ seed: { definition: {
       $formspec: '1.0', url: 'urn:test', version: '1.0.0',
       items: [],
-      instances: [{ name: 'counties' }],
+      instances: { counties: {} },
     } as any }});
     render(<ProjectProvider project={project}><SelectionProvider><DataSourcesList /></SelectionProvider></ProjectProvider>);
     expect(screen.getByText('counties')).toBeInTheDocument();

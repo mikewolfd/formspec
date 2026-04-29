@@ -46,7 +46,7 @@ function currentExtension(project: Project): WritableStudioExtension {
 }
 
 export function updateStudioExtension(project: Project, updater: (draft: WritableStudioExtension) => WritableStudioExtension): void {
-  const bundle = project.export();
+  const bundle = project.exportBundle();
   const next = updater(currentExtension(project));
   const extensions = {
     ...(isRecord(bundle.definition.extensions) ? bundle.definition.extensions : {}),

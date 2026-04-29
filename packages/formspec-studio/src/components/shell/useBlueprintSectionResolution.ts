@@ -7,7 +7,7 @@ import {
 
 export function useBlueprintSectionResolution(activeTab: string, activeSection: string) {
   const visibleSections = useMemo(() => {
-    if (activeTab === 'Layout') {
+    if (activeTab === 'Design') {
       return THEME_MODE_BLUEPRINT_SECTIONS;
     }
     return BLUEPRINT_SECTIONS_BY_TAB[activeTab] ?? Object.keys(SIDEBAR_COMPONENTS);

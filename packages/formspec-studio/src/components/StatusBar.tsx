@@ -140,6 +140,14 @@ export function StatusBar({ variant = 'full', onAskAI }: StatusBarProps) {
           Ask AI
         </button>
 
+        <button
+          type="button"
+          onClick={() => window.dispatchEvent(new CustomEvent('formspec:publish-project'))}
+          className="shrink-0 rounded-full bg-accent px-3 py-1 text-[11px] font-bold uppercase tracking-[0.18em] text-white hover:bg-accent/90 transition-colors shadow-sm"
+        >
+          Publish
+        </button>
+
         {variant !== 'assistant' && (
           <div className="relative">
             <button

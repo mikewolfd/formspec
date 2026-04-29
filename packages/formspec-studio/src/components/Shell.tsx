@@ -6,7 +6,7 @@ import { useEditorState } from '../hooks/useEditorState';
 import { useShellLayout } from '../hooks/useShellLayout';
 import { useShellPanels } from '../hooks/useShellPanels';
 import { useKeyboardShortcuts } from '../hooks/useKeyboardShortcuts';
-import { createProject, buildDefLookup, type Project } from '@formspec-org/studio-core';
+import { createProject, buildDefLookup, type Project, treeContainsRef } from '@formspec-org/studio-core';
 import { isOnboardingCompleted } from '../onboarding/onboarding-storage';
 import { exportProjectZip } from '../lib/export-zip';
 import {
@@ -115,7 +115,7 @@ export function Shell({ colorScheme, onSwitchToAssistant }: ShellProps = {}) {
 
   // eslint-disable-next-line react-hooks/exhaustive-deps
   const handleNewForm = useCallback(() => {
-    project.loadBundle(createProject().export());
+    project.loadBundle(createProject().exportBundle());
     setActiveTab('Editor');
     setActiveSection('Structure');
     setActiveEditorView('build');
@@ -167,7 +167,7 @@ export function Shell({ colorScheme, onSwitchToAssistant }: ShellProps = {}) {
     if (typeof window === 'undefined') return;
     const params = new URLSearchParams(window.location.search);
     if (params.get('e2e') !== '1') return;
-    (window as unknown as { __FORMSPEC_TEST_EXPORT?: () => ReturnType<Project['export']> }).__FORMSPEC_TEST_EXPORT = () => project.export();
+    (window as unknown as { __FORMSPEC_TEST_EXPORT?: () => ReturnType<Project['exportBundle']> }).__FORMSPEC_TEST_EXPORT = () => project.exportBundle();
     return () => {
       delete (window as unknown as { __FORMSPEC_TEST_EXPORT?: unknown }).__FORMSPEC_TEST_EXPORT;
     };
@@ -196,7 +196,7 @@ export function Shell({ colorScheme, onSwitchToAssistant }: ShellProps = {}) {
   );
 
   const handleExport = async () => {
-    await exportProjectZip(project.export());
+    await exportProjectZip(project.exportBundle());
     project.markClean();
   };
 
@@ -352,7 +352,7 @@ export function Shell({ colorScheme, onSwitchToAssistant }: ShellProps = {}) {
               </button>
             )
           )}
-          {activeTab === 'Layout' && !compactLayout && !assistantOpen && !showPreview && (
+          {activeTab === 'Design' && !compactLayout && !assistantOpen && !showPreview && (
             showLayoutPreviewPanel ? (
               <>
                 <ResizeHandle side="right" onResize={onResizeRight} />

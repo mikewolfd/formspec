@@ -45,7 +45,7 @@ describe('AllTokens', () => {
       fireEvent.change(valInput, { target: { value: 'bar' } });
       fireEvent.keyDown(keyInput, { key: 'Enter' });
     });
-    expect((project.export().theme as any).tokens['custom.foo']).toBe('bar');
+    expect((project.exportBundle().theme as any).tokens['custom.foo']).toBe('bar');
   });
 
   it('edit value on blur dispatches', async () => {
@@ -55,14 +55,14 @@ describe('AllTokens', () => {
       fireEvent.change(input, { target: { value: '#000' } });
       fireEvent.blur(input);
     });
-    expect((project.export().theme as any).tokens['color.primary']).toBe('#000');
+    expect((project.exportBundle().theme as any).tokens['color.primary']).toBe('#000');
   });
 
   it('delete dispatches with value null', async () => {
     const { project } = renderAllTokens({ 'color.primary': '#3b82f6' });
     const deleteBtn = screen.getByRole('button', { name: /delete.*color\.primary/i });
     await act(async () => { deleteBtn.click(); });
-    expect((project.export().theme as any).tokens['color.primary']).toBeUndefined();
+    expect((project.exportBundle().theme as any).tokens['color.primary']).toBeUndefined();
   });
 
   it('color swatch appears for hex values', () => {

@@ -34,7 +34,7 @@ describe('DefaultFieldStyle', () => {
     await act(async () => {
       screen.getByRole('button', { name: /top/i }).click();
     });
-    expect((project.export().theme as any).defaults.labelPosition).toBe('top');
+    expect((project.exportBundle().theme as any).defaults.labelPosition).toBe('top');
   });
 
   it('active position shows accent styling', () => {
@@ -56,7 +56,7 @@ describe('DefaultFieldStyle', () => {
       fireEvent.change(input, { target: { value: 'text-input' } });
       fireEvent.blur(input);
     });
-    expect((project.export().theme as any).defaults.widget).toBe('text-input');
+    expect((project.exportBundle().theme as any).defaults.widget).toBe('text-input');
   });
 
   it('CSS class input dispatches on blur', async () => {
@@ -66,6 +66,6 @@ describe('DefaultFieldStyle', () => {
       fireEvent.change(input, { target: { value: 'my-class' } });
       fireEvent.blur(input);
     });
-    expect((project.export().theme as any).defaults.cssClass).toBe('my-class');
+    expect((project.exportBundle().theme as any).defaults.cssClass).toBe('my-class');
   });
 });

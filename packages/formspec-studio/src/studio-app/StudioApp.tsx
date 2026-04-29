@@ -1,27 +1,14 @@
-/** @filedesc Bootstraps a Studio project and wires context providers around the Shell. */
-import { useState, useEffect, useCallback, useMemo, type ReactElement } from 'react';
+/** @filedesc Bootstraps a Studio project and wires context providers around UnifiedStudio. */
+import { useState, type ReactElement } from 'react';
 import { createProject, type CreateProjectOptions, type Project, type FormDefinition, type ProjectBundle } from '@formspec-org/studio-core';
 import commonRegistry from '../../../../registries/formspec-common.registry.json';
 
 const COMMON_REGISTRY_URL = 'https://formspec.org/registries/formspec-common.registry.json';
 import { ProjectProvider } from '../state/ProjectContext';
-import { SelectionProvider, useSelection } from '../state/useSelection';
-import { ActiveGroupProvider } from '../state/useActiveGroup';
-import { Shell } from '../components/Shell';
+import { SelectionProvider } from '../state/useSelection';
 import { blankDefinition } from '../fixtures/blank-definition';
-import { useColorScheme, type ColorScheme } from '../hooks/useColorScheme';
-import { useChatSessionController, type ChatSessionController } from '../hooks/useChatSessionController';
-import { ChatSessionControllerProvider } from '../state/ChatSessionControllerContext';
-import { AssistantWorkspace } from '../onboarding/AssistantWorkspace';
-import {
-  getInitialStudioWorkspaceView,
-  markOnboardingCompleted,
-  resetOnboardingPreferences,
-  setPersistedStudioView,
-} from '../onboarding/onboarding-storage';
-import { emitOnboardingTelemetry } from '../onboarding/onboarding-telemetry';
-
-const OPEN_ASSISTANT_WORKSPACE_EVENT = 'formspec:open-assistant-workspace';
+import { ModeProvider } from './ModeProvider';
+import { UnifiedStudio } from './UnifiedStudio';
 
 /**
  * Check for a handoff bundle in localStorage (from Chat or Inquest).
@@ -68,139 +55,15 @@ interface StudioAppProps {
 
 export function StudioApp({ project }: StudioAppProps = {}): ReactElement {
   const [activeProject] = useState<Project>(() => project ?? createStudioProject());
-  const [studioView, setStudioView] = useState<'assistant' | 'workspace'>(() => {
-    if (project) return 'workspace';
-    if (typeof window === 'undefined') return 'workspace';
-    return getInitialStudioWorkspaceView(false);
-  });
-  const colorScheme = useColorScheme();
-
-  const openAssistantWorkspace = useCallback(() => {
-    setPersistedStudioView('assistant');
-    setStudioView('assistant');
-  }, []);
-
-  useEffect(() => {
-    if (project) return;
-    const onRestartOnboarding = () => {
-      resetOnboardingPreferences();
-      activeProject.loadBundle(createStudioProject().export());
-      setStudioView('assistant');
-    };
-    window.addEventListener('formspec:restart-onboarding', onRestartOnboarding);
-    return () => window.removeEventListener('formspec:restart-onboarding', onRestartOnboarding);
-  }, [activeProject, project]);
-
-  useEffect(() => {
-    const onOpenAssistant = (event: Event) => {
-      const detail = (event as CustomEvent<{ resetFirstRun?: boolean }>).detail;
-      if (detail?.resetFirstRun) {
-        resetOnboardingPreferences();
-      }
-      openAssistantWorkspace();
-    };
-    window.addEventListener(OPEN_ASSISTANT_WORKSPACE_EVENT, onOpenAssistant);
-    return () => window.removeEventListener(OPEN_ASSISTANT_WORKSPACE_EVENT, onOpenAssistant);
-  }, [openAssistantWorkspace]);
-
-  const enterWorkspaceFromAssistant = () => {
-    const diagnostics = activeProject.diagnose();
-    const entries = [
-      ...(diagnostics.structural ?? []),
-      ...(diagnostics.expressions ?? []),
-      ...(diagnostics.extensions ?? []),
-      ...(diagnostics.consistency ?? []),
-    ];
-    const diagnosticWarnings = entries.filter((entry) => entry.severity === 'warning').length;
-    const diagnosticErrors = entries.length - diagnosticWarnings;
-    markOnboardingCompleted();
-    setPersistedStudioView('workspace');
-    emitOnboardingTelemetry('onboarding_completed');
-    emitOnboardingTelemetry('onboarding_diagnostics_snapshot', {
-      diagnosticTotal: entries.length,
-      diagnosticErrors,
-      diagnosticWarnings,
-    });
-    setStudioView('workspace');
-  };
+  const hasHandoff = Boolean(project);
 
   return (
     <ProjectProvider project={activeProject}>
       <SelectionProvider project={activeProject}>
-        <StudioAppInner
-          studioView={studioView}
-          colorScheme={colorScheme}
-          activeProject={activeProject}
-          enterWorkspaceFromAssistant={enterWorkspaceFromAssistant}
-          onSwitchToAssistant={openAssistantWorkspace}
-        />
+        <ModeProvider defaultMode={hasHandoff ? 'edit' : 'chat'}>
+          <UnifiedStudio />
+        </ModeProvider>
       </SelectionProvider>
     </ProjectProvider>
-  );
-}
-
-function StudioAppInner({
-  studioView,
-  colorScheme,
-  activeProject,
-  enterWorkspaceFromAssistant,
-  onSwitchToAssistant,
-}: {
-  studioView: 'assistant' | 'workspace';
-  colorScheme: ColorScheme;
-  activeProject: Project;
-  enterWorkspaceFromAssistant: () => void;
-  onSwitchToAssistant: () => void;
-}) {
-  const { reveal, primaryKeyForTab, selectionScopeTab } = useSelection();
-  const getWorkspaceContext = useCallback(() => {
-    const path = primaryKeyForTab(selectionScopeTab);
-    return {
-      selection: path ? { path, sourceTab: selectionScopeTab } : null,
-      // Viewport is not yet plumbed from Shell.previewViewport; surface deliberately reports null
-      // until that wiring lands. The chat ToolContext type permits null; AI adapters that need
-      // device hints should treat null as "unknown" not "desktop".
-      viewport: null as ('desktop' | 'tablet' | 'mobile' | null),
-    };
-  }, [selectionScopeTab, primaryKeyForTab]);
-  const studioUIHandlers = useMemo(() => ({
-    revealField: (path: string) => {
-      if (!activeProject.itemAt(path)) {
-        return { ok: false, reason: `Path "${path}" not found in current definition.` };
-      }
-      reveal(path);
-      return { ok: true };
-    },
-    setRightPanelOpen: (open: boolean) => {
-      if (studioView === 'assistant') {
-        return {
-          ok: false,
-          reason: 'Preview companion is only available in workspace view; switch views first.',
-        };
-      }
-      window.dispatchEvent(new CustomEvent('formspec:toggle-preview-companion', { detail: { open } }));
-      return { ok: true };
-    },
-  }), [activeProject, reveal, studioView]);
-  const controller = useChatSessionController({
-    project: activeProject,
-    studioUIHandlers,
-    getWorkspaceContext,
-  });
-
-  return (
-    <ActiveGroupProvider>
-      <ChatSessionControllerProvider controller={controller}>
-        {studioView === 'assistant' ? (
-          <AssistantWorkspace
-            project={activeProject}
-            onEnterStudio={enterWorkspaceFromAssistant}
-            colorScheme={colorScheme}
-          />
-        ) : (
-          <Shell colorScheme={colorScheme} onSwitchToAssistant={onSwitchToAssistant} />
-        )}
-      </ChatSessionControllerProvider>
-    </ActiveGroupProvider>
   );
 }

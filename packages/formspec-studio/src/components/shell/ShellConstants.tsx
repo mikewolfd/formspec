@@ -16,18 +16,17 @@ import { FieldTypeRules } from '../../workspaces/theme/FieldTypeRules';
 import { ScreenSizes } from '../../workspaces/theme/ScreenSizes';
 import { AllTokens } from '../../workspaces/theme/AllTokens';
 import { ThemeTab } from '../../workspaces/theme/ThemeTab';
-
 import { LayoutCanvas as LayoutWorkspace } from '../../workspaces/layout/LayoutCanvas';
 import { EvidenceWorkspace } from '../../workspaces/evidence/EvidenceWorkspace';
 import { MappingTab } from '../../workspaces/mapping/MappingTab';
 import { PreviewTab } from '../../workspaces/preview/PreviewTab';
+import { DesignWorkspace } from '../../workspaces/design-system/DesignWorkspace';
 
 export const WORKSPACES: Record<string, React.ComponentType> = {
-  Layout: LayoutWorkspace,
   Evidence: EvidenceWorkspace,
-  Theme: ThemeTab,
   Mapping: MappingTab,
   Preview: PreviewTab,
+  Design: DesignWorkspace,
 };
 
 export const SIDEBAR_COMPONENTS: Record<string, React.ComponentType> = {
@@ -59,10 +58,9 @@ export const THEME_MODE_BLUEPRINT_SECTIONS = [
 ];
 
 export const BLUEPRINT_SECTIONS_BY_TAB: Record<string, string[]> = {
-  Editor: ['Structure', 'Variables', 'Data Sources', 'Option Sets', 'Screener', 'Settings'],
-  Layout: ['Structure', 'Component Tree', 'Screener', 'Variables', 'Data Sources', 'Option Sets', 'Mappings', 'Settings', 'Theme'],
+  Editor: ['Structure', 'Variables', 'Data Sources', 'Option Sets', 'Mappings', 'Screener', 'Settings'],
+  Design: ['Colors', 'Typography', 'Field Defaults', 'Field Rules', 'Breakpoints', 'Structure', 'Settings'],
   Evidence: ['Structure', 'Data Sources', 'Option Sets', 'Mappings', 'Settings'],
-  Theme: THEME_MODE_BLUEPRINT_SECTIONS,
   Mapping: ['Mappings', 'Structure', 'Data Sources', 'Option Sets', 'Settings'],
   Preview: ['Structure', 'Component Tree', 'Theme', 'Settings'],
 };

@@ -14,7 +14,7 @@ interface CommandPaletteProps {
 
 interface PaletteResult {
   id: string;
-  section: 'Items' | 'Variables' | 'Binds' | 'Shapes';
+  section: 'Actions' | 'Items' | 'Variables' | 'Binds' | 'Shapes';
   title: string;
   subtitle?: string;
   meta?: string;
@@ -107,7 +107,84 @@ export function CommandPalette({ open, onClose, surface = 'studio' }: CommandPal
       };
     });
 
-    return [...itemResults, ...variableResults, ...bindResults, ...shapeResults];
+    const actionResults: PaletteResult[] = [
+      {
+        id: 'action:mode-edit',
+        section: 'Actions',
+        title: 'Edit Mode',
+        subtitle: 'Switch to the structural editor',
+        keywords: ['go', 'mode', 'edit', 'editor', 'structure'],
+        onSelect: () => {
+          window.dispatchEvent(new CustomEvent('formspec:set-mode', { detail: { mode: 'edit' } }));
+          onClose();
+        },
+        actionable: true,
+      },
+      {
+        id: 'action:mode-design',
+        section: 'Actions',
+        title: 'Design Mode',
+        subtitle: 'Switch to visual styling and brand colors',
+        keywords: ['go', 'mode', 'design', 'theme', 'style', 'colors', 'layout'],
+        onSelect: () => {
+          window.dispatchEvent(new CustomEvent('formspec:set-mode', { detail: { mode: 'design' } }));
+          onClose();
+        },
+        actionable: true,
+      },
+      {
+        id: 'action:mode-preview',
+        section: 'Actions',
+        title: 'Preview Mode',
+        subtitle: 'Test the form interactively',
+        keywords: ['go', 'mode', 'preview', 'test', 'run'],
+        onSelect: () => {
+          window.dispatchEvent(new CustomEvent('formspec:set-mode', { detail: { mode: 'preview' } }));
+          onClose();
+        },
+        actionable: true,
+      },
+      {
+        id: 'action:workspace-mapping',
+        section: 'Actions',
+        title: 'Data Mappings',
+        subtitle: 'Configure import/export mapping rules',
+        keywords: ['go', 'workspace', 'mapping', 'import', 'export', 'rules'],
+        onSelect: () => {
+          window.dispatchEvent(new CustomEvent('formspec:set-mode', { detail: { mode: 'edit' } }));
+          window.dispatchEvent(new CustomEvent('formspec:navigate-workspace', { detail: { tab: 'Mapping' } }));
+          onClose();
+        },
+        actionable: true,
+      },
+      {
+        id: 'action:workspace-evidence',
+        section: 'Actions',
+        title: 'Evidence Config',
+        subtitle: 'Configure attachments and evidence collection',
+        keywords: ['go', 'workspace', 'evidence', 'attachments'],
+        onSelect: () => {
+          window.dispatchEvent(new CustomEvent('formspec:set-mode', { detail: { mode: 'edit' } }));
+          window.dispatchEvent(new CustomEvent('formspec:navigate-workspace', { detail: { tab: 'Evidence' } }));
+          onClose();
+        },
+        actionable: true,
+      },
+      {
+        id: 'action:settings',
+        section: 'Actions',
+        title: 'Form Settings',
+        subtitle: 'Edit form metadata and behavior',
+        keywords: ['go', 'settings', 'metadata', 'behavior', 'config'],
+        onSelect: () => {
+          window.dispatchEvent(new CustomEvent('formspec:open-settings'));
+          onClose();
+        },
+        actionable: true,
+      }
+    ];
+
+    return [...actionResults, ...itemResults, ...variableResults, ...bindResults, ...shapeResults];
   }, [binds, items, onClose, select, shapes, variables]);
 
   const query = search.trim().toLowerCase();
@@ -117,7 +194,7 @@ export function CommandPalette({ open, onClose, surface = 'studio' }: CommandPal
         if (includeLogicResults && (result.section === 'Binds' || result.section === 'Shapes')) return true;
         return result.keywords.some((keyword) => keyword.toLowerCase().includes(query));
       })
-    : results.filter((result) => result.section === 'Items');
+    : results.filter((result) => result.section === 'Actions' || result.section === 'Items');
 
   const groupedResults = filteredResults.reduce<Record<string, PaletteResult[]>>((groups, result) => {
     groups[result.section] ??= [];
@@ -125,7 +202,7 @@ export function CommandPalette({ open, onClose, surface = 'studio' }: CommandPal
     return groups;
   }, {});
 
-  const orderedSections = ['Items', 'Variables', 'Binds', 'Shapes'].filter((section) => groupedResults[section]?.length);
+  const orderedSections = ['Actions', 'Items', 'Variables', 'Binds', 'Shapes'].filter((section) => groupedResults[section]?.length);
 
   const handleSelect = (result: PaletteResult) => {
     result.onSelect();

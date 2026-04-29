@@ -23,7 +23,7 @@ export interface WorkspaceRouterState {
 }
 
 /** Theme authoring lives under Layout + blueprint; no separate Theme workspace tab. */
-const VALID_TABS = new Set(['Editor', 'Layout', 'Evidence', 'Mapping', 'Preview']);
+const VALID_TABS = new Set(['Editor', 'Design', 'Evidence', 'Mapping', 'Preview']);
 const VALID_MAPPING_TAB_IDS = new Set<string>(['all', 'config', 'rules', 'adapter', 'preview']);
 const VALID_EDITOR_VIEWS = new Set<string>(['build', 'manage', 'screener', 'health']);
 
@@ -53,7 +53,7 @@ export function useWorkspaceRouter(): WorkspaceRouterState {
       if (tab === 'Playthrough') {
         setActiveTab('Editor');
       } else if (tab === 'Theme') {
-        setActiveTab('Layout');
+        setActiveTab('Design');
         if (section) {
           setActiveSection(section);
           window.dispatchEvent(new CustomEvent('formspec:scroll-to-section', {

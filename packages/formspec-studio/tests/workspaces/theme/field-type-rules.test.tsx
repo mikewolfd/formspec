@@ -40,7 +40,7 @@ describe('FieldTypeRules', () => {
     await act(async () => {
       screen.getByRole('button', { name: /\+ new rule/i }).click();
     });
-    const selectors = (project.export().theme as any).selectors;
+    const selectors = (project.exportBundle().theme as any).selectors;
     expect(selectors).toHaveLength(1);
   });
 
@@ -55,7 +55,7 @@ describe('FieldTypeRules', () => {
     await act(async () => {
       screen.getByRole('button', { name: /delete/i }).click();
     });
-    const selectors = (project.export().theme as any).selectors;
+    const selectors = (project.exportBundle().theme as any).selectors;
     expect(selectors).toHaveLength(0);
   });
 
@@ -71,7 +71,7 @@ describe('FieldTypeRules', () => {
     await act(async () => {
       screen.getByRole('button', { name: /move up/i }).click();
     });
-    const selectors = (project.export().theme as any).selectors;
+    const selectors = (project.exportBundle().theme as any).selectors;
     expect((selectors[0] as any).match.type).toBe('group');
   });
 
@@ -87,7 +87,7 @@ describe('FieldTypeRules', () => {
     await act(async () => {
       screen.getByRole('button', { name: /move down/i }).click();
     });
-    const selectors = (project.export().theme as any).selectors;
+    const selectors = (project.exportBundle().theme as any).selectors;
     expect((selectors[0] as any).match.type).toBe('group');
   });
 
@@ -125,7 +125,7 @@ describe('FieldTypeRules', () => {
     await act(async () => {
       fireEvent.change(typeSelect, { target: { value: 'field' } });
     });
-    const sel = (project.export().theme as any).selectors[0];
+    const sel = (project.exportBundle().theme as any).selectors[0];
     expect(sel.match.type).toBe('field');
   });
 
@@ -141,7 +141,7 @@ describe('FieldTypeRules', () => {
       fireEvent.change(widgetInput, { target: { value: 'moneyInput' } });
       fireEvent.blur(widgetInput);
     });
-    const sel = (project.export().theme as any).selectors[0];
+    const sel = (project.exportBundle().theme as any).selectors[0];
     expect(sel.apply.widget).toBe('moneyInput');
   });
 });

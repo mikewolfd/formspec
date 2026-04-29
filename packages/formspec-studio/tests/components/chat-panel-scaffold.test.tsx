@@ -57,10 +57,10 @@ async function seedDraftViaUpload() {
     fireEvent.change(fileInput, { target: { files: [file] } });
   });
   await waitFor(() => {
-    expect(screen.getByTestId('changeset-review')).toBeInTheDocument();
+    expect(screen.queryAllByTestId('proposed-artifact-block').length).toBeGreaterThan(0);
   });
   await act(async () => {
-    fireEvent.click(screen.getByRole('button', { name: /accept all/i }));
+    fireEvent.click(screen.getAllByTestId('accept-proposal').at(-1)!);
   });
 }
 
@@ -126,6 +126,11 @@ describe('ChatPanel scaffold-as-changeset', () => {
       expect(pm).not.toBeNull();
       expect(pm!.changeset).not.toBeNull();
       expect(pm!.changeset!.status).toBe('pending');
+    });
+
+    // Enter details review mode to see the full ChangesetReview
+    await act(async () => {
+      fireEvent.click(screen.getAllByTestId('review-proposal').at(-1)!);
     });
 
     // The ChangesetReview component should render
@@ -257,6 +262,11 @@ describe('ChatPanel scaffold-as-changeset', () => {
     expect(studioExt).toBeDefined();
     expect(studioExt.patches.some((patch: any) => patch.status === 'open' && String(patch.id).startsWith('changeset:'))).toBe(true);
 
+    // Enter details review mode to see the full ChangesetReview
+    await act(async () => {
+      fireEvent.click(screen.getAllByTestId('review-proposal').at(-1)!);
+    });
+
     await waitFor(() => {
       expect(screen.getByTestId('changeset-review')).toBeInTheDocument();
     });
@@ -278,7 +288,7 @@ describe('ChatPanel scaffold-as-changeset', () => {
     });
 
     await act(async () => {
-      fireEvent.click(screen.getByRole('button', { name: /accept all/i }));
+      fireEvent.click(screen.getAllByTestId('accept-proposal').at(-1)!);
     });
     expect(project.definition.items.map((item) => item.label)).toEqual([
       'Full name',
@@ -316,7 +326,7 @@ describe('ChatPanel scaffold-as-changeset', () => {
 
     // Now we're in review mode — the generate button should not appear
     await waitFor(() => {
-      expect(screen.getByTestId('changeset-review')).toBeInTheDocument();
+      expect(screen.queryAllByTestId('proposed-artifact-block').length).toBeGreaterThan(0);
     });
     expect(screen.queryByRole('button', { name: /generate form/i })).not.toBeInTheDocument();
   });
@@ -334,11 +344,11 @@ describe('ChatPanel scaffold-as-changeset', () => {
 
     await waitFor(() => {
       expect(project.proposals?.changeset?.status).toBe('pending');
-      expect(screen.getByTestId('changeset-review')).toBeInTheDocument();
+      expect(screen.queryAllByTestId('proposed-artifact-block').length).toBeGreaterThan(0);
     });
 
     await act(async () => {
-      fireEvent.click(screen.getByRole('button', { name: /reject all/i }));
+      fireEvent.click(screen.getAllByTestId('reject-proposal').at(-1)!);
     });
 
     const studioExt = (project.definition.extensions as Record<string, any> | undefined)?.['x-studio'];

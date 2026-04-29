@@ -29,7 +29,7 @@ export function BlueprintSidebar({
   const { visibleSections, resolvedSection, SidebarComponent } = useBlueprintSectionResolution(activeTab, activeSection);
 
   useEffect(() => {
-    if (activeTab !== 'Layout' || !layoutModeCtx) return;
+    if (activeTab !== 'Design' || !layoutModeCtx) return;
     const first = THEME_MODE_BLUEPRINT_SECTIONS[0] ?? 'Colors';
     if (!THEME_MODE_BLUEPRINT_SECTIONS.includes(activeSection)) {
       onSectionChange(first);

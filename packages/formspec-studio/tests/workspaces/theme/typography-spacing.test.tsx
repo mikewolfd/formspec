@@ -34,7 +34,7 @@ describe('TypographySpacing', () => {
       fireEvent.change(input, { target: { value: 'Roboto' } });
       fireEvent.blur(input);
     });
-    expect((project.export().theme as any).tokens['font.family']).toBe('Roboto');
+    expect((project.exportBundle().theme as any).tokens['font.family']).toBe('Roboto');
   });
 
   it('spacing values render as editable inputs', () => {
@@ -51,7 +51,7 @@ describe('TypographySpacing', () => {
       fireEvent.change(input, { target: { value: '12px' } });
       fireEvent.blur(input);
     });
-    expect((project.export().theme as any).tokens['spacing.md']).toBe('12px');
+    expect((project.exportBundle().theme as any).tokens['spacing.md']).toBe('12px');
   });
 
   it('radius input dispatches correctly', async () => {
@@ -61,7 +61,7 @@ describe('TypographySpacing', () => {
       fireEvent.change(input, { target: { value: '8px' } });
       fireEvent.blur(input);
     });
-    expect((project.export().theme as any).tokens['radius.sm']).toBe('8px');
+    expect((project.exportBundle().theme as any).tokens['radius.sm']).toBe('8px');
   });
 
   it('shows placeholders when tokens not set', () => {

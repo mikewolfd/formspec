@@ -1,5 +1,5 @@
 import { useCallback, useRef, useEffect } from 'react';
-import type { Project } from '@formspec-org/studio-core';
+import { Project } from '@formspec-org/studio-core';
 
 export function useLayoutPageMaterializer(
   project: Project,

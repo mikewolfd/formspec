@@ -1,6 +1,8 @@
-/** @filedesc Message list for the studio chat panel — renders user, assistant, and system messages with typing indicator. */
-import type { ChatMessage } from '@formspec/chat';
+import React, { useState, useCallback, useRef, useEffect } from 'react';
+import type { ChatMessage } from '@formspec-org/chat';
 import { IconSparkle, IconTriangleWarning as IconWarning } from '../icons/index.js';
+import { ProposedArtifactBlock } from '../ProposedArtifactBlock.js';
+import { Project } from '@formspec-org/studio-core';
 
 export interface ChatMessageListProps {
   messages: ChatMessage[];
@@ -10,6 +12,17 @@ export interface ChatMessageListProps {
   emptyDescription?: string;
   /** Tighter strip above changeset review; skips centered empty state when there is nothing to show. */
   variant?: 'default' | 'ribbon';
+  /** Active project for previewing artifacts. */
+  project?: Project;
+  /** Active changeset for structural preview. */
+  activeChangesetId?: string | null;
+  /** AI operation status for the artifact block. */
+  aiStatus?: 'generating' | 'refining' | 'complete';
+  /** Handlers for the artifact block. */
+  onAcceptArtifact?: () => void;
+  onReviewArtifactDetails?: () => void;
+  onTweakArtifact?: () => void;
+  onRejectArtifact?: () => void;
 }
 
 export function ChatMessageList({
@@ -19,9 +32,23 @@ export function ChatMessageList({
   messagesEndRef,
   emptyDescription,
   variant = 'default',
+  project,
+  activeChangesetId,
+  aiStatus = 'complete',
+  onAcceptArtifact,
+  onReviewArtifactDetails,
+  onTweakArtifact,
+  onRejectArtifact,
 }: ChatMessageListProps) {
   const ribbon = variant === 'ribbon';
-  if (ribbon && messages.length === 0 && !sending) {
+
+  // Compute preview for active changeset
+  const proposedDefinition = React.useMemo(() => {
+    if (!project || !activeChangesetId) return null;
+    return project.previewChangeset()?.definition ?? null;
+  }, [project, activeChangesetId, messages.length]); // Refresh on message length to catch final refinement result
+
+  if (ribbon && messages.length === 0 && !sending && !activeChangesetId) {
     return null;
   }
 
@@ -49,7 +76,7 @@ export function ChatMessageList({
             Open App Settings
           </button>
         </div>
-      ) : messages.length === 0 && !sending ? (
+      ) : messages.length === 0 && !sending && !activeChangesetId ? (
         <div className={`flex flex-col items-center justify-center gap-3 text-center ${ribbon ? 'min-h-0 py-2' : 'min-h-[200px]'}`}>
           <div className="w-10 h-10 rounded-xl flex items-center justify-center bg-accent/10 text-accent">
             <IconSparkle />
@@ -59,6 +86,7 @@ export function ChatMessageList({
           </p>
         </div>
       ) : null}
+
       {messages.map((msg) => (
         <div
           key={msg.id}
@@ -88,6 +116,21 @@ export function ChatMessageList({
           )}
         </div>
       ))}
+
+      {/* Artifact Block — renders when AI has proposed structural changes */}
+      {activeChangesetId && proposedDefinition && (
+        <div className="py-2 animate-in fade-in slide-in-from-bottom-2 duration-300">
+          <ProposedArtifactBlock
+            definition={proposedDefinition}
+            status={aiStatus}
+            onAccept={onAcceptArtifact ?? (() => {})}
+            onReviewDetails={onReviewArtifactDetails ?? (() => {})}
+            onTweak={onTweakArtifact ?? (() => {})}
+            onReject={onRejectArtifact}
+          />
+        </div>
+      )}
+
       {sending && (
         <div className="flex items-start gap-2 py-1.5">
           <div className={`flex-shrink-0 rounded-lg flex items-center justify-center bg-accent/10 text-accent ${ribbon ? 'w-5 h-5' : 'w-6 h-6'}`}>

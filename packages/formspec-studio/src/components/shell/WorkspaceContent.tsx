@@ -62,26 +62,34 @@ export function WorkspaceContent({
   switch (activeTab) {
     case 'Mapping':
       return (
-        <MappingTab
-          activeTab={activeMappingTab}
-          onActiveTabChange={setActiveMappingTab}
-          configOpen={mappingConfigOpen}
-          onConfigOpenChange={setMappingConfigOpen}
-        />
+        <div className="flex-1 min-h-0">
+          <MappingTab
+            activeTab={activeMappingTab}
+            onActiveTabChange={setActiveMappingTab}
+            configOpen={mappingConfigOpen}
+            onConfigOpenChange={setMappingConfigOpen}
+          />
+        </div>
       );
     case 'Preview':
       return (
-        <PreviewTab
-          viewport={previewViewport}
-          onViewportChange={setPreviewViewport}
-          mode={previewMode}
-          onModeChange={setPreviewMode}
-          appearance={appearance}
-        />
+        <div className="flex-1 min-h-0">
+          <PreviewTab
+            viewport={previewViewport}
+            onViewportChange={setPreviewViewport}
+            mode={previewMode}
+            onModeChange={setPreviewMode}
+            appearance={appearance}
+          />
+        </div>
       );
     default: {
       const WorkspaceComponent = WORKSPACES[activeTab];
-      return WorkspaceComponent ? <WorkspaceComponent /> : <>{activeTab}</>;
+      return WorkspaceComponent ? (
+        <div className="flex-1 min-h-0">
+          <WorkspaceComponent />
+        </div>
+      ) : <>{activeTab}</>;
     }
   }
 }

@@ -1,6 +1,6 @@
 /** @filedesc Session controller hook — owns ChatSession lifecycle, tool dispatch, thread list, version rail. */
 import { useState, useRef, useEffect, useCallback, useMemo } from 'react';
-import { ChatSession, GeminiAdapter, type ChatMessage, type SessionSummary, type ToolContext } from '@formspec-org/chat';
+import { ChatSession, GeminiAdapter, OpenAIAdapter, AnthropicAdapter, type ChatMessage, type SessionSummary, type ToolContext } from '@formspec-org/chat';
 import { type Project, type ProposalManager, type FormDefinition } from '@formspec-org/studio-core';
 import { ProjectRegistry } from '@formspec-org/mcp/registry';
 import { createToolDispatch } from '@formspec-org/mcp/dispatch';
@@ -188,7 +188,15 @@ export function useChatSessionController(options: UseChatSessionControllerOption
     if (!config?.apiKey) return null;
     const route = selectModelForOperation('assistant_session');
     emitModelRoutingDecision(route);
-    const adapter = new GeminiAdapter(config.apiKey, config.model ?? route.model, '');
+    let adapter;
+    if (config.provider === 'openai') {
+      adapter = new OpenAIAdapter(config.apiKey, config.model ?? route.model, '');
+    } else if (config.provider === 'anthropic') {
+      adapter = new AnthropicAdapter(config.apiKey, config.model ?? route.model, '');
+    } else {
+      adapter = new GeminiAdapter(config.apiKey, config.model ?? route.model, '');
+    }
+
     const session = new ChatSession({ adapter });
     session.setToolContext(toolContext);
     return session;
@@ -249,7 +257,15 @@ export function useChatSessionController(options: UseChatSessionControllerOption
       if (!config?.apiKey) return;
       const route = selectModelForOperation('assistant_session');
       emitModelRoutingDecision(route);
-      const adapter = new GeminiAdapter(config.apiKey, config.model ?? route.model, '');
+      let adapter;
+      if (config.provider === 'openai') {
+        adapter = new OpenAIAdapter(config.apiKey, config.model ?? route.model, '');
+      } else if (config.provider === 'anthropic') {
+        adapter = new AnthropicAdapter(config.apiKey, config.model ?? route.model, '');
+      } else {
+        adapter = new GeminiAdapter(config.apiKey, config.model ?? route.model, '');
+      }
+
       const restored = await repository.loadThread(sessionId, { projectScope });
       if (!restored) return;
       const session = await ChatSession.fromState(restored, adapter);

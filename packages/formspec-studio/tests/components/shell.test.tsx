@@ -107,6 +107,21 @@ function StubControllerProbe({ project }: { project: ReturnType<typeof createPro
   );
 }
 
+// Define formspec-render if not already defined (mock for test)
+if (typeof customElements !== 'undefined' && !customElements.get('formspec-render')) {
+  class MockFormspecRender extends HTMLElement {
+    connectedCallback() {
+      const path = this.getAttribute('data-form-path') || 'name';
+      this.innerHTML = `
+        <div data-name="${path}" data-testid="field-${path}">
+          Field: ${path}
+          <button aria-label="Select Full Name">Select</button>
+        </div>`;
+    }
+  }
+  customElements.define('formspec-render', MockFormspecRender);
+}
+
 describe('Shell', () => {
   it('consumes ChatSessionController from context when one is provided', async () => {
     const project = createProject();
@@ -155,9 +170,9 @@ describe('Shell', () => {
     expect(screen.getByRole('button', { name: /the stack home/i })).toBeInTheDocument();
   });
 
-  it('shows unified workspace tabs — Theme mode lives inside Layout', () => {
+  it('shows unified workspace tabs — Theme mode lives inside Design', () => {
     renderShell();
-    for (const tab of ['Editor', 'Layout', 'Evidence', 'Mapping', 'Preview']) {
+    for (const tab of ['Editor', 'Design', 'Evidence', 'Mapping', 'Preview']) {
       expect(screen.getByRole('tab', { name: tab })).toBeInTheDocument();
     }
     expect(screen.queryByRole('tab', { name: 'Theme' })).toBeNull();
@@ -180,9 +195,9 @@ describe('Shell', () => {
   it('clicking a tab switches workspace', async () => {
     renderShell();
     await act(async () => {
-      screen.getByRole('tab', { name: 'Layout' }).click();
+      screen.getByRole('tab', { name: 'Design' }).click();
     });
-    expect(screen.getByTestId('workspace-Layout')).toHaveAttribute('data-workspace', 'Layout');
+    expect(screen.getByTestId('workspace-Design')).toHaveAttribute('data-workspace', 'Design');
   });
 
   it('renders the app logo as a clickable home action', () => {
@@ -236,9 +251,9 @@ describe('Shell', () => {
       const compFile = await zip.file('component.json')?.async('string');
       const themeFile = await zip.file('theme.json')?.async('string');
 
-      expect(JSON.parse(defFile!)).toEqual(project.export().definition);
-      expect(JSON.parse(compFile!)).toEqual(project.export().component);
-      expect(JSON.parse(themeFile!)).toEqual(project.export().theme);
+      expect(JSON.parse(defFile!)).toEqual(project.exportBundle().definition);
+      expect(JSON.parse(compFile!)).toEqual(project.exportBundle().component);
+      expect(JSON.parse(themeFile!)).toEqual(project.exportBundle().theme);
 
       expect(clickSpy).toHaveBeenCalledTimes(1);
       expect(revokeObjectURL).toHaveBeenCalledWith('blob:formspec-test');
@@ -257,7 +272,7 @@ describe('Shell', () => {
     });
 
     await act(async () => {
-      screen.getByRole('tab', { name: 'Layout' }).click();
+      screen.getByRole('tab', { name: 'Design' }).click();
     });
 
     await act(async () => {
@@ -287,24 +302,24 @@ describe('Shell', () => {
     expect(screen.getByText('Form Health')).toBeInTheDocument();
   });
 
-  it('hides the Component Tree blueprint section while Editor or Layout is active', () => {
+  it('hides the Component Tree blueprint section while Editor or Design is active', () => {
     renderShell(seededDefinition, 1440);
 
     expect(screen.queryByTestId('blueprint-section-Component Tree')).toBeNull();
 
-    fireEvent.click(screen.getByRole('tab', { name: 'Layout' }));
+    fireEvent.click(screen.getByRole('tab', { name: 'Design' }));
     expect(screen.queryByTestId('blueprint-section-Component Tree')).toBeNull();
   });
 
-  it('hides Theme and Mappings blueprint sections while Editor is active; Layout tab uses theme authoring list', () => {
+  it('hides Theme while Editor is active, keeps Mappings in Advanced, and Design uses theme authoring list', () => {
     renderShell(seededDefinition, 1440);
 
     expect(screen.queryByTestId('blueprint-section-Theme')).toBeNull();
-    expect(screen.queryByTestId('blueprint-section-Mappings')).toBeNull();
+    expect(screen.getByTestId('blueprint-section-Mappings')).toBeInTheDocument();
     // Screener is now visible in Editor
     expect(screen.getByTestId('blueprint-section-Screener')).toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole('tab', { name: 'Layout' }));
+    fireEvent.click(screen.getByRole('tab', { name: 'Design' }));
     expect(screen.getByTestId('blueprint-section-Colors')).toBeInTheDocument();
     expect(screen.queryByTestId('blueprint-section-Theme')).toBeNull();
     expect(screen.queryByTestId('blueprint-section-Mappings')).toBeNull();
@@ -334,16 +349,16 @@ describe('Shell', () => {
     expect(screen.getByRole('radio', { name: 'Manage' })).toBeInTheDocument();
   });
 
-  it('Layout workspace Blueprint shows theme authoring sections (Colors, Typography, …) in the sidebar', async () => {
+  it('Design workspace Blueprint shows theme authoring sections (Colors, Typography, …) in the sidebar', async () => {
     renderShell(seededDefinition, 1440);
-    await act(async () => { fireEvent.click(screen.getByRole('tab', { name: 'Layout' })); });
+    await act(async () => { fireEvent.click(screen.getByRole('tab', { name: 'Design' })); });
     expect(screen.getByTestId('blueprint-section-Colors')).toBeInTheDocument();
     expect(screen.getByTestId('blueprint-section-Typography')).toBeInTheDocument();
   });
 
-  it('Layout workspace shows a live preview in the right rail', async () => {
+  it('Design workspace shows a live preview in the right rail', async () => {
     renderShell(seededDefinition, 1440);
-    await act(async () => { fireEvent.click(screen.getByRole('tab', { name: 'Layout' })); });
+    await act(async () => { fireEvent.click(screen.getByRole('tab', { name: 'Design' })); });
     expect(screen.getByTestId('layout-preview-panel')).toBeInTheDocument();
     expect(within(screen.getByTestId('layout-preview-panel')).getByTestId('layout-preview-header')).toBeInTheDocument();
   });
@@ -363,7 +378,7 @@ describe('Shell', () => {
     expect(within(mappingWorkspace).getByTestId('preview-source-header')).toBeInTheDocument();
 
     await act(async () => {
-      screen.getByRole('tab', { name: 'Layout' }).click();
+      screen.getByRole('tab', { name: 'Design' }).click();
     });
 
     await act(async () => {
@@ -398,7 +413,7 @@ describe('Shell', () => {
     });
 
     await act(async () => {
-      screen.getByRole('tab', { name: 'Layout' }).click();
+      screen.getByRole('tab', { name: 'Design' }).click();
     });
 
     await act(async () => {
@@ -597,9 +612,9 @@ describe('Shell', () => {
     });
     expect(screen.getByRole('radio', { name: 'Manage' })).toHaveAttribute('aria-checked', 'true');
 
-    // Switch to Layout tab
+    // Switch to Design tab
     await act(async () => {
-      screen.getByRole('tab', { name: 'Layout' }).click();
+      screen.getByRole('tab', { name: 'Design' }).click();
     });
 
     // Switch back to Editor tab
@@ -855,11 +870,11 @@ describe('Shell', () => {
     expect(manageLabel?.textContent).toContain('6');
   });
 
-  it('shows live preview in a dedicated right rail on the Layout tab', async () => {
+  it('shows live preview in a dedicated right rail on the Design tab', async () => {
     renderShell(seededDefinition, 1440);
 
     await act(async () => {
-      screen.getByRole('tab', { name: 'Layout' }).click();
+      screen.getByRole('tab', { name: 'Design' }).click();
     });
 
     expect(screen.getByTestId('layout-preview-panel')).toBeInTheDocument();
@@ -867,23 +882,23 @@ describe('Shell', () => {
     expect(screen.queryByTestId('properties-panel')).not.toBeInTheDocument();
   });
 
-  it('does not show compact properties modal when on Layout tab', async () => {
+  it('does not show compact properties modal when on Design tab', async () => {
     renderShell(seededDefinition, 768);
     fireEvent(window, new Event('resize'));
 
     await act(async () => {
-      screen.getByRole('tab', { name: 'Layout' }).click();
+      screen.getByRole('tab', { name: 'Design' }).click();
     });
 
     expect(screen.queryByRole('dialog', { name: /properties/i })).toBeNull();
   });
 
-  it('does not render the desktop preview rail in compact Layout mode', async () => {
+  it('does not render the desktop preview rail in compact Design mode', async () => {
     renderShell(seededDefinition, 768);
     fireEvent(window, new Event('resize'));
 
     await act(async () => {
-      screen.getByRole('tab', { name: 'Layout' }).click();
+      screen.getByRole('tab', { name: 'Design' }).click();
     });
 
     expect(screen.queryByTestId('layout-preview-panel')).toBeNull();

@@ -1,6 +1,6 @@
 /** @filedesc React context and provider that makes the active Project instance available to the tree. */
 import { createContext, type ReactNode } from 'react';
-import type { Project } from '@formspec-org/studio-core';
+import { Project } from '@formspec-org/studio-core';
 
 const ProjectContext = createContext<Project | null>(null);
 

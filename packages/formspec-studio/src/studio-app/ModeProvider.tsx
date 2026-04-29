@@ -1,0 +1,97 @@
+/** @filedesc Studio mode context — four-mode taxonomy replacing studioView toggle. */
+import { createContext, useContext, useState, useCallback, useMemo, useEffect, type ReactNode } from 'react';
+
+/** Closed taxonomy: the four primary authoring modes. */
+export type StudioMode = 'chat' | 'edit' | 'design' | 'preview';
+
+export interface ModeContextValue {
+  mode: StudioMode;
+  setMode: (mode: StudioMode) => void;
+  /** Previous mode for transition direction inference. */
+  previousMode: StudioMode | null;
+}
+
+const ModeContext = createContext<ModeContextValue | null>(null);
+
+const STORAGE_KEY = 'formspec-studio:mode';
+const VALID_MODES = new Set<StudioMode>(['chat', 'edit', 'design', 'preview']);
+
+function getPersistedMode(fallback: StudioMode): StudioMode {
+  if (typeof window === 'undefined') return fallback;
+  const stored = window.localStorage.getItem(STORAGE_KEY);
+  if (stored && VALID_MODES.has(stored as StudioMode)) return stored as StudioMode;
+  return fallback;
+}
+
+function persistMode(mode: StudioMode): void {
+  if (typeof window === 'undefined') return;
+  window.localStorage.setItem(STORAGE_KEY, mode);
+}
+
+interface ModeProviderProps {
+  children: ReactNode;
+  /** Default mode when no persisted value exists. */
+  defaultMode?: StudioMode;
+}
+
+export function ModeProvider({ children, defaultMode = 'chat' }: ModeProviderProps) {
+  const [mode, setModeInternal] = useState<StudioMode>(() => getPersistedMode(defaultMode));
+  const [previousMode, setPreviousMode] = useState<StudioMode | null>(null);
+
+  const setMode = useCallback((next: StudioMode) => {
+    setModeInternal((current) => {
+      if (current === next) return current;
+      setPreviousMode(current);
+      persistMode(next);
+
+      // Emit event for telemetry adapter and other listeners
+      window.dispatchEvent(new CustomEvent('formspec:mode-changed', {
+        detail: { from: current, to: next },
+      }));
+
+      return next;
+    });
+  }, []);
+
+  useEffect(() => {
+    const handleSetMode = (e: Event) => {
+      if ('detail' in e && typeof (e as any).detail?.mode === 'string') {
+        const next = (e as any).detail.mode as StudioMode;
+        if (VALID_MODES.has(next)) {
+          setMode(next);
+        }
+      }
+    };
+    window.addEventListener('formspec:set-mode', handleSetMode);
+    return () => window.removeEventListener('formspec:set-mode', handleSetMode);
+  }, [setMode]);
+
+  const value = useMemo<ModeContextValue>(() => ({
+    mode,
+    setMode,
+    previousMode,
+  }), [mode, setMode, previousMode]);
+
+  return (
+    <ModeContext.Provider value={value}>
+      {children}
+    </ModeContext.Provider>
+  );
+}
+
+export function useMode(): ModeContextValue {
+  const ctx = useContext(ModeContext);
+  if (!ctx) throw new Error('useMode must be used within a ModeProvider');
+  return ctx;
+}
+
+/**
+ * Mode index for transition direction inference.
+ * Lower index → earlier in the authoring flow.
+ */
+export const MODE_ORDER: Record<StudioMode, number> = {
+  chat: 0,
+  edit: 1,
+  design: 2,
+  preview: 3,
+};

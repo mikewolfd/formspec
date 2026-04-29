@@ -48,7 +48,7 @@ export interface WorkspaceRailPlacement {
 
 export interface ChatPanelProps {
   project: Project;
-  onClose: () => void;
+  onClose?: () => void;
   hideHeader?: boolean;
   chatThreadRepository?: ChatThreadRepository;
   chatProjectScope?: string;
@@ -93,6 +93,7 @@ interface DiagnosticEntry {
 
 type CapabilityCommand =
   | { kind: 'init' }
+  | { kind: 'make'; intent: string }
   | { kind: 'layout'; intent: string }
   | { kind: 'mapping'; intent: string }
   | { kind: 'evidence'; intent: string }
@@ -112,6 +113,7 @@ function capabilityForCommand(command: CapabilityCommand): AuthoringCapability {
 
 function toSlashRefinementInstruction(command: CapabilityCommand): string {
   if (command.kind === 'init') return 'Initialize assistant authoring context from the current project snapshot.';
+  if (command.kind === 'make') return `Scaffold a new form based on this intent: ${command.intent}`;
   return `Apply ${command.kind} update via MCP tools. User intent: ${command.intent}`;
 }
 
@@ -139,6 +141,7 @@ function parseCapabilityCommand(text: string): CapabilityCommand | null {
   const splitAt = trimmed.indexOf(' ');
   const command = (splitAt === -1 ? trimmed : trimmed.slice(0, splitAt)).toLowerCase();
   const intent = (splitAt === -1 ? '' : trimmed.slice(splitAt + 1)).trim();
+  if (command === '/make') return { kind: 'make', intent };
   if (command === '/layout') return { kind: 'layout', intent };
   if (command === '/init') return { kind: 'init' };
   if (command === '/mapping') return { kind: 'mapping', intent };
@@ -267,6 +270,7 @@ export function ChatPanel({
   const [authoringMode, setAuthoringMode] = useState<AuthoringMode>('intent');
   const [versionMessage, setVersionMessage] = useState<string | null>(null);
   const [detailsOpen, setDetailsOpen] = useState(false);
+  const [reviewMode, setReviewMode] = useState<'chat' | 'details'>('chat');
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -329,6 +333,7 @@ export function ChatPanel({
       capability,
       scope: inferPatchScope(capability),
     });
+    proposalManager?.refreshSnapshotBefore();
   }, [changeset, project]);
 
   // Apply initialPrompt when it changes
@@ -353,6 +358,34 @@ export function ChatPanel({
     el.style.height = `${Math.min(el.scrollHeight, 160)}px`;
   }, [inputValue]);
 
+  const handleGenerateForm = useCallback(async () => {
+    if (scaffolding) return;
+
+    setScaffolding(true);
+    try {
+      const session = await ensureSession();
+      // Generate the scaffold via ChatSession
+      await session.scaffold();
+      const definition = session.getDefinition();
+      if (!definition) return;
+
+      loadDefinitionAsChangeset(`Initial scaffold: ${definition.items?.length ?? 0} field(s)`, definition);
+
+      setMessages(session.getMessages());
+      setReadyToScaffold(false);
+    } catch (err) {
+      const errMsg: ChatMessage = {
+        id: `err-${Date.now()}`,
+        role: 'system',
+        content: `Scaffold failed: ${err instanceof Error ? err.message : String(err)}`,
+        timestamp: Date.now(),
+      };
+      setMessages((prev) => [...prev, errMsg]);
+    } finally {
+      setScaffolding(false);
+    }
+  }, [ensureSession, loadDefinitionAsChangeset, scaffolding]);
+
   const handleSend = useCallback(async () => {
     const text = inputValue.trim();
     if (!text || sending) return;
@@ -368,10 +401,12 @@ export function ChatPanel({
     onUserMessage?.();
 
     try {
-      emitModelRoutingDecision(selectModelForOperation('compose_patch'));
+      const route = selectModelForOperation('compose_patch');
+      emitModelRoutingDecision(route);
       const capabilityCommand = parseCapabilityCommand(text);
       if (capabilityCommand) {
         const session = await ensureSession();
+        session.setModel(route.model);
         try {
           if (!session.hasDefinition()) {
             const initialized = await session.initializeFromSnapshot();
@@ -391,6 +426,11 @@ export function ChatPanel({
             return;
           }
           const translatedInstruction = toSlashRefinementInstruction(capabilityCommand);
+          if (capabilityCommand.kind === 'make') {
+            await session.sendMessage(translatedInstruction);
+            await handleGenerateForm();
+            return;
+          }
           emitAuthoringTelemetry({
             name: 'authoring_capability_method_used',
             capability: capabilityFromCommand,
@@ -425,6 +465,7 @@ export function ChatPanel({
         }
       }
       const session = await ensureSession();
+      session.setModel(route.model);
       await session.sendMessage(text);
       setMessages(session.getMessages());
       setReadyToScaffold(session.isReadyToScaffold());
@@ -490,6 +531,7 @@ export function ChatPanel({
     (groupIndex: number) => {
       if (!proposalManager) return;
       const active = proposalManager.getChangeset();
+      const result = proposalManager.rejectChangeset([groupIndex]);
       if (active) {
         const affectedRefs = resolvedAffectedRefs(project, active, [groupIndex]);
         const capability = inferCapability(active.label, affectedRefs);
@@ -503,7 +545,6 @@ export function ChatPanel({
           fallbackReason: AUTHORING_FALLBACK_REASONS.GROUP_REJECTED_BY_USER,
         });
       }
-      const result = proposalManager.rejectChangeset([groupIndex]);
       applyMergeResult(result);
     },
     [project, proposalManager],
@@ -531,6 +572,7 @@ export function ChatPanel({
   const handleRejectAll = useCallback(() => {
     if (!proposalManager) return;
     const active = proposalManager.getChangeset();
+    const result = proposalManager.rejectChangeset();
     if (active) {
       const affectedRefs = resolvedAffectedRefs(project, active);
       const capability = inferCapability(active.label, affectedRefs);
@@ -544,39 +586,10 @@ export function ChatPanel({
         fallbackReason: AUTHORING_FALLBACK_REASONS.ALL_REJECTED_BY_USER,
       });
     }
-    const result = proposalManager.rejectChangeset();
     applyMergeResult(result);
   }, [project, proposalManager]);
 
   // ── Scaffold as changeset ────────────────────────────────────────
-
-  const handleGenerateForm = useCallback(async () => {
-    if (scaffolding) return;
-
-    setScaffolding(true);
-    try {
-      const session = await ensureSession();
-      // Generate the scaffold via ChatSession
-      await session.scaffold();
-      const definition = session.getDefinition();
-      if (!definition) return;
-
-      loadDefinitionAsChangeset(`Initial scaffold: ${definition.items?.length ?? 0} field(s)`, definition);
-
-      setMessages(session.getMessages());
-      setReadyToScaffold(false);
-    } catch (err) {
-      const errMsg: ChatMessage = {
-        id: `err-${Date.now()}`,
-        role: 'system',
-        content: `Scaffold failed: ${err instanceof Error ? err.message : String(err)}`,
-        timestamp: Date.now(),
-      };
-      setMessages((prev) => [...prev, errMsg]);
-    } finally {
-      setScaffolding(false);
-    }
-  }, [ensureSession, project, proposalManager, scaffolding]);
 
   const handleUploadFile = useCallback(async (file: File | null) => {
     if (!file || uploading) return;
@@ -1069,12 +1082,15 @@ export function ChatPanel({
                 messagesEndRef={messagesEndRef}
                 emptyDescription={emptyDescription}
                 variant="ribbon"
+                project={project}
+                activeChangesetId={changeset?.id}
+                aiStatus={sending ? 'generating' : 'complete'}
               />
             </div>
           </div>
         )}
-        <div className={`flex-1 min-h-0 overflow-y-auto ${showReview ? '' : 'flex flex-col'}`}>
-          {showReview ? (
+        <div className={`flex-1 min-h-0 overflow-y-auto ${showReview && reviewMode === 'details' ? '' : 'flex flex-col'}`}>
+          {showReview && reviewMode === 'details' ? (
             <ChangesetReviewSection
               changeset={changesetToReviewData(changeset!)}
               diagnostics={diagnostics}
@@ -1084,6 +1100,7 @@ export function ChatPanel({
               onAcceptAll={handleAcceptAll}
               onRejectAll={handleRejectAll}
               project={project}
+              onBack={() => setReviewMode('chat')}
             />
           ) : (
             <ChatMessageList
@@ -1092,6 +1109,13 @@ export function ChatPanel({
               hasApiKey={hasApiKey}
               messagesEndRef={messagesEndRef}
               emptyDescription={emptyDescription}
+              project={project}
+              activeChangesetId={changeset?.id}
+              aiStatus={sending ? 'generating' : 'complete'}
+              onAcceptArtifact={handleAcceptAll}
+              onReviewArtifactDetails={() => setReviewMode('details')}
+              onTweakArtifact={() => inputRef.current?.focus()}
+              onRejectArtifact={handleRejectAll}
             />
           )}
         </div>

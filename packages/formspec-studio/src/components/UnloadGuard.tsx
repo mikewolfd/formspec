@@ -1,6 +1,6 @@
 /** @filedesc Warns users before closing/reloading when the project has unsaved changes. */
 import { useEffect } from 'react';
-import type { Project } from '@formspec-org/studio-core';
+import { Project } from '@formspec-org/studio-core';
 
 export function UnloadGuard({ project }: { project: Project }) {
   useEffect(() => {

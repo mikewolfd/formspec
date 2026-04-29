@@ -46,14 +46,14 @@ describe('ScreenSizes', () => {
       fireEvent.change(widthInput, { target: { value: '1440' } });
       fireEvent.keyDown(nameInput, { key: 'Enter' });
     });
-    expect((project.export().theme as any).breakpoints.wide).toBe(1440);
+    expect((project.exportBundle().theme as any).breakpoints.wide).toBe(1440);
   });
 
   it('delete dispatches with minWidth null', async () => {
     const { project } = renderSizes({ tablet: 768 });
     const deleteBtn = screen.getByRole('button', { name: /delete.*tablet/i });
     await act(async () => { deleteBtn.click(); });
-    expect((project.export().theme as any).breakpoints.tablet).toBeUndefined();
+    expect((project.exportBundle().theme as any).breakpoints.tablet).toBeUndefined();
   });
 
   it('preset apply creates all 3 breakpoints', async () => {
@@ -61,7 +61,7 @@ describe('ScreenSizes', () => {
     await act(async () => {
       screen.getByRole('button', { name: /apply presets/i }).click();
     });
-    const bp = (project.export().theme as any).breakpoints;
+    const bp = (project.exportBundle().theme as any).breakpoints;
     expect(bp.mobile).toBe(0);
     expect(bp.tablet).toBe(768);
     expect(bp.desktop).toBe(1024);

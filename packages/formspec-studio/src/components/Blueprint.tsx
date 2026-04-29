@@ -78,81 +78,98 @@ export function Blueprint({ activeSection, onSectionChange, sections, activeEdit
           aria-label="Blueprint sections"
           className="flex flex-col gap-0.5"
         >
-          {SECTIONS.filter(({ name }) => !visibleSections || visibleSections.has(name)).map(({ name, label, countFn, help, link }) => {
-            const isActive = activeSection === name;
-            const count = name === 'Component Tree' ? componentTreeCount : countFn ? countFn(state) : null;
-            const hasData = count !== null && count > 0;
-
-            return (
-              <div
-                key={name}
-                data-testid={`blueprint-section-${name}`}
-                title={help}
-                className={`group flex items-center justify-between rounded-[10px] px-2 py-2 text-[12.5px] text-left transition-colors focus-within:ring-2 focus-within:ring-accent/35 focus-within:ring-offset-2 focus-within:ring-offset-surface ${
-                  isActive
-                    ? 'bg-bg-default/90 text-ink shadow-[inset_0_0_0_1px_rgba(90,76,56,0.08)]'
-                    : 'text-muted hover:text-ink hover:bg-bg-default/50'
-                }`}
-              >
-                <button
-                  aria-current={isActive ? 'page' : undefined}
-                  className="min-w-0 flex-1 truncate rounded-[6px] text-left cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/35"
-                  onClick={() => {
-                    onSectionChange(name);
-                    // Auto-switch editor view when clicking a section with a different view target
-                    if (link?.view && activeTab === 'Editor' && activeEditorView !== link.view) {
-                      window.dispatchEvent(new CustomEvent('formspec:navigate-workspace', { detail: link }));
-                    }
-                  }}
-                >
-                  {label ?? name}
-                </button>
-                {name === 'Settings' && (
-                  <button
-                    type="button"
-                    data-testid="settings-edit-btn"
-                    aria-label="Edit settings"
-                    className="rounded p-0.5 shrink-0 text-muted/40 transition-colors hover:text-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/35"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      window.dispatchEvent(new CustomEvent('formspec:open-settings'));
-                    }}
-                  >
-                    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                      <path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z" />
-                      <path d="m15 5 4 4" />
-                    </svg>
-                  </button>
-                )}
-                {link && !(activeTab === 'Editor' && link.tab === 'Editor' && link.view && activeEditorView === link.view) && (
-                  <button
-                    type="button"
-                    aria-label={`Open ${label ?? name} tab`}
-                    className="rounded p-0.5 shrink-0 opacity-0 text-muted/40 transition-colors group-hover:opacity-100 group-focus-within:opacity-100 hover:text-accent focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/35"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      window.dispatchEvent(new CustomEvent('formspec:navigate-workspace', { detail: link }));
-                    }}
-                  >
-                    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                      <path d="M7 17 17 7" /><path d="M7 7h10v10" />
-                    </svg>
-                  </button>
-                )}
-                {count !== null && hasData && (
-                  <span className={`shrink-0 rounded-full px-1.5 py-0.5 font-mono text-[11px] tabular-nums transition-colors ${
-                    isActive
-                      ? 'bg-accent/10 text-accent/80'
-                      : 'bg-border/55 text-muted/78'
-                  }`}>
-                    {count}
-                  </span>
-                )}
-              </div>
-            );
+          {SECTIONS.filter(({ name }) => (!visibleSections || visibleSections.has(name)) && !['Mappings', 'Evidence', 'Screener'].includes(name)).map(({ name, label, countFn, help, link }) => {
+             return renderSection(name, label, countFn, help, link);
           })}
         </nav>
+
+        {/* Advanced Section */}
+        {(!visibleSections || ['Mappings', 'Evidence', 'Screener'].some(s => visibleSections.has(s))) && (
+          <div className="mt-6 border-t border-border/40 pt-4">
+            <h3 className="mb-2 px-3 text-[10px] font-mono font-semibold tracking-widest uppercase text-muted/40">
+              Advanced
+            </h3>
+            <nav className="flex flex-col gap-0.5">
+              {SECTIONS.filter(({ name }) => ['Mappings', 'Evidence', 'Screener'].includes(name) && (!visibleSections || visibleSections.has(name))).map(({ name, label, countFn, help, link }) => {
+                return renderSection(name, label, countFn, help, link);
+              })}
+            </nav>
+          </div>
+        )}
       </div>
     </div>
   );
+
+  function renderSection(name: string, label: string | undefined, countFn: any, help: string, link: any) {
+    const isActive = activeSection === name;
+    const count = name === 'Component Tree' ? componentTreeCount : countFn ? countFn(state) : null;
+    const hasData = count !== null && count > 0;
+
+    return (
+      <div
+        key={name}
+        data-testid={`blueprint-section-${name}`}
+        title={help}
+        className={`group flex items-center justify-between rounded-[10px] px-2 py-2 text-[12.5px] text-left transition-colors focus-within:ring-2 focus-within:ring-accent/35 focus-within:ring-offset-2 focus-within:ring-offset-surface ${
+          isActive
+            ? 'bg-bg-default/90 text-ink shadow-[inset_0_0_0_1px_rgba(90,76,56,0.08)]'
+            : 'text-muted hover:text-ink hover:bg-bg-default/50'
+        }`}
+      >
+        <button
+          aria-current={isActive ? 'page' : undefined}
+          className="min-w-0 flex-1 truncate rounded-[6px] text-left cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/35"
+          onClick={() => {
+            onSectionChange(name);
+            if (link?.view && activeTab === 'Editor' && activeEditorView !== link.view) {
+              window.dispatchEvent(new CustomEvent('formspec:navigate-workspace', { detail: link }));
+            }
+          }}
+        >
+          {label ?? name}
+        </button>
+        {name === 'Settings' && (
+          <button
+            type="button"
+            data-testid="settings-edit-btn"
+            aria-label="Edit settings"
+            className="rounded p-0.5 shrink-0 text-muted/40 transition-colors hover:text-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/35"
+            onClick={(e) => {
+              e.stopPropagation();
+              window.dispatchEvent(new CustomEvent('formspec:open-settings'));
+            }}
+          >
+            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+              <path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z" />
+              <path d="m15 5 4 4" />
+            </svg>
+          </button>
+        )}
+        {link && !(activeTab === 'Editor' && link.tab === 'Editor' && link.view && activeEditorView === link.view) && (
+          <button
+            type="button"
+              aria-label={`Open ${name} tab`}
+            className="rounded p-0.5 shrink-0 opacity-0 text-muted/40 transition-colors group-hover:opacity-100 group-focus-within:opacity-100 hover:text-accent focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/35"
+            onClick={(e) => {
+              e.stopPropagation();
+              window.dispatchEvent(new CustomEvent('formspec:navigate-workspace', { detail: link }));
+            }}
+          >
+            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+              <path d="M7 17 17 7" /><path d="M7 7h10v10" />
+            </svg>
+          </button>
+        )}
+        {count !== null && hasData && (
+          <span className={`shrink-0 rounded-full px-1.5 py-0.5 font-mono text-[11px] tabular-nums transition-colors ${
+            isActive
+              ? 'bg-accent/10 text-accent/80'
+              : 'bg-border/55 text-muted/78'
+          }`}>
+            {count}
+          </span>
+        )}
+      </div>
+    );
+  }
 }

@@ -54,7 +54,12 @@ describe('Header', () => {
     );
 
     act(() => {
-      project.addField('f1', 'F1', 'string');
+      project.loadBundle({
+        definition: {
+          ...project.definition,
+          title: 'Undo-enabled form',
+        },
+      });
     });
 
     // Re-render to pick up state change
@@ -106,19 +111,19 @@ describe('Header', () => {
     renderHeader();
 
     const editorTab = screen.getByRole('tab', { name: 'Editor' });
-    const layoutTab = screen.getByRole('tab', { name: 'Layout' });
+    const designTab = screen.getByRole('tab', { name: 'Design' });
 
     expect(editorTab).toHaveAttribute('id', 'studio-tab-editor');
     expect(editorTab).toHaveAttribute('aria-controls', 'studio-panel-editor');
     expect(editorTab).toHaveAttribute('tabindex', '0');
-    expect(layoutTab).toHaveAttribute('tabindex', '-1');
+    expect(designTab).toHaveAttribute('tabindex', '-1');
   });
 
   it('renders the unified Studio workspace tabs', () => {
     renderHeader();
     const tabs = screen.getAllByRole('tab');
     expect(tabs).toHaveLength(5);
-    expect(tabs.map(t => t.textContent)).toEqual(['Editor', 'Layout', 'Evidence', 'Mapping', 'Preview']);
+    expect(tabs.map(t => t.textContent)).toEqual(['Editor', 'Design', 'Evidence', 'Mapping', 'Preview']);
   });
 
   it('does not render legacy Logic or Data tabs', () => {
@@ -127,8 +132,8 @@ describe('Header', () => {
     expect(screen.queryByRole('tab', { name: 'Data' })).not.toBeInTheDocument();
   });
 
-  it('assistantSurface replaces tabs with AI-method status and manual-controls CTA', async () => {
-    const onEnterWorkspace = vi.fn();
+  it('renders ModeToggle when mode and onModeChange are provided', () => {
+    const onModeChange = vi.fn();
     render(
       <ProjectProvider project={createProject()}>
         <SelectionProvider>
@@ -137,46 +142,14 @@ describe('Header', () => {
             onTabChange={() => {}}
             onImport={() => {}}
             onSearch={() => {}}
-            assistantSurface={{
-              onEnterWorkspace,
-              onReopenHelp: vi.fn(),
-              showHelpButton: true,
-            }}
-            isCompact={false}
+            mode="chat"
+            onModeChange={onModeChange}
           />
         </SelectionProvider>
       </ProjectProvider>,
     );
-    expect(screen.getByTestId('assistant-enter-workspace')).toBeInTheDocument();
-    expect(screen.queryByRole('tab', { name: 'Layout' })).not.toBeInTheDocument();
-    expect(screen.getByRole('status', { name: 'AI method active' })).toBeInTheDocument();
-    await act(async () => {
-      screen.getByTestId('assistant-enter-workspace').click();
-    });
-    expect(onEnterWorkspace).toHaveBeenCalledTimes(1);
-    expect(onEnterWorkspace).toHaveBeenCalledWith('header');
-  });
-
-  it('assistantSurface shows Help on compact layout', () => {
-    render(
-      <ProjectProvider project={createProject()}>
-        <SelectionProvider>
-          <Header
-            activeTab="Editor"
-            onTabChange={() => {}}
-            onImport={() => {}}
-            onSearch={() => {}}
-            assistantSurface={{
-              onEnterWorkspace: vi.fn(),
-              onReopenHelp: vi.fn(),
-              showHelpButton: true,
-            }}
-            isCompact
-          />
-        </SelectionProvider>
-      </ProjectProvider>,
-    );
-    expect(screen.getByRole('button', { name: /studio setup help/i })).toBeInTheDocument();
+    expect(screen.getByTestId('mode-toggle-chat')).toBeInTheDocument();
+    expect(screen.queryByRole('tab', { name: 'Editor' })).not.toBeInTheDocument();
   });
 
   it('renders Ask AI toggle when onSwitchToAssistant provided (workspace mode)', () => {

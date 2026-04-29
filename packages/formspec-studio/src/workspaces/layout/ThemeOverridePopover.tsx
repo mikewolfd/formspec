@@ -6,7 +6,7 @@ import {
   type PropertySource,
   type EditableThemeProperty,
 } from '@formspec-org/studio-core';
-import type { Project } from '@formspec-org/studio-core';
+import { Project } from '@formspec-org/studio-core';
 import { DirtyGuardConfirm, useDirtyGuard } from './DirtyGuardConfirm';
 import { useOptionalLayoutMode } from './LayoutModeContext';
 

@@ -18,10 +18,27 @@ export async function waitForAppWithExport(page: Page) {
   await page.waitForSelector('[data-testid="shell"]', { timeout: 10000 });
 }
 
-/** Switch to a workspace tab by clicking its label. */
+/** Switch the Studio surface to a specific mode. */
+export async function switchMode(page: Page, mode: 'chat' | 'edit' | 'design' | 'preview') {
+  await page.click(`[data-testid="mode-toggle-${mode}"]`);
+  // Map mode to expected workspace visibility for wait logic
+  const workspaceTestId = mode === 'chat' ? 'chat-panel' 
+    : mode === 'preview' ? 'workspace-Preview' 
+    : mode === 'design' ? 'design-canvas-shell'
+    : 'workspace-Editor';
+  await page.waitForSelector(`[data-testid="${workspaceTestId}"]`);
+}
+
+/** Switch to a workspace tab (Legacy wrapper around switchMode). */
 export async function switchTab(page: Page, tabName: string) {
-  await page.click(`[data-testid="tab-${tabName}"]`);
-  await page.waitForSelector(`[data-testid="workspace-${tabName}"]`);
+  const modeMap: Record<string, 'chat' | 'edit' | 'design' | 'preview'> = {
+    'Editor': 'edit',
+    'Layout': 'design',
+    'Preview': 'preview',
+    'Design': 'design',
+  };
+  const mode = modeMap[tabName] || 'edit';
+  await switchMode(page, mode);
 }
 
 /** Canonical desktop properties rail locator. */
@@ -91,7 +108,7 @@ export async function addFromPalette(page: Page, label: string) {
 
 /** Add from the Layout workspace palette (layout + display only; fields and groups use Editor). */
 export async function addFromLayoutPalette(page: Page, label: string) {
-  await switchTab(page, 'Layout');
+  await switchMode(page, 'design');
   await page.click('[data-testid="layout-add-item"]');
   const palette = page.locator('[data-testid="add-item-palette"]');
   await palette.waitFor();

@@ -3,7 +3,8 @@ import { useEffect, useRef, useState } from 'react';
 import { ChangesetReview, type ChangesetReviewData } from '../ChangesetReview.js';
 import { IconTriangleWarning as IconWarning, IconChevronRight } from '../icons/index.js';
 import { MutationProvenancePanel } from './MutationProvenancePanel.js';
-import type { Project } from '@formspec-org/studio-core';
+import { ProposedArtifactBlock } from './ProposedArtifactBlock.js';
+import { Project } from '@formspec-org/studio-core';
 
 interface DiagnosticEntry {
   severity: 'error' | 'warning';
@@ -21,6 +22,8 @@ export interface ChangesetReviewSectionProps {
   onRejectAll: () => void;
   /** When provided, renders the "What changes behind the scenes" provenance panel (ADR 0087). */
   project?: Project;
+  /** Return to the chat thread. */
+  onBack?: () => void;
 }
 
 const COMPACT_BREAKPOINT_PX = 420;
@@ -64,6 +67,8 @@ function ReviewBody({
 }: ReviewBodyProps) {
   return (
     <>
+      {project && <div className="mx-4"><ProposedArtifactBlock project={project} changesetId={changeset.id} /></div>}
+      
       <ChangesetReview
         changeset={changeset}
         onAcceptGroup={onAcceptGroup}
@@ -161,6 +166,17 @@ export function ChangesetReviewSection(props: ChangesetReviewSectionProps) {
         </div>
       ) : (
         <div className="changeset-full-review">
+          {props.onBack && (
+            <div className="px-4 py-2 border-b border-border/40 bg-bg-default/60 flex items-center gap-2">
+              <button
+                type="button"
+                onClick={props.onBack}
+                className="text-[11px] font-semibold uppercase tracking-[0.12em] text-muted hover:text-ink flex items-center gap-1 transition-colors"
+              >
+                ← Back to chat
+              </button>
+            </div>
+          )}
           <ReviewBody {...props} />
         </div>
       )}

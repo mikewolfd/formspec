@@ -1,4 +1,4 @@
-/** @filedesc Top navigation header with workspace tab bar and actions (new, import, export, search). */
+/** @filedesc Top navigation header with mode toggle or workspace tab bar and actions (new, import, export, search). */
 import { useState, useRef, useEffect } from 'react';
 import { useProject } from '../state/useProject';
 import { useProjectState } from '../state/useProjectState';
@@ -14,20 +14,12 @@ import {
   IconStack,
 } from './icons';
 import { AssistantEntryMenu, type AssistantEntryMenuProps } from './AssistantEntryMenu';
-import type { EnterWorkspaceSource } from '../onboarding/enter-workspace-source';
-
-/** Header chrome when the user is on the full-screen assistant surface (before tabbed Studio). */
-export interface AssistantHeaderSurfaceProps {
-  /** Prefer passing a source for telemetry (`header` from this control). */
-  onEnterWorkspace: (source: EnterWorkspaceSource) => void;
-  onReopenHelp?: () => void;
-  /** When true, show a Help control that calls `onReopenHelp`. */
-  showHelpButton?: boolean;
-}
+import { ModeToggle } from './ModeToggle';
+import type { StudioMode } from '../studio-app/ModeProvider';
 
 const TABS: { name: string; help: string }[] = [
   { name: 'Editor', help: 'Build your form structure and manage shared resources' },
-  { name: 'Layout', help: 'Visual form builder — pages, layout containers, and widget placement' },
+  { name: 'Design', help: 'Visual brand, layout regions, and style controls' },
   { name: 'Evidence', help: 'Review source documents, citations, missing coverage, and conflicts' },
   { name: 'Mapping', help: 'Bidirectional data transforms for import/export formats' },
   { name: 'Preview', help: 'Live form preview, behavior lab, and JSON document view' },
@@ -44,14 +36,16 @@ interface HeaderProps {
   onOpenMetadata?: () => void;
   onToggleAccountMenu?: () => void;
   onToggleMenu?: () => void;
+
   /** In-shell chat control (dock/hide assistant panel within workspace). */
   assistantMenu?: AssistantEntryMenuProps | null;
   /** Switches from workspace to full assistant surface. */
   onSwitchToAssistant?: (() => void) | null;
-  /** Replaces workspace tabs with AI-authoring labeling and adds manual-controls CTA (+ optional Help). */
-  assistantSurface?: AssistantHeaderSurfaceProps | null;
   isCompact?: boolean;
   colorScheme?: ColorScheme;
+  /** When provided, renders ModeToggle instead of workspace tabs. */
+  mode?: StudioMode;
+  onModeChange?: (mode: StudioMode) => void;
 }
 
 function tabId(name: string): string {
@@ -91,11 +85,13 @@ export function Header({
   onOpenMetadata,
   onToggleAccountMenu,
   onToggleMenu,
+
   assistantMenu,
   onSwitchToAssistant,
-  assistantSurface,
   isCompact = false,
   colorScheme,
+  mode,
+  onModeChange,
 }: HeaderProps) {
   const project = useProject();
   const state = useProjectState();
@@ -229,9 +225,7 @@ export function Header({
 
   const actionButtons = (
     <div
-      className={`flex min-w-0 shrink-0 items-center gap-1.5 sm:gap-2 ${
-        assistantSurface && isCompact ? 'max-w-[min(100%,52vw)] overflow-x-auto scrollbar-none pr-0.5' : ''
-      }`}
+      className="flex min-w-0 shrink-0 items-center gap-1.5 sm:gap-2"
     >
       {/* Search — icon-only on compact, full bar on wide */}
       {isCompact ? (
@@ -287,9 +281,9 @@ export function Header({
         <IconRedo />
       </button>
 
-      {!assistantSurface && assistantMenu && <AssistantEntryMenu {...assistantMenu} />}
+      {assistantMenu && <AssistantEntryMenu {...assistantMenu} />}
 
-      {!assistantSurface && onSwitchToAssistant && (
+      {onSwitchToAssistant && (
         <button
           type="button"
           data-testid="toggle-to-assistant"
@@ -300,32 +294,6 @@ export function Header({
           aria-label="Switch to AI authoring"
         >
           Ask AI
-        </button>
-      )}
-
-      {assistantSurface?.showHelpButton && assistantSurface.onReopenHelp && (
-        <button
-          type="button"
-          aria-label="Studio setup help"
-          title="Studio setup help"
-          className={`inline-flex shrink-0 items-center rounded-full border border-border/65 bg-surface/70 font-medium text-ink hover:bg-surface focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/35 ${
-            isCompact ? 'px-2.5 py-1.5 text-[11px]' : 'hidden px-3 py-1.5 text-[12px] md:inline-flex'
-          }`}
-          onClick={() => assistantSurface.onReopenHelp?.()}
-        >
-          Help
-        </button>
-      )}
-      {assistantSurface && (
-        <button
-          type="button"
-          data-testid="assistant-enter-workspace"
-          className={`shrink-0 rounded-full bg-accent font-semibold text-white shadow-sm hover:bg-accent/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/40 ${
-            isCompact ? 'px-2.5 py-1.5 text-[11px]' : 'px-3.5 py-2 text-[12px]'
-          }`}
-          onClick={() => assistantSurface.onEnterWorkspace('header')}
-        >
-          Open manual controls
         </button>
       )}
 
@@ -373,11 +341,7 @@ export function Header({
             <div>
               <div className="font-display text-[22px] tracking-[-0.04em] leading-none whitespace-nowrap text-ink">The Stack</div>
             <div className="font-mono text-[11px] text-muted tracking-[0.18em] uppercase whitespace-nowrap">
-                {assistantSurface ? (
-                  <span className="truncate">{formTitle} · AI authoring</span>
-                ) : (
-                  <>FORMSPEC {definition.$formspec} · {definition.status || 'DRAFT'}</>
-                )}
+                <>{formTitle} · FORMSPEC {definition.$formspec} · {definition.status || 'DRAFT'}</>
               </div>
             </div>
           </button>
@@ -385,14 +349,10 @@ export function Header({
           {actionButtons}
         </div>
 
-        {/* Row 2: Workspace tabs or assistant stage label */}
-        {assistantSurface ? (
-          <div
-            className="flex h-[42px] items-center justify-center border-t border-border/40 px-3"
-            role="status"
-            aria-label="AI method active"
-          >
-            <span className="rounded-full border border-border/55 bg-surface/55 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.14em] text-muted">AI method active</span>
+        {/* Row 2: Mode toggle or workspace tabs */}
+        {mode && onModeChange ? (
+          <div className="flex h-[42px] items-center justify-center border-t border-border/40 px-3">
+            <ModeToggle mode={mode} onModeChange={onModeChange} compact />
           </div>
         ) : (
           <nav className="flex h-[42px] overflow-x-auto scrollbar-none border-t border-border/40 px-3" role="tablist" aria-label="Studio workspaces">
@@ -422,19 +382,15 @@ export function Header({
         <div className="space-y-1">
           <div className="font-display text-[31px] tracking-[-0.05em] leading-none text-ink">The Stack</div>
           <div className="font-mono text-[11px] text-muted tracking-[0.18em] uppercase">
-            {assistantSurface ? (
-              <span className="block max-w-[min(52vw,28rem)] truncate">{formTitle} · AI authoring</span>
-            ) : (
-              <>FORMSPEC {definition.$formspec} · {definition.status || 'DRAFT'}</>
-            )}
+            <>{formTitle} · FORMSPEC {definition.$formspec} · {definition.status || 'DRAFT'}</>
           </div>
         </div>
       </button>
 
-      {/* Workspace tabs or assistant stage label */}
-      {assistantSurface ? (
-        <div className="flex h-12 items-end self-stretch pb-1" role="status" aria-label="AI method active">
-          <span className="mb-0.5 rounded-full border border-border/60 bg-surface/50 px-3 py-1.5 text-[11px] font-semibold uppercase tracking-[0.14em] text-muted">AI method active</span>
+      {/* Mode toggle or workspace tabs */}
+      {mode && onModeChange ? (
+        <div className="flex h-12 items-end self-stretch pb-1">
+          <ModeToggle mode={mode} onModeChange={onModeChange} />
         </div>
       ) : (
         <nav className="flex h-12 items-end self-stretch" role="tablist" aria-label="Studio workspaces">
