@@ -9,7 +9,7 @@ import { existsSync } from 'node:fs';
 import { resolve } from 'node:path';
 
 import { ProjectRegistry } from './registry.js';
-import { initSchemas, initSchemaTexts } from './schemas.js';
+import { initSchemas } from './schemas.js';
 import { createFormspecServer } from './create-server.js';
 import { registerSchemaResources, registerNodeTools } from './node-tools.js';
 
@@ -22,7 +22,6 @@ const schemaDirs = [
 const actualSchemasDir = schemaDirs.find(d => existsSync(d));
 if (actualSchemasDir) {
   initSchemas(actualSchemasDir);
-  initSchemaTexts(actualSchemasDir);
 }
 
 const registry = new ProjectRegistry();

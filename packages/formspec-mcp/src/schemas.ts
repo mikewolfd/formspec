@@ -45,11 +45,6 @@ export function getValidator(): SchemaValidator {
   return validator;
 }
 
-export function initSchemaTexts(_schemasDir: string): void {
-  // Schema texts are now populated by initSchemas. This function is kept
-  // for API compat but no longer re-reads files from disk.
-}
-
 export function getSchemaText(name: 'definition' | 'component' | 'theme'): string {
   return schemaTexts[name] ?? '';
 }

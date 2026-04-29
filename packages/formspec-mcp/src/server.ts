@@ -14,7 +14,7 @@ const thisDir = typeof __dirname !== 'undefined'
   : dirname(fileURLToPath(import.meta.url));
 
 import { ProjectRegistry } from './registry.js';
-import { initSchemas, initSchemaTexts } from './schemas.js';
+import { initSchemas } from './schemas.js';
 import * as lifecycle from './tools/lifecycle.js';
 import { createFormspecServer } from './create-server.js';
 import { registerSchemaResources, registerNodeTools } from './node-tools.js';
@@ -43,7 +43,6 @@ export async function main() {
   await initFormspecEngine();
   await initFormspecEngineTools();
   initSchemas(actualSchemasDir);
-  initSchemaTexts(actualSchemasDir);
 
   const registry = new ProjectRegistry();
   const server = createFormspecServer(registry);

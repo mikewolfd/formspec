@@ -5,6 +5,7 @@
 Model Context Protocol server for AI-driven Formspec form authoring. Exposes form creation, editing, preview, and validation as MCP tools.
 
 ## `READ_ONLY: {
+
     readonly readOnlyHint: true;
     readonly destructiveHint: false;
     readonly idempotentHint: true;
@@ -14,6 +15,7 @@ Model Context Protocol server for AI-driven Formspec form authoring. Exposes for
 @filedesc Reusable MCP tool annotation presets (read-only, destructive, etc.).
 
 ## `NON_DESTRUCTIVE: {
+
     readonly readOnlyHint: false;
     readonly destructiveHint: false;
     readonly idempotentHint: false;
@@ -21,6 +23,7 @@ Model Context Protocol server for AI-driven Formspec form authoring. Exposes for
 }`
 
 ## `DESTRUCTIVE: {
+
     readonly readOnlyHint: false;
     readonly destructiveHint: true;
     readonly idempotentHint: false;
@@ -28,6 +31,7 @@ Model Context Protocol server for AI-driven Formspec form authoring. Exposes for
 }`
 
 ## `FILESYSTEM_IO: {
+
     readonly readOnlyHint: false;
     readonly destructiveHint: false;
     readonly idempotentHint: true;
@@ -109,6 +113,7 @@ Call a tool by name with arguments. Returns the MCP response as a string.
 ## `formatToolError(code: string, message: string, detail?: Record<string, unknown>): ToolError`
 
 ## `errorResponse(error: ToolError): {
+
     isError: true;
     content: {
         type: "text";
@@ -120,6 +125,7 @@ Call a tool by name with arguments. Returns the MCP response as a string.
 MCP error response shape with structuredContent
 
 ## `successResponse(result: unknown): {
+
     structuredContent?: Record<string, unknown> | undefined;
     content: {
         type: "text";
@@ -129,7 +135,7 @@ MCP error response shape with structuredContent
 
 MCP success response shape
 
-## `wrapHelperCall(fn: () => HelperResult): ReturnType<typeof successResponse> | ReturnType<typeof errorResponse>`
+## `wrapCall(fn: () => unknown, defaultCode?: string): ReturnType<typeof successResponse> | ReturnType<typeof errorResponse>`
 
 Wraps a Project helper call with uniform error handling.
 Catches HelperError → maps to ToolError wire format.
@@ -191,6 +197,7 @@ exports the server so the host environment can connect its own transport.
 ##### `listAll(): ProjectEntry[]`
 
 ##### `authoringProjects(): Array<{
+
         id: string;
         project: Project;
         sourcePath?: string;
@@ -203,13 +210,12 @@ Call once at startup. Throws (fatal) if any schema file is missing.
 
 ## `getValidator(): SchemaValidator`
 
-## `initSchemaTexts(schemasDir: string): void`
-
 ## `getSchemaText(name: 'definition' | 'component' | 'theme'): string`
 
 ## `main(): Promise<void>`
 
 ## `handleAudit(registry: ProjectRegistry, projectId: string, params: AuditParams): {
+
     structuredContent?: Record<string, unknown> | undefined;
     content: {
         type: "text";
@@ -238,6 +244,7 @@ type AuditAction = 'classify_items' | 'bind_summary' | 'cross_document' | 'acces
 ```
 
 ## `handleBehaviorExpanded(registry: ProjectRegistry, projectId: string, params: BehaviorExpandedParams): {
+
     structuredContent?: Record<string, unknown> | undefined;
     content: {
         type: "text";
@@ -273,6 +280,7 @@ type BehaviorExpandedAction = 'set_bind_property' | 'set_shape_composition' | 'u
 ```
 
 ## `handleBehavior(registry: ProjectRegistry, projectId: string, params: BehaviorParams | {
+
     items: BatchItem[];
 }): {
     structuredContent?: Record<string, unknown> | undefined;
@@ -299,6 +307,7 @@ type BehaviorAction = 'show_when' | 'readonly_when' | 'require' | 'calculate' | 
 ```
 
 ## `handleDraft(registry: ProjectRegistry, projectId: string, type: ArtifactType, json: unknown): {
+
     structuredContent?: Record<string, unknown> | undefined;
     content: {
         type: "text";
@@ -310,6 +319,7 @@ Submit a raw JSON artifact for schema validation during bootstrap.
 type: 'definition' | 'component' | 'theme'
 
 ## `handleLoad(registry: ProjectRegistry, projectId: string): {
+
     structuredContent?: Record<string, unknown> | undefined;
     content: {
         type: "text";
@@ -327,6 +337,7 @@ type ArtifactType = 'definition' | 'component' | 'theme';
 ```
 
 ## `handleChangelog(registry: ProjectRegistry, projectId: string, params: ChangelogParams): {
+
     structuredContent?: Record<string, unknown> | undefined;
     content: {
         type: "text";
@@ -346,6 +357,7 @@ type ChangelogAction = 'list_changes' | 'diff_from_baseline';
 ```
 
 ## `handleChangesetOpen(registry: ProjectRegistry, projectId: string): {
+
     structuredContent?: Record<string, unknown> | undefined;
     content: {
         type: "text";
@@ -356,6 +368,7 @@ type ChangelogAction = 'list_changes' | 'diff_from_baseline';
 Handle formspec_changeset_open: start a new changeset.
 
 ## `handleChangesetClose(registry: ProjectRegistry, projectId: string, label: string): {
+
     structuredContent?: Record<string, unknown> | undefined;
     content: {
         type: "text";
@@ -366,6 +379,7 @@ Handle formspec_changeset_open: start a new changeset.
 Handle formspec_changeset_close: seal the changeset and compute dependency groups.
 
 ## `handleChangesetList(registry: ProjectRegistry, projectId: string): {
+
     structuredContent?: Record<string, unknown> | undefined;
     content: {
         type: "text";
@@ -376,6 +390,7 @@ Handle formspec_changeset_close: seal the changeset and compute dependency group
 Handle formspec_changeset_list: list changesets with status and summaries.
 
 ## `handleChangesetAccept(registry: ProjectRegistry, projectId: string, groupIndices?: number[]): {
+
     structuredContent?: Record<string, unknown> | undefined;
     content: {
         type: "text";
@@ -386,6 +401,7 @@ Handle formspec_changeset_list: list changesets with status and summaries.
 Handle formspec_changeset_accept: accept a pending changeset.
 
 ## `handleChangesetReject(registry: ProjectRegistry, projectId: string, groupIndices?: number[]): {
+
     structuredContent?: Record<string, unknown> | undefined;
     content: {
         type: "text";
@@ -413,6 +429,7 @@ brackets. If the project cannot be resolved (wrong phase, not found),
 appropriate MCP error response.
 
 ## `handleComponent(registry: ProjectRegistry, projectId: string, params: ComponentParams): {
+
     structuredContent?: Record<string, unknown> | undefined;
     content: {
         type: "text";
@@ -443,6 +460,7 @@ type ComponentAction = 'list_nodes' | 'set_node_property' | 'add_node' | 'remove
 ```
 
 ## `handleComposition(registry: ProjectRegistry, projectId: string, params: CompositionParams): {
+
     structuredContent?: Record<string, unknown> | undefined;
     content: {
         type: "text";
@@ -464,6 +482,7 @@ type CompositionAction = 'add_ref' | 'remove_ref' | 'list_refs';
 ```
 
 ## `handleData(registry: ProjectRegistry, projectId: string, params: DataParams): {
+
     isError: true;
     content: {
         type: "text";
@@ -503,6 +522,7 @@ type DataAction = 'add' | 'update' | 'remove' | 'rename';
 ```
 
 ## `handleFel(registry: ProjectRegistry, projectId: string, params: FelParams): {
+
     structuredContent?: Record<string, unknown> | undefined;
     content: {
         type: "text";
@@ -511,6 +531,7 @@ type DataAction = 'add' | 'update' | 'remove' | 'rename';
 }`
 
 ## `handleFelTrace(registry: ProjectRegistry, projectId: string, params: FelTraceParams): {
+
     structuredContent?: Record<string, unknown> | undefined;
     content: {
         type: "text";
@@ -544,6 +565,7 @@ type FelAction = 'context' | 'functions' | 'check' | 'validate' | 'autocomplete'
 ```
 
 ## `handleFlow(registry: ProjectRegistry, projectId: string, params: FlowParams): {
+
     isError: true;
     content: {
         type: "text";
@@ -574,6 +596,7 @@ type FlowAction = 'set_mode' | 'branch';
 ```
 
 ## `handleGuide(registry: ProjectRegistry, mode: 'new' | 'modify', projectId?: string, context?: string): {
+
     structuredContent?: Record<string, unknown> | undefined;
     content: {
         type: "text";
@@ -596,6 +619,7 @@ type FlowAction = 'set_mode' | 'branch';
 ## `handleRedo(registry: ProjectRegistry, projectId: string): ReturnType<typeof successResponse> | ReturnType<typeof errorResponse>`
 
 ## `handleLocale(registry: ProjectRegistry, projectId: string, params: LocaleParams): {
+
     structuredContent?: Record<string, unknown> | undefined;
     content: {
         type: "text";
@@ -618,6 +642,7 @@ type LocaleAction = 'set_string' | 'remove_string' | 'list_strings' | 'set_form_
 ```
 
 ## `handleMappingExpanded(registry: ProjectRegistry, projectId: string, params: MappingParams): {
+
     structuredContent?: Record<string, unknown> | undefined;
     content: {
         type: "text";
@@ -644,6 +669,7 @@ type MappingAction = 'add_mapping' | 'remove_mapping' | 'list_mappings' | 'auto_
 ```
 
 ## `handleMigration(registry: ProjectRegistry, projectId: string, params: MigrationParams): {
+
     structuredContent?: Record<string, unknown> | undefined;
     content: {
         type: "text";
@@ -670,6 +696,7 @@ type MigrationAction = 'add_rule' | 'remove_rule' | 'list_rules';
 ```
 
 ## `handleOntology(registry: ProjectRegistry, projectId: string, params: OntologyParams): {
+
     structuredContent?: Record<string, unknown> | undefined;
     content: {
         type: "text";
@@ -691,6 +718,7 @@ type OntologyAction = 'bind_concept' | 'remove_concept' | 'list_concepts' | 'set
 ```
 
 ## `handleLayout(registry: ProjectRegistry, projectId: string, targets: string | string[], arrangement: LayoutArrangement): {
+
     isError: true;
     content: {
         type: "text";
@@ -706,6 +734,7 @@ type OntologyAction = 'bind_concept' | 'remove_concept' | 'list_concepts' | 'set
 }`
 
 ## `handleStyle(registry: ProjectRegistry, projectId: string, path: string, properties: Record<string, unknown>): {
+
     isError: true;
     content: {
         type: "text";
@@ -721,6 +750,7 @@ type OntologyAction = 'bind_concept' | 'remove_concept' | 'list_concepts' | 'set
 }`
 
 ## `handleStyleAll(registry: ProjectRegistry, projectId: string, properties: Record<string, unknown>, target: 'form' | {
+
     type: 'group' | 'field' | 'display';
 } | {
     dataType: string;
@@ -758,6 +788,7 @@ type LifecycleStatus = 'draft' | 'active' | 'retired';
 ```
 
 ## `handleDescribe(registry: ProjectRegistry, projectId: string, mode: 'structure' | 'audit' | 'shapes', target?: string): {
+
     structuredContent?: Record<string, unknown> | undefined;
     content: {
         type: "text";
@@ -766,6 +797,7 @@ type LifecycleStatus = 'draft' | 'active' | 'retired';
 }`
 
 ## `handleSearch(registry: ProjectRegistry, projectId: string, filter: Partial<ItemFilter>): {
+
     structuredContent?: Record<string, unknown> | undefined;
     content: {
         type: "text";
@@ -774,6 +806,7 @@ type LifecycleStatus = 'draft' | 'active' | 'retired';
 }`
 
 ## `handleTrace(registry: ProjectRegistry, projectId: string, mode: 'trace' | 'changelog', params: {
+
     expression_or_field?: string;
     from_version?: string;
 }): {
@@ -785,6 +818,7 @@ type LifecycleStatus = 'draft' | 'active' | 'retired';
 }`
 
 ## `handlePreview(registry: ProjectRegistry, projectId: string, mode: 'preview' | 'validate' | 'sample_data' | 'normalize', params: {
+
     scenario?: Record<string, unknown>;
     response?: Record<string, unknown>;
 }): {
@@ -796,6 +830,7 @@ type LifecycleStatus = 'draft' | 'active' | 'retired';
 }`
 
 ## `handleReference(registry: ProjectRegistry, projectId: string, params: ReferenceParams): {
+
     structuredContent?: Record<string, unknown> | undefined;
     content: {
         type: "text";
@@ -818,6 +853,7 @@ type ReferenceAction = 'add_reference' | 'remove_reference' | 'list_references';
 ```
 
 ## `handleResponse(registry: ProjectRegistry, projectId: string, params: ResponseParams): {
+
     structuredContent?: Record<string, unknown> | undefined;
     content: {
         type: "text";
@@ -843,6 +879,7 @@ type ResponseAction = 'set_test_response' | 'get_test_response' | 'clear_test_re
 ```
 
 ## `handleScreener(registry: ProjectRegistry, projectId: string, params: ScreenerParams): {
+
     isError: true;
     content: {
         type: "text";
@@ -887,6 +924,7 @@ type ResponseAction = 'set_test_response' | 'get_test_response' | 'clear_test_re
 #### type `ScreenerAction`
 
 ## `handleStructureBatch(registry: ProjectRegistry, projectId: string, params: {
+
     action: string;
     paths: string[];
     groupPath?: string;
@@ -907,31 +945,35 @@ type ResponseAction = 'set_test_response' | 'get_test_response' | 'clear_test_re
 }`
 
 ## `handleField(registry: ProjectRegistry, projectId: string, params: {
+
     path: string;
     label: string;
     type: string;
     props?: FieldProps;
     parentPath?: string;
-}): ReturnType<typeof wrapHelperCall>`
+}): ReturnType<typeof wrapCall>`
 
 ## `handleContent(registry: ProjectRegistry, projectId: string, params: {
+
     path: string;
     body: string;
     kind?: string;
     props?: ContentProps;
     parentPath?: string;
-}): ReturnType<typeof wrapHelperCall>`
+}): ReturnType<typeof wrapCall>`
 
 ## `handleGroup(registry: ProjectRegistry, projectId: string, params: {
+
     path: string;
     label: string;
     props?: GroupProps & {
         repeat?: RepeatProps;
     };
     parentPath?: string;
-}): ReturnType<typeof wrapHelperCall>`
+}): ReturnType<typeof wrapCall>`
 
 ## `handleSubmitButton(registry: ProjectRegistry, projectId: string, label?: string, pageId?: string): {
+
     isError: true;
     content: {
         type: "text";
@@ -947,6 +989,7 @@ type ResponseAction = 'set_test_response' | 'get_test_response' | 'clear_test_re
 }`
 
 ## `handlePage(registry: ProjectRegistry, projectId: string, action: 'add' | 'remove' | 'move' | 'list', params: {
+
     title?: string;
     description?: string;
     page_id?: string;
@@ -960,13 +1003,15 @@ type ResponseAction = 'set_test_response' | 'get_test_response' | 'clear_test_re
 }`
 
 ## `handlePlace(registry: ProjectRegistry, projectId: string, params: {
+
     action: 'place' | 'unplace';
     target: string;
     page_id: string;
     options?: PlacementOptions;
-}): ReturnType<typeof wrapHelperCall>`
+}): ReturnType<typeof wrapCall>`
 
 ## `handleUpdate(registry: ProjectRegistry, projectId: string, target: 'item' | 'metadata', params: {
+
     path?: string;
     changes?: ItemChanges | MetadataChanges;
     items?: Array<{
@@ -982,6 +1027,7 @@ type ResponseAction = 'set_test_response' | 'get_test_response' | 'clear_test_re
 }`
 
 ## `editMissingAction(): {
+
     isError: true;
     content: {
         type: "text";
@@ -992,7 +1038,7 @@ type ResponseAction = 'set_test_response' | 'get_test_response' | 'clear_test_re
 
 Error response when action is missing in non-batch edit mode
 
-## `handleEdit(registry: ProjectRegistry, projectId: string, action: EditAction, params: EditParams): ReturnType<typeof wrapHelperCall>`
+## `handleEdit(registry: ProjectRegistry, projectId: string, action: EditAction, params: EditParams): ReturnType<typeof wrapCall>`
 
 #### interface `EditParams`
 
@@ -1032,6 +1078,7 @@ type StyleAction = 'layout' | 'style' | 'style_all';
 ```
 
 ## `handleTheme(registry: ProjectRegistry, projectId: string, params: ThemeParams): {
+
     structuredContent?: Record<string, unknown> | undefined;
     content: {
         type: "text";
@@ -1052,6 +1099,7 @@ type StyleAction = 'layout' | 'style' | 'style_all';
 #### type `ThemeAction`
 
 ## `handleWidget(registry: ProjectRegistry, projectId: string, params: WidgetParams): {
+
     structuredContent?: Record<string, unknown> | undefined;
     content: {
         type: "text";
@@ -1069,4 +1117,3 @@ type StyleAction = 'layout' | 'style' | 'style_all';
 ```ts
 type WidgetAction = 'list_widgets' | 'compatible' | 'field_types';
 ```
-

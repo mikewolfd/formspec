@@ -328,7 +328,7 @@ describe('batch items[] mode within bracket', () => {
 });
 
 describe('summary extraction from MCP response (O1 bug)', () => {
-  // O1: withChangesetBracket receives the MCP response envelope from wrapHelperCall(),
+  // O1: withChangesetBracket receives the MCP response envelope from wrapCall(),
   // not the raw HelperResult. The `'summary' in result` check never matches because
   // the envelope is { content: [{type: 'text', text: ...}] }. Every entry gets the
   // generic "${toolName} executed" fallback instead of the rich HelperResult.summary.

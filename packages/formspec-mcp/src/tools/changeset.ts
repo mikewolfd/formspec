@@ -149,7 +149,7 @@ export function withChangesetBracket<T>(
   try {
     const result = fn();
     // Extract summary from either raw HelperResult or MCP envelope's structuredContent.
-    // Tool handlers return wrapHelperCall() → { content, structuredContent: HelperResult }.
+    // Tool handlers return wrapCall() → { content, structuredContent: HelperResult }.
     // The raw HelperResult has .summary and .warnings; structuredContent preserves them.
     let summary = `${toolName} executed`;
     let warnings: string[] = [];

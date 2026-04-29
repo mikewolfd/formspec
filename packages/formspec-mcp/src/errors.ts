@@ -80,9 +80,6 @@ export function wrapCall(
   }
 }
 
-/** @deprecated Use wrapCall instead. */
-export const wrapHelperCall = wrapCall;
-
 /**
  * Safely resolves a project from the registry, returning { project, error }
  * instead of throwing. For batch handlers that need project resolution
