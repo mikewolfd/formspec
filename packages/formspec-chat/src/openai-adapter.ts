@@ -101,6 +101,10 @@ export class OpenAIAdapter implements AIAdapter {
     return true;
   }
 
+  setModel(model: string): void {
+    this.model = model;
+  }
+
   async chat(messages: ChatMessage[]): Promise<ConversationResponse> {
     const openaiMessages: OpenAI.ChatCompletionMessageParam[] = [
       { role: 'system', content: INTERVIEW_SYSTEM_PROMPT },
@@ -173,15 +177,15 @@ export class OpenAIAdapter implements AIAdapter {
       },
     }));
 
-    const conversationHistory = messages
-      .filter(m => m.role === 'user' || m.role === 'assistant')
-      .slice(-6)
-      .map(m => `${m.role === 'user' ? 'User' : 'Assistant'}: ${m.content}`)
-      .join('\n\n');
-
     const openaiMessages: OpenAI.ChatCompletionMessageParam[] = [
       { role: 'system', content: REFINEMENT_SYSTEM_PROMPT },
-      { role: 'user', content: `Conversation context:\n${conversationHistory}\n\nInstruction: ${instruction}` },
+      ...messages
+        .filter(m => m.role === 'user' || m.role === 'assistant')
+        .map(m => ({
+          role: m.role as 'user' | 'assistant',
+          content: m.content,
+        })),
+      { role: 'user', content: instruction },
     ];
 
     const MAX_TURNS = 10;
@@ -190,7 +194,7 @@ export class OpenAIAdapter implements AIAdapter {
         model: this.model,
         messages: openaiMessages,
         tools,
-        parallel_tool_calls: false,
+        parallel_tool_calls: true,
       });
 
       const choice = response.choices[0];
@@ -219,6 +223,9 @@ export class OpenAIAdapter implements AIAdapter {
           content: result.content,
         });
       }
+
+      // If we made changes, the model might want to summary or do more.
+      // OpenAI typically continues if there are more tool calls or text.
     }
 
     return {

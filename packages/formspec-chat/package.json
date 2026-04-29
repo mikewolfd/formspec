@@ -14,16 +14,20 @@
   },
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
-  "files": ["dist", "src/definition-schema.json"],
+  "files": [
+    "dist",
+    "src/definition-schema.json"
+  ],
   "scripts": {
     "build": "tsc",
     "test": "vitest run",
     "test:watch": "vitest"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.91.1",
+    "@formspec-org/types": "*",
     "@google/genai": "^1.0.0",
-    "openai": "^4.0.0",
-    "@formspec-org/types": "*"
+    "openai": "^4.0.0"
   },
   "devDependencies": {
     "typescript": "^5.0.0"

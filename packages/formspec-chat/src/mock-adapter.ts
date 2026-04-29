@@ -91,6 +91,10 @@ export class MockAdapter implements AIAdapter {
     };
   }
 
+  setModel(model: string): void {
+    // No-op in mock
+  }
+
   async extractFromFile(attachment: Attachment): Promise<string> {
     return attachment.data;
   }

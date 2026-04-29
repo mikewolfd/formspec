@@ -123,6 +123,10 @@ export class GeminiAdapter implements AIAdapter {
     return true;
   }
 
+  setModel(model: string): void {
+    this.model = model;
+  }
+
   async chat(messages: ChatMessage[]): Promise<ConversationResponse> {
     const conversationParts = messages
       .filter(m => m.role === 'user' || m.role === 'assistant')
@@ -183,21 +187,21 @@ export class GeminiAdapter implements AIAdapter {
       parametersJsonSchema: t.inputSchema,
     }));
 
-    const conversationHistory = messages
-      .filter(m => m.role === 'user' || m.role === 'assistant')
-      .slice(-6) // last few turns for context
-      .map(m => `${m.role === 'user' ? 'User' : 'Assistant'}: ${m.content}`)
-      .join('\n\n');
+    // Build initial contents
+    const contents: Content[] = [
+      ...messages
+        .filter(m => m.role === 'user' || m.role === 'assistant')
+        .map(m => ({
+          role: m.role === 'user' ? 'user' : 'model',
+          parts: [{ text: m.content }],
+        })),
+      { role: 'user', parts: [{ text: instruction }] },
+    ];
 
     const systemPrompt = `You are a form design assistant. You modify forms using the provided tools.
 Use formspec_describe to inspect the current form structure before making changes.
 Make surgical edits — add, update, or remove specific fields rather than rebuilding.
 When done with all changes, respond with a brief summary of what you did.`;
-
-    // Build initial contents
-    const contents: Content[] = [
-      { role: 'user', parts: [{ text: `Conversation context:\n${conversationHistory}\n\nInstruction: ${instruction}` }] },
-    ];
 
     const MAX_TURNS = 10;
     for (let turn = 0; turn < MAX_TURNS; turn++) {

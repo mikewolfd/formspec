@@ -151,6 +151,9 @@ export interface AIAdapter {
 
   /** Check if the adapter is available (has valid credentials, etc). */
   isAvailable(): Promise<boolean>;
+
+  /** Update the model being used by this adapter. */
+  setModel(model: string): void;
 }
 
 export type ScaffoldRequest =

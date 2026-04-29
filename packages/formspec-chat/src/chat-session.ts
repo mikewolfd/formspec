@@ -89,6 +89,11 @@ export class ChatSession {
     return [...this.messages];
   }
 
+  /** Update the model used by the adapter. */
+  setModel(model: string): void {
+    this.adapter.setModel(model);
+  }
+
   getTraces(): SourceTrace[] {
     return this.traces.getAllTraces();
   }
