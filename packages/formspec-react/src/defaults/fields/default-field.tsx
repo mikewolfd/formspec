@@ -1346,7 +1346,7 @@ function FileUploadControl({ field, node, common, isReadonly }: CommonInputProps
     return (
         <>
             <div
-                className={`formspec-file-drop-zone formspec-drop-zone formspec-focus-ring${isDragOver ? ' formspec-file-drop-zone--active' : ''}`}
+                className={`formspec-file-drop-zone formspec-focus-ring${isDragOver ? ' formspec-file-drop-zone--active' : ''}`}
                 tabIndex={isReadonly ? -1 : 0}
                 role="button"
                 aria-label="Drop files here or click to browse"

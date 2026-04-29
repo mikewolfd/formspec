@@ -3,7 +3,7 @@ import { describe, it, expect, beforeAll, afterEach, vi } from 'vitest';
 import React from 'react';
 import { createRoot } from 'react-dom/client';
 import { flushSync } from 'react-dom';
-import { createFormEngine, initFormspecEngine } from '@formspec-org/engine';
+import { initFormspecEngine } from '@formspec-org/engine';
 import * as engineModule from '@formspec-org/engine';
 import { useScreener, isItemRequired } from '../src/screener/use-screener';
 import type { UseScreenerResult } from '../src/screener/types';
@@ -39,7 +39,6 @@ describe('isItemRequired', () => {
         expect(isItemRequired(
             { key: 'name' },
             { binds: [{ path: 'name', required: true }] },
-            null,
             {},
         )).toBe(true);
     });
@@ -48,7 +47,6 @@ describe('isItemRequired', () => {
         expect(isItemRequired(
             { key: 'name' },
             { binds: [{ path: 'name', required: 'true' }] },
-            null,
             {},
         )).toBe(true);
     });
@@ -57,7 +55,6 @@ describe('isItemRequired', () => {
         expect(isItemRequired(
             { key: 'name', required: true },
             {},
-            null,
             {},
         )).toBe(true);
     });
@@ -69,26 +66,14 @@ describe('isItemRequired', () => {
                 { key: 'details', label: 'Details' },
             ],
             binds: [
-                { path: 'details', required: "$awardType = 'grant'" },
+                { path: 'details', required: "awardType = 'grant'" },
             ],
         };
-        const definition = {
-            $formspec: '1.0',
-            url: 'urn:screener-test',
-            version: '1.0.0',
-            items: [
-                { key: 'awardType', type: 'field', dataType: 'choice' },
-                { key: 'details', type: 'field', dataType: 'string' },
-            ],
-        };
-
-        const engine = createFormEngine(definition as any);
 
         // When awardType is not 'grant', details should NOT be required
         expect(isItemRequired(
             { key: 'details' },
             screener,
-            engine,
             { awardType: 'loan' },
         )).toBe(false);
 
@@ -96,17 +81,14 @@ describe('isItemRequired', () => {
         expect(isItemRequired(
             { key: 'details' },
             screener,
-            engine,
             { awardType: 'grant' },
         )).toBe(true);
     });
 
     it('treats non-evaluable FEL as not-required (graceful fallback)', () => {
-        // If engine is null, FEL expressions cannot be evaluated — fall back to false
         expect(isItemRequired(
             { key: 'name' },
             { binds: [{ path: 'name', required: "$foo = 'bar'" }] },
-            null,
             {},
         )).toBe(false);
     });
@@ -116,12 +98,6 @@ describe('isItemRequired', () => {
 
 describe('useScreener routeType', () => {
     it('uses explicit routeType from the matched route definition', () => {
-        const definition = {
-            $formspec: '1.0',
-            url: 'urn:screener-test',
-            version: '1.0.0',
-            items: [],
-        };
         const screenerDocument = {
             $formspecScreener: '1.0',
             url: 'urn:screener-test:gate',
@@ -142,11 +118,9 @@ describe('useScreener routeType', () => {
             ],
         };
 
-        const engine = createFormEngine(definition as any);
-
         let capturedResult: UseScreenerResult['routeResult'] = null;
         const { result } = renderHook(() =>
-            useScreener(engine, definition, {
+            useScreener({
                 screenerDocument,
                 onRoute: (route, routeType) => {
                     capturedResult = { route, routeType };
@@ -163,12 +137,6 @@ describe('useScreener routeType', () => {
     });
 
     it('preserves plain-object route extensions from WASM matches', () => {
-        const definition = {
-            $formspec: '1.0',
-            url: 'urn:screener-test',
-            version: '1.0.0',
-            items: [],
-        };
         const screenerDocument = {
             $formspecScreener: '1.0',
             url: 'urn:screener-test:gate',
@@ -188,7 +156,6 @@ describe('useScreener routeType', () => {
             ],
         };
 
-        const engine = createFormEngine(definition as any);
         let capturedResult: UseScreenerResult['routeResult'] = null;
 
         vi.spyOn(engineModule, 'wasmEvaluateScreenerDocument').mockReturnValue({
@@ -205,7 +172,7 @@ describe('useScreener routeType', () => {
         } as any);
 
         const { result } = renderHook(() =>
-            useScreener(engine, definition, {
+            useScreener({
                 screenerDocument,
                 onRoute: (route, routeType) => {
                     capturedResult = { route, routeType };
@@ -224,12 +191,6 @@ describe('useScreener routeType', () => {
     });
 
     it('degrades to a none route when WASM evaluation throws', () => {
-        const definition = {
-            $formspec: '1.0',
-            url: 'urn:screener-test',
-            version: '1.0.0',
-            items: [],
-        };
         const screenerDocument = {
             $formspecScreener: '1.0',
             url: 'urn:screener-test:gate',
@@ -249,7 +210,6 @@ describe('useScreener routeType', () => {
             ],
         };
 
-        const engine = createFormEngine(definition as any);
         let capturedResult: UseScreenerResult['routeResult'] = null;
 
         vi.spyOn(engineModule, 'wasmEvaluateScreenerDocument').mockImplementation(() => {
@@ -257,7 +217,7 @@ describe('useScreener routeType', () => {
         });
 
         const { result } = renderHook(() =>
-            useScreener(engine, definition, {
+            useScreener({
                 screenerDocument,
                 onRoute: (route, routeType) => {
                     capturedResult = { route, routeType };

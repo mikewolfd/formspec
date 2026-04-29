@@ -1,6 +1,5 @@
 /** @filedesc useScreener — React hook for the Formspec screener gate. */
 import { useState, useCallback } from 'react';
-import type { IFormEngine } from '@formspec-org/engine';
 import { evalFEL, wasmEvaluateScreenerDocument } from '@formspec-org/engine';
 import type { UseScreenerOptions, UseScreenerResult, ScreenerRoute, ScreenerRouteType } from './types';
 
@@ -30,7 +29,6 @@ function itemOptions(item: any): any[] {
 export function isItemRequired(
     item: any,
     screener: any,
-    engine: IFormEngine | null,
     answers: Record<string, any>,
 ): boolean {
     if (item.required === true) return true;
@@ -43,7 +41,7 @@ export function isItemRequired(
     if (bind.required === false || bind.required === 'false') return false;
 
     // FEL expression — evaluate with current answers as field context
-    if (typeof bind.required === 'string' && engine) {
+    if (typeof bind.required === 'string') {
         try {
             const result = evalFEL(bind.required, answers);
             return result === true;
@@ -91,8 +89,6 @@ function firstMatchedRouteFromDetermination(
 }
 
 export function useScreener(
-    engine: IFormEngine,
-    definition: any,
     options: UseScreenerOptions = {},
 ): UseScreenerResult {
     const screenerDoc = options.screenerDocument ?? null;
@@ -126,11 +122,11 @@ export function useScreener(
     const submit = useCallback(() => {
         // Validate required fields
         const newErrors: Record<string, string> = {};
-        const hasExplicitRequired = items.some(i => isItemRequired(i, screenerDoc, engine, answers));
+        const hasExplicitRequired = items.some(i => isItemRequired(i, screenerDoc, answers));
 
         if (hasExplicitRequired) {
             for (const item of items) {
-                if (isItemRequired(item, screenerDoc, engine, answers)) {
+                if (isItemRequired(item, screenerDoc, answers)) {
                     const val = answers[item.key];
                     if (val === undefined || val === null || val === '') {
                         newErrors[item.key] = `${item.label || item.key} is required`;
@@ -192,7 +188,7 @@ export function useScreener(
             // of relying on this path — the URL comparison can misclassify routes
             // when the definition URL changes or when external routes happen to
             // share the same base URL.
-            const defUrl = definition?.url;
+            const defUrl = screenerDoc?.targetDefinition?.url;
             if (defUrl && result.target === defUrl) {
                 routeType = 'internal';
             } else if (matchedRoute?.type === 'external' || matchedRoute?.externalUrl) {
@@ -211,7 +207,7 @@ export function useScreener(
         setRouteResult({ route, routeType });
         setState('routed');
         options.onRoute?.(route, routeType, answers);
-    }, [engine, answers, items, routes, screenerDoc, definition, options]);
+    }, [answers, items, routes, screenerDoc, options]);
 
     const restart = useCallback(() => {
         setAnswers(buildSeedAnswers(items, options.seedAnswers));

@@ -120,7 +120,6 @@ export function FormspecForm({
         return (
             <FormspecProvider definition={definition} {...providerProps}>
                 <ScreenerGate
-                    definition={definition}
                     screenerDocument={screenerDocument}
                     className={className}
                     seedAnswers={screenerSeedAnswers}
@@ -146,7 +145,6 @@ export function FormspecForm({
  * parent to flip to form rendering.
  */
 function ScreenerGate({
-    definition,
     screenerDocument,
     className,
     seedAnswers,
@@ -155,7 +153,6 @@ function ScreenerGate({
     onRoute,
     onSkip,
 }: {
-    definition: any;
     screenerDocument?: any;
     className?: string;
     seedAnswers?: Record<string, any>;
@@ -164,7 +161,6 @@ function ScreenerGate({
     onRoute?: (route: ScreenerRoute, routeType: ScreenerRouteType, answers: Record<string, any>) => void;
     onSkip: () => void;
 }) {
-    const { engine } = useFormspecContext();
     const containerRef = useEmitThemeTokensOnFormspecContainerRef();
 
     return (
@@ -173,9 +169,7 @@ function ScreenerGate({
             className={className ? `formspec-container ${className}` : 'formspec-container'}
         >
             <FormspecScreener
-                definition={definition}
                 screenerDocument={screenerDocument}
-                engine={engine}
                 seedAnswers={seedAnswers}
                 renderExternalRoute={renderExternalRoute}
                 renderNoMatch={renderNoMatch}

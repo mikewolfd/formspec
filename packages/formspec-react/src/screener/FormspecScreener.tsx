@@ -1,17 +1,11 @@
 /** @filedesc FormspecScreener — standalone eligibility gate component. */
-import React, { useMemo } from 'react';
-import { createFormEngine } from '@formspec-org/engine';
-import type { IFormEngine } from '@formspec-org/engine';
+import React from 'react';
 import { useScreener, itemDataType, itemOptions, isItemRequired } from './use-screener';
 import type { UseScreenerOptions, ScreenerRoute } from './types';
 
 export interface FormspecScreenerProps extends UseScreenerOptions {
-    /** The Formspec definition containing a screener block (deprecated — use screenerDocument). */
-    definition: any;
     /** Standalone Screener Document. */
     screenerDocument?: any;
-    /** Pre-built engine. If omitted, one is created from the definition. */
-    engine?: IFormEngine;
     /** Render prop for the external route result. */
     renderExternalRoute?: (route: ScreenerRoute) => React.ReactNode;
     /** Render prop for the "no match" result. */
@@ -21,21 +15,13 @@ export interface FormspecScreenerProps extends UseScreenerOptions {
 }
 
 export function FormspecScreener({
-    definition,
     screenerDocument,
-    engine: externalEngine,
     renderExternalRoute,
     renderNoMatch,
     className,
     ...options
 }: FormspecScreenerProps) {
-    // Create a minimal engine if not provided (just needs evaluateScreener)
-    const engine = useMemo(() => {
-        if (externalEngine) return externalEngine;
-        return createFormEngine(definition);
-    }, [externalEngine, definition]);
-
-    const screener = useScreener(engine, definition, { ...options, screenerDocument });
+    const screener = useScreener({ ...options, screenerDocument });
     const items: any[] = screenerDocument?.items ?? [];
 
     if (!screenerDocument) return null;
@@ -98,7 +84,6 @@ export function FormspecScreener({
                         key={item.key}
                         item={item}
                         screener={screenerDocument}
-                        engine={engine}
                         answers={screener.answers}
                         value={screener.answers[item.key]}
                         error={screener.errors[item.key]}
@@ -121,7 +106,6 @@ export function FormspecScreener({
 function ScreenerField({
     item,
     screener,
-    engine,
     answers,
     value,
     error,
@@ -129,7 +113,6 @@ function ScreenerField({
 }: {
     item: any;
     screener: any;
-    engine: IFormEngine;
     answers: Record<string, any>;
     value: any;
     error?: string;
@@ -138,7 +121,7 @@ function ScreenerField({
     const id = `screener-${item.key}`;
     const showError = !!error;
     const dt = itemDataType(item);
-    const required = isItemRequired(item, screener, engine, answers);
+    const required = isItemRequired(item, screener, answers);
 
     const renderInput = () => {
         switch (dt) {
