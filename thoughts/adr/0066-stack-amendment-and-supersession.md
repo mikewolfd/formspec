@@ -5,7 +5,7 @@
 **Last revised:** 2026-04-28 (maximalist position cluster revision)
 **Coordinated cluster ratification:** This ADR ratifies as part of the WOS Stack Closure cluster (0066–0071) — all six ratify together once Agent A's `ProvenanceKind` variants and Agent B's schema `$defs` land. See `wos-spec/COMPLETED.md` Session 17 (forthcoming) for implementation tracking.
 **Scope:** Cross-layer — Formspec + WOS + Trellis
-**Related:** [STACK.md Open Contracts](../../STACK.md#open-contracts); [ADR 0067 (statutory clocks)](./0067-stack-statutory-clocks.md) (open-clock cancellation on supersession composes per ADR 0067 D-6); [ADR 0068 (tenant and scope composition)](./0068-stack-tenant-and-scope-composition.md) (cross-tenant supersession composition; ADR 0068 §D-5 references this ADR for cross-tenant case movement); [ADR 0069 (time semantics)](./0069-stack-time-semantics.md) (authorization-attestation timestamps inherit D-1 RFC3339 UTC and D-2 millisecond floor); [ADR 0070 (failure and compensation)](./0070-stack-failure-and-compensation.md); [ADR 0071 (cross-layer migration and versioning)](./0071-stack-cross-layer-migration-and-versioning.md) (`MigrationPinChanged` + supersession sequencing per §Q32 Implementation plan; pin changes via supersession are governance acts); WOS kernel `caseRelationship`; WOS Workflow Governance §3; Trellis Core §6.7 (extension-key registry; `supersedes_chain_id` is a registered extension key, not a named-field reservation); Trellis Core §22 (case ledger); [WOS TODO](../../wos-spec/TODO.md); [Trellis TODO](../../trellis/TODO.md)
+**Related:** [STACK.md Open Contracts](../../STACK.md#open-contracts); [ADR 0067 (statutory clocks)](./0067-stack-statutory-clocks.md) (open-clock cancellation on supersession composes per ADR 0067 D-6); [ADR 0068 (tenant and scope composition)](./0068-stack-tenant-and-scope-composition.md) (cross-tenant supersession composition; ADR 0068 §D-5 references this ADR for cross-tenant case movement); [ADR 0069 (time semantics)](./0069-stack-time-semantics.md) (authorization-attestation timestamps inherit D-1 RFC3339 UTC and D-2 millisecond floor); [ADR 0070 (failure and compensation)](./0070-stack-failure-and-compensation.md); [ADR 0071 (cross-layer migration and versioning)](./0071-stack-cross-layer-migration-and-versioning.md) (`MigrationPinChanged` + supersession sequencing per §Q32 Implementation plan; pin changes via supersession are governance acts); WOS kernel `caseRelationships` (S5.5; not a JSON field on workflow documents); WOS Workflow Governance §3; Trellis Core §6.7 (extension-key registry; **`trellis.supersedes-chain-id.v1`** registered for cross-chain supersession linkage); Trellis Core §22 (case ledger); [WOS TODO](../../wos-spec/TODO.md); [Trellis TODO](../../trellis/TODO.md)
 
 ## Context
 
@@ -34,26 +34,31 @@ This ADR is part of the **WOS Stack Closure cluster (0066–0071)**. ADR 0067 D-
 **Five canonical modes; mutually exclusive per event.** Each mode emits a distinct canonical event. All five reference the prior event or chain by hash, never by human identifier. All five carry a `reason` field whose structure is mode-specific and an `authorization` field pointing at a WOS authorization record.
 
 **Correction.**
+
 - Formspec Respondent Ledger: `ResponseCorrection` event referencing prior `ResponseSubmitted.canonical_event_hash`. Narrows to a declared subset — does not rewrite the prior response.
 - WOS: `CorrectionAuthorized` provenance record. Deontic constraint gate: who may correct, under what scope.
 - Trellis: ordinary append to the existing ledger chain. No chain-linkage.
 
 **Amendment.**
+
 - Respondent Ledger: no respondent action (amendment is a governance act; respondent may have triggered it via appeal but does not sign the amendment).
 - WOS: `AmendmentAuthorized` + `DeterminationAmended` records. Requires `AuthorizationAttestation.predicate: "amendment-authority"`.
 - Trellis: append to existing chain. `DeterminationAmended.supersedes_event_hash` references the prior determination event by canonical hash.
 
 **Supersession.**
+
 - Respondent Ledger: a new ledger begins for the superseding case; its first event carries `supersedes_chain: { chain_id, checkpoint_hash }`.
-- WOS: the superseding case's workflow instance carries `caseRelationship.type: "supersedes"` (extends existing kernel enum).
-- Trellis: new envelope. The chain-linkage cite is encoded as a **registered extension key** under the Trellis Core §6.7 generic-extensions-container registry, key `supersedes_chain_id` carrying `{ chain_id, checkpoint_hash }`. Phase-1 deployments populate the extension key; Trellis ADR 0003's named-field-reservation mechanism does not gate this — the §6.7 registry is the canonical extension surface, and `supersedes_chain_id` is a registered key, not a reserved named field. Cross-chain linkage at the wire is hash-anchored; the verifier resolves the linkage at bundle composition time per D-3.
+- WOS: the superseding case records a kernel **supersedes** relationship (`caseRelationships` / relationship typing per kernel spec S5.5; extends the kernel relationship model). This is **not** a field on the workflow JSON Schema (`wos-workflow.schema.json`); workflow documents declare amendment modes separately (`amendmentTaxonomy`).
+- Trellis: new envelope. Cross-chain linkage is carried under `EventPayload.extensions` using the §6.7-registered identifier **`trellis.supersedes-chain-id.v1`**, with payload shape `{ chain_id, checkpoint_hash }` (hash-anchored; verifier resolves linkage at bundle composition time per D-3). Prose may refer to this extension as *supersedes chain id*; the normative map key is `trellis.supersedes-chain-id.v1`. Trellis ADR 0003's named-field-reservation mechanism does not gate this — the §6.7 registry is the extension surface.
 
 **Rescission.**
+
 - Respondent Ledger: no respondent action.
 - WOS: `RescissionAuthorized` + `DeterminationRescinded` records. Determination state transitions to non-operative (re-activatable via Reinstatement; see below).
 - Trellis: append to existing chain. The chain is **not** sealed by rescission — Reinstatement is permitted on the same chain. A `DeterminationRescinded` event is followed by either Reinstatement (D-1.5) or chain closure via supersession; new determination events without intervening Reinstatement are integrity violations (see D-3).
 
 **Reinstatement (post-rescission re-activation).**
+
 - Respondent Ledger: no respondent action.
 - WOS: `Reinstated` record (Facts tier) referencing the prior `DeterminationRescinded.canonical_event_hash`. Determination state transitions back to operative; evaluation context resumes from the pre-rescission state.
 - Trellis: append to existing chain. The chain remains the same chain; no new chain opens.
@@ -114,17 +119,20 @@ A statute-of-limitations question — "may this decision still be amended?" — 
 ## Consequences
 
 **Positive.**
-- Append-only integrity preserved across all four modes. Nothing mutates.
+
+- Append-only integrity preserved across all five modes. Nothing mutates.
 - Every revisit carries an authorization attestation scoped by deontic constraint — governance auditability is structural, not convention.
 - Respondent-facing acts (correction, supersession via appeal) are visible in the Respondent Ledger; governance-only acts (amendment, rescission) are not conflated with respondent acts.
-- Composes with existing seams: `caseRelationship`, `EvidenceReference`, `ProvenanceKind`, Trellis envelope reservations.
+- Composes with existing seams: kernel `caseRelationships` (S5.5), `EvidenceReference`, `ProvenanceKind`, Trellis §6.7 extension keys (including `trellis.supersedes-chain-id.v1` where supersession applies), Trellis envelope reservations.
 
 **Negative.**
+
 - Adds **seven** WOS Facts-tier provenance record kinds (`CorrectionAuthorized`, `AmendmentAuthorized`, `DeterminationAmended`, `RescissionAuthorized`, `DeterminationRescinded`, `Reinstated`, `AuthorizationAttestation`) and one Formspec Respondent Ledger event (`ResponseCorrection`).
-- Trellis Phase-1 deployments populate `supersedes_chain_id` as a registered §6.7 extension key on supersession; all five modes are active in Phase 1 (including supersession). The prior framing that gated supersession to Phase 4 is rejected — the Q41 reframing of `supersedes_chain_id` as registered extension key (not named-field reservation) makes Phase-1 activation correct.
+- Trellis Phase-1 deployments **may** populate **`trellis.supersedes-chain-id.v1`** in `EventPayload.extensions` per Core §6.7. All five modes remain active in Phase 1 at the WOS/ledger semantics layer (including supersession). The prior framing that gated supersession to Phase 4 is rejected — the Q41 reframing targets this extension-key slot (not named-field reservation).
 - New conformance fixture set required in each layer.
 
 **Neutral.**
+
 - Does not resolve statute-of-limitations semantics — that is ADR 0067's scope.
 - Does not define what evidence MUST accompany each mode — that is governance-policy, authored per deployment.
 
@@ -133,10 +141,12 @@ A statute-of-limitations question — "may this decision still be amended?" — 
 Truth-at-HEAD-after-cluster-implementation.
 
 **Formspec.**
+
 - Add `ResponseCorrection` event shape to Respondent Ledger §6; reference prior event by `canonical_event_hash`.
 - Corrected field set is a strict subset of the prior response; schema enforces via `required` constraint pointing at a declared subset.
 
 **WOS.**
+
 - Agent A lands **seven** new `ProvenanceKind` variants, all Facts tier with constructors:
   - `ProvenanceKind::CorrectionAuthorized` → `ProvenanceRecord::correction_authorized`
   - `ProvenanceKind::AmendmentAuthorized` → `ProvenanceRecord::amendment_authorized`
@@ -148,12 +158,13 @@ Truth-at-HEAD-after-cluster-implementation.
 - All seven tier as Facts. The Narrative tier is reserved for actual narrative annotations (`NarrativeTierRecorded`), not structured-fact records about determination state changes. The prior framing ("five mode-specific records tier as Narrative") is rejected — these are state-changing structured facts, not annotations.
 - Agent B lands seven schema `$def`s in `wos-workflow.schema.json` matching the variant names.
 - Add `amendmentPolicy`, `rescissionPolicy`, `reinstatementPolicy` sidecar sections to Workflow Governance. `correctionPolicy` and `supersessionPolicy` follow the same shape.
-- Extend `caseRelationship.type` open enum with `supersedes`.
+- Extend kernel/WOS `caseRelationships` typing (including `supersedes`) per kernel spec and runtime model — **not** by adding a phantom `caseRelationship` key to `wos-workflow.schema.json`.
 - Provenance exporters emit the seven kinds as distinct event types in PROV-O / OCEL / XES.
 - 5-mode amendment-taxonomy lint candidate: `K-A-010` rejects any record claiming `mode: "<other>"` outside the closed five-mode set (with `x-*` extension carve-out for vendor amendment kinds).
 
 **Trellis.**
-- `supersedes_chain_id` is a registered extension key under Trellis Core §6.7 generic-extensions-container registry. Phase-1 deployments populate the key; runtime activation is not deferred. (Q41 reframing — this corrects prior prose that miscast the slot as a named-field reservation.)
+
+- Phase-1 producers/verifiers treat **`trellis.supersedes-chain-id.v1`** per the Core §6.7 row (reject-if-unknown-at-version). (Q41 reframing — extension-key slot, not named-field reservation.)
 - Land `append/011-correction`, `append/012-amendment`, `append/013-rescission`, `append/014-reinstatement`, `append/015-supersession` vectors (Phase 1; all five active).
 - Draft `supersession-graph.json` spec; activate per D-4.
 - Extend verifier with D-3 obligations including Reinstatement-after-Rescission validity.
@@ -182,6 +193,7 @@ Cross-chain linkage at the wire is **hash-anchored**. The supersession-graph is 
 2. **Correction field-set scope.** Default: corrections narrow to a declared subset of fields. Alternative: unrestricted within the same case. Recommendation: default — prevents correction from being a backdoor amendment.
 
 **Resolved (this revision).**
+
 - ~~Rescission of a rescission~~ — resolved by adding the fifth mode: post-rescission re-activation is `Reinstatement` (D-1.5; new `ProvenanceKind::Reinstated`), not amendment. The taxonomy is closed and lint-enforced (5-mode amendment-taxonomy lint `K-A-010`). Treating post-rescission reactivation as amendment was incorrect: amendment changes determination content; reinstatement re-activates the prior determination as-was. Different deontic burdens, different policy gates, different audit signals.
 
 ## Alternatives considered

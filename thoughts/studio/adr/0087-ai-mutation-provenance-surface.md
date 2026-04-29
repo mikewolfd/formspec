@@ -1,6 +1,6 @@
 # ADR 0087: AI Mutation Provenance Surface
 
-**Status:** Proposed
+**Status:** Implemented
 **Date:** 2026-04-28
 **Scope:** Studio chat-side authoring — pre-accept review of AI-proposed changesets that mutate non-visible structure
 **Related:** [`thoughts/studio/2026-04-26-studio-unified-feature-matrix.md`](../studio/2026-04-26-studio-unified-feature-matrix.md) §M2 — direct predecessor; ships the `FieldProvenance` struct this ADR's surface renders; [ADR 0074 (formspec-native field-level transparency)](./0074-formspec-native-field-level-transparency.md) — establishes per-field provenance as a primitive (background motivation); [ADR 0080 (governed output-commit pipeline)](./0080-governed-output-commit-pipeline.md) — accepted Studio mutations flow into this WOS pipeline post-accept (downstream seam); [ADR 0081 (content-addressed artifact identity)](./0081-content-addressed-artifact-identity.md); [ADR 0082 (lift ChatSession)](./0082-lift-chat-session-above-studio.md) — sibling; [`thoughts/studio/2026-04-28-prd-chatgpt-forms-ide.md`](../studio/2026-04-28-prd-chatgpt-forms-ide.md) — source PRD has no trust-model section; this ADR fills the gap every audit agent flagged; [`packages/formspec-studio-core/src/studio-intelligence.ts:10`](../../packages/formspec-studio-core/src/studio-intelligence.ts) — `FieldProvenance`; [`packages/formspec-studio/src/components/chat/ChangesetReviewSection.tsx`](../../packages/formspec-studio/src/components/chat/ChangesetReviewSection.tsx) — host component

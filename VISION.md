@@ -402,7 +402,7 @@ Refined and accepted 2026-04-22; data-and-workflow zero trust posture refined 20
 
   **Center commitments (close before any deployment relies on the contract):**
   - Statutory clocks ([ADR 0067](thoughts/adr/0067-stack-statutory-clocks.md)): `ClockStarted/Resolved` events; materialized-once deadline; `open-clocks.json` manifest
-  - Amendment ([ADR 0066](thoughts/adr/0066-stack-amendment-and-supersession.md)): four modes; `supersedes_chain_id` envelope reservation; linear supersession only
+  - Amendment ([ADR 0066](thoughts/adr/0066-stack-amendment-and-supersession.md)): five modes; Trellis `trellis.supersedes-chain-id.v1` registered in Core §6.7; linear supersession only
   - Failure ([ADR 0070](thoughts/adr/0070-stack-failure-and-compensation.md)): commit-point semantic pinned (Trellis local-append IS commit); idempotency tuple; `stalled` state
   - Migration pin (split from [ADR 0071](thoughts/adr/0071-stack-cross-layer-migration-and-versioning.md)): pin set on first anchored event via Core §6.7 extension surface
   - Identity attestation (proposed parent-repo ADR — pick free number, not 0079 which is taken): `IdentityAttestation` shape; proposed `wos.identity.*` taxonomy; claim graph

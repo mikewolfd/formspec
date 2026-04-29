@@ -19,7 +19,7 @@ No stack-level statement says how these three compose. The public-SaaS wedge req
 
 Listed in [STACK.md Open Contracts](../../STACK.md#open-contracts) as an integration primitive — composition protocol, not event shape. Touches all three layers; no adapter fills the gap.
 
-This ADR is part of the **WOS Stack Closure cluster (0066–0071)**. The four-tuple scope bundle is the case's identity. ADR 0066 supersession opens a new chain within the bundle (or, by §D-5, into a new bundle via supersession across tenants). ADR 0070 D-? failure-isolation rests on tenant scope. ADR 0071 separates identity (this ADR; immutable) from version pins (ADR 0071; mutable through governance).
+This ADR is part of the **WOS Stack Closure cluster (0066–0071)**. The four-tuple scope bundle is the case's identity. ADR 0066 supersession opens a new chain within the bundle (or, by §D-5, into a new bundle via supersession across tenants). [ADR 0070](./0070-stack-failure-and-compensation.md) §D-5.1 failure-isolation rests on tenant scope. ADR 0071 separates identity (this ADR; immutable) from version pins (ADR 0071; mutable through governance).
 
 ## Decision
 
@@ -66,8 +66,8 @@ Every cross-tenant actor reference MUST carry an `IdentityAttestation` provenanc
 IdentityAttestation {
   caseId: TypeID,                                // case context for the attestation
   subjectGlobalId: string,                       // tenant-independent identifier (URI; e.g., did:web, urn:idp:subject)
-  assuranceLevel: "low" | "medium" | "high" | "very-high" | "x-*",
-                                                 // closed taxonomy + x-* extension
+  assuranceLevel: "low" | "standard" | "high" | "very-high" | "x-*",
+                                                 // closed taxonomy + x-* extension (matches `wos-workflow.schema.json` IdentityAttestationRecord)
   attestationProvider: URI,                      // identity-proofing adapter (issuer)
   providerAttestationId: string,                 // provider's own attestation reference
   attestedAt: RFC3339,                           // millisecond-or-better per ADR 0069 D-2
@@ -93,18 +93,21 @@ A case may move through workflow states, definition migrations (opt-in per [ADR 
 ## Consequences
 
 **Positive.**
+
 - Multi-tenant SaaS has structural isolation, not convention.
 - Program-level isolation inside a tenant via distinct scope bundles.
 - Auditors always answer "which tenant does this case belong to?" by reading the case ID.
 - TypeID tenant prefix carries the invariant mechanically.
 
 **Negative.**
+
 - Every runtime carries tenant context in every call. Non-trivial API-surface impact on adapters.
 - Some patterns (cross-tenant case reassignment, multi-tenant shared evidence pools) become unavailable. Supersession is the substitute.
 - D-1.1 grammar is stricter than the prior opaque-string assumption; existing TypeID grammar and `is_valid_tenant` MUST update. One-time mechanical fix; greenfield posture absorbs the change.
 - D-3.1 `IdentityAttestation` shape adds a Facts-tier provenance kind; identity-proofing adapters MUST emit conforming attestations.
 
 **Neutral.**
+
 - Does not prescribe tenant encoding. A DurableRuntime adapter may implement tenant as Temporal namespace, Restate partition, or Postgres schema — the choice is adapter-concern.
 
 ## Implementation plan
@@ -112,11 +115,13 @@ A case may move through workflow states, definition migrations (opt-in per [ADR 
 Truth-at-HEAD-after-cluster-implementation.
 
 **Formspec.**
+
 - Respondent Ledger §6 event envelope gains a REQUIRED `tenant` field at the top level matching D-1.1 grammar.
 - Canonical response schema gains a top-level `tenant` field with the same regex.
 - Runtime re-validation paths refuse responses whose `tenant` does not match the runtime's current scope.
 
 **WOS.**
+
 - Agent A lands `ProvenanceKind::IdentityAttestation` (Facts tier) with constructor `ProvenanceRecord::identity_attestation`. Four unit tests + two conformance fixtures.
 - Agent B lands schema `$def` at `$defs/IdentityAttestationRecord` in `wos-workflow.schema.json` carrying the D-3.1 field set.
 - `DurableRuntime` trait API carries tenant context on every method; existing impls updated.
@@ -126,11 +131,13 @@ Truth-at-HEAD-after-cluster-implementation.
 - `is_valid_tenant` validator updates to D-1.1 regex.
 
 **Trellis.**
+
 - Envelope header gains REQUIRED `tenant` field paired with `ledger_id`, validated against D-1.1 grammar.
 - Verifier MUST refuse a chain whose tenant mismatches the expected scope context.
 - Export bundles carry tenant at the bundle level.
 
 **Stack-level.**
+
 - TypeID registration ([ADR-0061](../../wos-spec/thoughts/adr/0061-custody-hook-trellis-wire-format.md) T1.1) carries this ADR as a normative reference and adopts D-1.1 grammar.
 
 ## Open questions
@@ -138,6 +145,7 @@ Truth-at-HEAD-after-cluster-implementation.
 1. **Scope-bundle re-declaration on supersession (confirmed default).** Same-tenant supersession reuses `(Tenant, DefinitionId, KernelId)` and mints a new `LedgerId` only. Cross-tenant supersession (per [ADR 0066](./0066-stack-amendment-and-supersession.md) §D-5) mints fresh across the entire bundle — the destination tenant opens a new case. Confirmed-default; the supersession-graph.json linkage from [ADR 0066](./0066-stack-amendment-and-supersession.md) D-4 disambiguates either way.
 
 **Resolved (this revision).**
+
 - ~~Tenant identifier format~~ — resolved by D-1.1: `^[a-z][a-z0-9-]{0,62}$` with RFC 1035 DNS-label rationale; binding on TypeID grammar and `is_valid_tenant`.
 - ~~Actor-across-tenants identity format~~ — resolved by D-3.1: `IdentityAttestation` shape pulled inline; PLN-0381 closed.
 

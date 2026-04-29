@@ -15,7 +15,7 @@ Listed in [STACK.md Open Contracts](../../STACK.md#open-contracts) as expensive 
 
 The primitive is not a timer. Timers are runtime concerns. The primitive is an *event pair* — `ClockStarted` at one point in the chain, `ClockResolved` at another — with declarative policy about when each may fire and what their occurrence means.
 
-This ADR is part of the **WOS Stack Closure cluster (0066–0071)**. Clock events inherit ADR 0069 D-2 millisecond floor on RFC3339 wires (D-2.1 ns floor on Trellis CBOR), D-5 mandatory TSA attestation for rights-impacting clock starts, and D-7 substrate-authoritative chain time. Open-clock cancellation on supersession composes with ADR 0066 D-1 (see §D-? cross-reference below).
+This ADR is part of the **WOS Stack Closure cluster (0066–0071)**. Clock events inherit ADR 0069 D-2 millisecond floor on RFC3339 wires (D-2.1 ns floor on Trellis CBOR), D-5 mandatory TSA attestation for rights-impacting clock starts, and D-7 substrate-authoritative chain time. Open-clock cancellation on supersession composes with ADR 0066 D-1 (see [§D-6](#d-6-open-clock-cancellation-on-supersession-wos-owned-mandatory) below).
 
 ## Decision
 
@@ -155,17 +155,20 @@ Rationale: a `ClockResolved.elapsed` with a null `resolving_event_hash` is a fre
 ## Consequences
 
 **Positive.**
+
 - Deadlines are first-class in the record — expiry is auditable, not implicit in missing events.
 - Pause and resume compose from the base two-event vocabulary; no additional record kinds.
 - Jurisdiction-aware via existing WOS §7.1 business-calendar selection; no duplicate plumbing.
 - Verifier exposes open-clock state without opinionating about runtime behavior — a deployment with no live timers still produces valid chains.
 
 **Negative.**
+
 - Adds two WOS provenance record kinds (`ClockStarted`, `ClockResolved`) plus the clock-kind open enum.
 - Trellis export bundle gains the `open-clocks.json` manifest and a verifier advisory path.
 - Forces jurisdictional semantics to be decided per clock at authoring time — implicit defaults are not allowed. This is a design feature, not a deficiency.
 
 **Neutral.**
+
 - Does not mandate runtime timer implementation. A deployment without live timers still records `ClockStarted` at origin; `ClockResolved(resolution: "elapsed")` is emitted either at the next authoritative touch (audit, re-access, review) or left open, with the verifier advisory carrying the signal.
 
 ## Implementation plan
@@ -173,6 +176,7 @@ Rationale: a `ClockResolved.elapsed` with a null `resolving_event_hash` is a fre
 Truth-at-HEAD-after-cluster-implementation.
 
 **WOS.**
+
 - Agent A lands `ProvenanceKind::ClockStarted` and `ProvenanceKind::ClockResolved` (Facts tier) with constructors `ProvenanceRecord::clock_started` and `ProvenanceRecord::clock_resolved`. Five unit tests + three conformance fixtures (start, satisfied, elapsed, paused-resumed, cancelled-on-supersession).
 - Agent B lands schema `$def`s `$defs/ClockStartedRecord` and `$defs/ClockResolvedRecord` in `wos-workflow.schema.json`; `Clock` `$def` carries `clock_kind`, `duration`, `calendar_ref`, `statute_reference`, `clock_source` (per [ADR 0069](./0069-stack-time-semantics.md) D-5; required when `kind: "legal-deadline"`).
 - `ProcessingSLA.kind` discriminator schema lands per D-2.1; `SlaDefinition` deprecated with migration note.
@@ -182,10 +186,12 @@ Truth-at-HEAD-after-cluster-implementation.
 - Reopens #51 statutory deadline chains — trigger-gate softens now that a contract exists.
 
 **Formspec.**
+
 - No authoring surface change. Respondent Ledger observes clock events as ordinary entries.
 - StatuteClock origination on respondent acts (application filing) emits via the Respondent Ledger's existing event-emit path, referencing the applicable statute URI.
 
 **Trellis.**
+
 - Add `open-clocks.json` manifest to export bundle spec.
 - Extend verifier with D-3 advisory diagnostic.
 - Verifier rejects pause-resume pairs whose `calendar_ref` differs (per D-4).
@@ -197,6 +203,7 @@ Truth-at-HEAD-after-cluster-implementation.
 1. **Multi-jurisdictional clocks.** A case operating under federal + state law may face two statute clocks on the same act. Default: emit both, independently; no special composition. Alternative: require selection of a single governing jurisdiction at case open. Recommendation: default — `wos-spec/specs/sidecars/business-calendar.md` §7.1 jurisdiction selection is clock-scoped, so composition is straightforward.
 
 **Resolved (this revision).**
+
 - ~~Clock granularity~~ — resolved: clock event timestamps inherit [ADR 0069](./0069-stack-time-semantics.md) D-2 millisecond floor (RFC3339 string layers) and D-2.1 nanosecond floor (Trellis CBOR wire). Jurisdictional deadlines are day-granular by `duration`, not by timestamp precision.
 - ~~Post-hoc elapsed emission~~ — resolved: D-7 mandates synthetic `ClockResolved(elapsed)` with non-null `resolving_event_hash` referencing the last-touch event on the originating chain.
 - ~~Pause/resume calendar invariance~~ — resolved by D-4 calendar invariant.

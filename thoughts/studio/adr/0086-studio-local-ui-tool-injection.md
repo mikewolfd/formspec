@@ -1,6 +1,6 @@
 # ADR 0086: Studio-Local UI Tool Injection
 
-**Status:** Proposed
+**Status:** Implemented
 **Date:** 2026-04-28
 **Scope:** `formspec-studio` (L6) chat surface; `formspec-mcp` (L4) dispatch boundary; `formspec-chat` (L5) `ToolContext` composition
 **Related:** [ADR 0082 (lift ChatSession)](./0082-lift-chat-session-above-studio.md); [ADR 0083 (right-panel live preview companion)](./0083-right-panel-live-preview-companion.md); [ADR 0085 (`ToolContext` workspace-selection read seam)](./0085-toolcontext-workspace-selection.md) — D-4 (synchronous selection clear) is a prerequisite for `revealField` not landing on dangling paths; [ADR 0040 (MCP tool consolidation)](./0040-mcp-tool-consolidation.md) — disambiguation-cross-reference convention applies to declarations in D-1; [`thoughts/studio/2026-04-28-prd-chatgpt-forms-ide.md`](../studio/2026-04-28-prd-chatgpt-forms-ide.md) §7.4 (proposed `switchWorkspaceTab` / `highlightField` / `openPreview` — this ADR corrects their layering); [`thoughts/studio/2026-04-26-studio-unified-feature-matrix.md`](../studio/2026-04-26-studio-unified-feature-matrix.md) §M3 — `LayoutDocument` milestone referenced in D-3

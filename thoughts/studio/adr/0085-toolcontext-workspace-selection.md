@@ -1,6 +1,6 @@
 # ADR 0085: ToolContext Workspace Selection
 
-**Status:** Proposed
+**Status:** Implemented
 **Date:** 2026-04-28
 **Scope:** `packages/formspec-chat` (L5) — `ToolContext` interface; `packages/formspec-studio` (L6) — implementation site
 **Related:** ADR 0082 (lift `ChatSession` — prereq); ADR 0086 (Studio-local UI tools — consumer of this seam); [`thoughts/studio/2026-04-28-prd-chatgpt-forms-ide.md`](../studio/2026-04-28-prd-chatgpt-forms-ide.md) §7.4 (proposes the extension this ADR corrects in layering and shape)

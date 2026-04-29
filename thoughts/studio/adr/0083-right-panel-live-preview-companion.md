@@ -1,6 +1,6 @@
 # ADR 0083: Right-Panel Live Preview Companion
 
-**Status:** Proposed
+**Status:** Implemented
 **Date:** 2026-04-28
 **Scope:** `formspec-studio` shell layout; `FormspecPreviewHost` mounting strategy; chat ↔ preview selection bridge
 **Related:** [ADR 0082 (lift `ChatSession` — prerequisite)](./0082-lift-chat-session-above-studio.md); [ADR 0055 (semantic workspace consolidation)](./0055-studio-semantic-workspace-consolidation.md) — prior art for collapsing top-level mode enums into named layout regions; [PRD: ChatGPT Forms IDE §5.1, §5.2, §8.2](../studio/2026-04-28-prd-chatgpt-forms-ide.md)

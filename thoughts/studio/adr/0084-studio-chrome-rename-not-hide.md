@@ -1,6 +1,6 @@
 # ADR 0084: Studio Chrome — Rename, Don't Hide
 
-**Status:** Proposed
+**Status:** Implemented
 **Date:** 2026-04-28
 **Scope:** Formspec Studio shell — `BlueprintSidebar` section labels, `StatusBar` chips, `advanced` toggle semantics
 **Related:** [`thoughts/studio/2026-04-28-prd-chatgpt-forms-ide.md`](../studio/2026-04-28-prd-chatgpt-forms-ide.md) §5.4, §5.5, §8.5 (this ADR replaces "hide behind Advanced" with rename-and-surface-counts); [ADR 0055 (studio semantic workspace consolidation)](./0055-studio-semantic-workspace-consolidation.md) — direct prior art for rename-without-hiding (Logic/Data → Editor); [ADR 0082 (lift ChatSession)](./0082-lift-chat-session-above-studio.md); [ADR 0083 (right-panel live preview companion)](./0083-right-panel-live-preview-companion.md)

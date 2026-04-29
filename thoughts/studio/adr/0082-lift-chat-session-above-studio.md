@@ -1,6 +1,6 @@
 # ADR 0082: Lift ChatSession Above StudioApp
 
-**Status:** Proposed
+**Status:** Implemented
 **Date:** 2026-04-28
 **Scope:** `formspec-studio` (L6) — assistant session ownership, `StudioApp` view branching, `ChatPanel` consumer surface
 **Related:** [PRD §5.3 Chat Session Persistence](../studio/2026-04-28-prd-chatgpt-forms-ide.md#53-chat-session-persistence) — this ADR carves out the foundational decision; sibling decompositions [ADR 0083–0087]; [ADR 0036 (extract `formspec-studio-core`)](./0036-extract-formspec-studio-core-package.md) — same lift-state-up pattern, different package boundary; [ADR 0061 (headless authoring runtime) §6](./0061-current-state-authoring-runtime.md) — prior art for dependency-injected construction over inside-built I/O adapters, applied here one layer up

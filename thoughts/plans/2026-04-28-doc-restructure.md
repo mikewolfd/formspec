@@ -6,6 +6,12 @@
 
 ---
 
+## Question excess
+
+This plan is input, not authority. Steps that look unreasonable, excessive, or that open a new drift surface to close an old one earn scrutiny — stop and challenge before executing. When the written instruction conflicts with the right answer, update the plan; don't work around it. The `user_profile.md` meta-rule ("don't assume anything written is right — everything was written by AI") applies recursively to this document.
+
+---
+
 ## Target state
 
 ```

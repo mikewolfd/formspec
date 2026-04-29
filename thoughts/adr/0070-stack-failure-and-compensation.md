@@ -22,7 +22,7 @@ Each layer has ordering invariants on its own ([ADR 0057](../../wos-spec/thought
 
 Listed in [STACK.md Open Contracts](../../STACK.md#open-contracts) as an integration primitive. Blocks any production deployment.
 
-This ADR is part of the **WOS Stack Closure cluster (0066–0071)**. ADR 0066 amendment-and-supersession owns post-commit reversal vocabulary (D-5 below routes there). ADR 0068 tenant scope is the failure-isolation boundary (D-? below). ADR 0069 D-7 substrate-authoritative chain time underpins the local-append commit semantics in D-1. ADR 0073 IntakeOutcome runtime emission carries the `IntakeRejected` provenance kind referenced in D-2.
+This ADR is part of the **WOS Stack Closure cluster (0066–0071)**. ADR 0066 amendment-and-supersession owns post-commit reversal vocabulary (D-5 below routes there). ADR 0068 tenant scope is the failure-isolation boundary ([§D-5.1](#d-51-tenant-scope-is-the-failure-isolation-boundary) below, composing with [ADR 0068 §D-1](./0068-stack-tenant-and-scope-composition.md#d-1-tenant-is-the-outermost-container)). ADR 0069 D-7 substrate-authoritative chain time underpins the local-append commit semantics in D-1. ADR 0073 IntakeOutcome runtime emission carries the `IntakeRejected` provenance kind referenced in D-2.
 
 ## Decision
 
@@ -33,12 +33,14 @@ Six pins. The first is the whole architecture — everything else follows.
 A case transition is *committed* when Trellis's custody-hook append returns `canonical_event_hash`. Before that return, the state is *pending*, not durable from the stack's perspective. After that return, the state is canonical and irreversible at the runtime layer.
 
 **"Commit" means local append, not anchor.** Trellis distinguishes two operations:
+
 - **Local append** — writes the event into the hash-chain and returns `canonical_event_hash`. Latency is milliseconds (hash + signature + storage write). This is the commit point in this ADR.
 - **Anchor** — submits the checkpoint seal to an external substrate (transparency log, TSA, bilateral witness). Latency depends on substrate (OpenTimestamps cycles hourly-to-daily). Anchoring is scheduled and cadence-driven; it does not gate per-event commits.
 
 The "record survives the vendor" claim rests on *eventually anchored* local appends. Unanchored local appends still verify against the hash-chain and signatures; they lose only the external-substrate trust anchor. The commit-to-anchor interval is a deployment-tunable property; it does not weaken commit semantics.
 
 Implications:
+
 - No layer treats its own durable write as the commit point. WOS is durable-per-`DurableRuntime`, but that durability is *internal scaffolding* — the commit that makes a decision "part of the record" is the Trellis local append.
 - Any failure between WOS emission and Trellis local-append receipt is a *pending* failure, not a *committed* failure. Retries are correct by construction (per D-4).
 - Formspec revalidation and WOS governance evaluation happen before Trellis append. They are pre-commit and may abort without leaving a record.
@@ -52,6 +54,7 @@ If Formspec server-side revalidation rejects a submission, **the rejected respon
 But the *fact that a rejection occurred* is governance-relevant evidence: it carries the case identifier, the rejection reason, and the timestamp, without containing the rejected response payload itself. Per [ADR 0073](./0073-intake-outcome-runtime-emission.md) IntakeOutcome runtime emission, the runtime emits one of `IntakeAccepted | IntakeRejected | IntakeDeferred` on every intake act. `IntakeRejected` IS anchored on the chain — it is a Facts-tier provenance record about the rejection event, not the rejected data.
 
 The boundary is sharp:
+
 - **Response bytes** — excluded from the chain on rejection. Stays in Formspec's product-level audit trail (adapter concern), not the stack record.
 - **Governance fact about rejection** — included on the chain via `IntakeRejected`. Pattern-of-attempted-overreach and pattern-of-validation-failures are both audit-relevant.
 
@@ -81,6 +84,7 @@ AuthorizationRejected {
 ```
 
 The distinction:
+
 - *Rejected data* (Formspec D-2) — invalid input; rejected bytes excluded from chain; `IntakeRejected` Facts-tier governance record anchors the rejection event.
 - *Rejected action* (WOS D-3) — valid attempt of a disallowed operation; `AuthorizationRejected` Facts-tier record anchors the denial.
 - *Rejected task output* — valid input shape but failing deontic constraint; `TaskResponseRejected` Facts-tier record anchors the constraint failure.
@@ -91,7 +95,7 @@ Rationale: in rights-impacting work, pattern-of-attempted-overreach is itself go
 
 Failure of a Trellis append (network timeout, anchor substrate downtime, hash-chain conflict) triggers retry. The `(caseId, recordId)` tuple from [ADR-0061](../../wos-spec/thoughts/adr/0061-custody-hook-trellis-wire-format.md) is the idempotency key — retries with identical tuples are safe.
 
-- Retry budget is bounded by a normative MAX of 24 hours (per D-? below). The `DurableRuntime` adapter chooses any retry policy within that ceiling; deployment overrides allowed within MAX.
+- Retry budget is bounded by a normative MAX of 24 hours (per [§D-4.2](#d-42-retry-budget-max-normative-ceiling-not-just-adapter-default) below). The `DurableRuntime` adapter chooses any retry policy within that ceiling; deployment overrides allowed within MAX.
 - A successful retry produces a single canonical event; no duplicate records exist on success.
 - A retry-budget-exhausted case enters the `stalled` execution flag — a reserved `InstanceStatus` variant introduced by this ADR (see D-4.1). `stalled` is orthogonal to statechart node taxonomy; it is execution metadata on the case instance, not a kernel statechart node. Operator intervention (a new runtime attempt, an anchor-substrate change, or explicit abandonment via supersession per [ADR 0066](./0066-stack-amendment-and-supersession.md)) clears the flag.
 
@@ -101,22 +105,28 @@ Operator-facing: `stalled` cases surface telemetry and a remediation path. They 
 
 The kernel statechart node taxonomy (`atomic | compound | parallel | final`, per the WOS kernel spec) is **untouched**. `stalled` is execution metadata orthogonal to node kind: a case instance whose statechart node is, e.g., `atomic` may also have `status: stalled` because its commit pipeline has exhausted retry budget.
 
+**Center alignment (Rust + JSON Schema at HEAD):** `InstanceStatus` on `CaseInstance` is a **six-variant** closed core set. This ADR **adds** `Stalled` to the pre-existing runtime lifecycle variants (`Active`, `Suspended`, `Migrating`, `Completed`, `Terminated`) already carried by `wos-core` and `wos-case-instance.schema.json` — it does not replace that taxonomy with a four-value model, and it does not collapse lifecycle completion into a single \"Closed\" label.
+
 ```
 CaseInstance {
   ...
-  status: InstanceStatus,                // closed enum: see below
+  status: InstanceStatus,                // closed enum: see below (wire: camelCase JSON per schema)
   stalled_since: RFC3339 | null,         // millisecond-or-better per ADR 0069 D-2; non-null iff status == stalled
   ...
 }
 
 enum InstanceStatus {
-  Active,
-  Stalled,                               // commit pipeline exhausted retry budget
-  Closed,                                // statechart reached a `final` node and is sealed
-  Superseded,                            // ADR 0066 supersession completed
-  // x-* extension permitted; closed core taxonomy
+  Active,                                 // processing events normally
+  Suspended,                              // paused; no events processed until resumed
+  Migrating,                              // definition version change in progress
+  Completed,                              // lifecycle reached a top-level final state
+  Terminated,                             // explicitly terminated
+  Stalled,                                // this ADR: commit retry budget exhausted (orthogonal to statechart node)
+  // x-* extension permitted where schema allows; closed core taxonomy matches schema enum
 }
 ```
+
+(JSON wire uses lowercase string enum values `active` | `suspended` | `migrating` | `completed` | `terminated` | `stalled` per `wos-case-instance.schema.json`.)
 
 `status` and statechart-node-kind compose: an `Active` case advances through atomic/compound/parallel/final nodes via lifecycle transitions; a `Stalled` case is paused on commit-pipeline failure regardless of which node it is in. Recovery from `stalled` does not change the node — it resumes the commit attempt on the same logical step.
 
@@ -140,6 +150,8 @@ enum AppendFailure {
 }
 ```
 
+**Ratification vs implementation:** The `AppendFailure` discriminant and a custody-append method returning it on the `DurableRuntime` seam are **tracked as implementation work** under parent [`PLANNING.md`](../../PLANNING.md) **PLN-0039** (trait surface + fixtures). They are **not** a gate for ratifying this ADR's *decision* prose if your process separates decision text from backlog landing.
+
 The runtime applies D-4.2 retry-budget policy to `RetryableFailure`; on `BudgetExhaustedFailure` (or after the runtime's own MAX timer fires), it transitions the instance to `Stalled` and emits `CommitAttemptFailure`.
 
 #### D-4.4. Receipt propagation — Trellis-appended-but-WOS-crashed safe by D-4 idempotency
@@ -154,15 +166,16 @@ An anchored decision that is later found to be wrong is NOT reversed by a runtim
 
 This pin is structural. Saga-style auto-compensation is a tempting runtime pattern for transactional systems, but in rights-impacting work it misrepresents the record. A decision that happened, happened — the chain preserves it. A new decision may supersede it, and the supersession is itself a recorded governance act. The chain MUST NOT be editable post-commit; compensation flows through append-only amendment records.
 
-Rationale: this keeps the center clean. Runtime sagas are exactly the kind of adapter-leaking-into-center pattern the stack rejects. It also composes cleanly with [ADR 0066](./0066-stack-amendment-and-supersession.md)'s four canonical revisit modes.
+Rationale: this keeps the center clean. Runtime sagas are exactly the kind of adapter-leaking-into-center pattern the stack rejects. It also composes cleanly with [ADR 0066](./0066-stack-amendment-and-supersession.md)'s five canonical revisit modes.
 
 #### D-5.1. Tenant scope is the failure-isolation boundary
 
 One tenant's substrate availability does not affect another tenant's chain progression. Failure isolation composes with the tenant scope established in [ADR 0068](./0068-stack-tenant-and-scope-composition.md): tenant is the outer container, and failure containment honors that container.
 
 Concretely:
+
 - Trellis substrate outage scoped to one tenant's chain (storage-shard failure, key-bag access loss) does not stall other tenants' chains running on the same physical substrate but logically separated by tenant.
-- `DurableRuntime` adapter implementations carrying tenant context per [ADR 0068](./0068-stack-tenant-and-scope-composition.md) D-? MUST surface tenant-scoped retry budgets — exhaustion in tenant A does not consume budget for tenant B.
+- `DurableRuntime` adapter implementations carrying tenant context per [ADR 0068](./0068-stack-tenant-and-scope-composition.md) §D-1 MUST surface tenant-scoped retry budgets — exhaustion in tenant A does not consume budget for tenant B.
 - `CommitAttemptFailure` records (D-6) are tenant-scoped; cross-tenant failure aggregation is a deployment-level concern, not a chain-level one.
 
 This is contingent on [ADR 0068](./0068-stack-tenant-and-scope-composition.md) ratifying tenant scope as the failure-isolation boundary. Per the maximalist coordinated cluster ratification (see frontmatter), this is not a sequencing risk — both ADRs ratify together.
@@ -188,49 +201,58 @@ The failure record itself is anchored — either on the next successful append (
 ## Consequences
 
 **Positive.**
+
 - A single commit point eliminates "which layer committed first?" ambiguity.
 - Idempotent retries are safe by construction.
-- `Stalled` is a first-class reserved `InstanceStatus` variant on `CaseInstance`, not runtime-defined escape behavior. Statechart node taxonomy is untouched; execution metadata composes with it orthogonally.
+- `Stalled` is a first-class reserved `InstanceStatus` variant on `CaseInstance` **alongside** the existing lifecycle variants (`Suspended`, `Migrating`, `Completed`, `Terminated`), not runtime-defined escape behavior. Statechart node taxonomy is untouched; execution metadata composes with it orthogonally.
 - Compensation semantics route through [ADR 0066](./0066-stack-amendment-and-supersession.md) — one vocabulary, not two.
 - Commit-attempt failures are anchored and auditable.
 
 **Negative.**
-- Adds `Stalled` to the closed `InstanceStatus` core taxonomy (not to statechart node taxonomy — those remain `atomic | compound | parallel | final`).
+
+- Adds `Stalled` to the closed `InstanceStatus` core taxonomy as a **sixth** runtime variant (not to statechart node taxonomy — those remain `atomic | compound | parallel | final`).
 - Adds three Facts-tier `ProvenanceKind` variants: `CommitAttemptFailure`, `AuthorizationRejected`, and (already-landed) `TaskResponseRejected` continues to apply.
 - Forces Formspec revalidation to be atomic with the WOS emission path (no "submit first, validate later" pattern).
 - Some deployments may want runtime-level "undo" for operational correction (e.g., a data-entry error caught within seconds). They must use amendment/correction under [ADR 0066](./0066-stack-amendment-and-supersession.md) instead.
 - Retry budget MAX (24h) is normative; deployments MUST NOT exceed it.
 
 **Neutral.**
+
 - Does not prescribe retry-budget *policy* (exponential, fixed, jittered) within the 24h MAX. Adapter concern; deployment override allowed.
 - Does not prescribe anchor-substrate failover. Trellis anchor targets (transparency logs, TSAs, bilateral witnesses) are adapter concerns.
-- Does not prescribe `DurableRuntime` timeout values. Adapters surface `RetryableFailure | BudgetExhaustedFailure` distinction; values are deployment-tuned (D-4.3).
+- Does not prescribe `DurableRuntime` timeout values. Adapters surface `RetryableFailure | BudgetExhaustedFailure` distinction; values are deployment-tuned (D-4.3). Typed `AppendFailure` on the custody-append seam is implementation-tracked under **PLN-0039** (see D-4.3).
 
 ## Implementation plan
 
 Truth-at-HEAD-after-cluster-implementation.
 
+**Backlog pointer:** `DurableRuntime` custody-append typed outcomes (`AppendFailure` / `append_to_custody` or equivalent) land under parent [`PLANNING.md`](../../PLANNING.md) **PLN-0039** — not a Trellis `TODO.md` scheduling row by number; track that row for status.
+
 **Formspec.**
+
 - Server-side revalidation path documented as pre-commit; explicit rejection of "submit first, validate later."
 - No new event kinds required at the Formspec layer; `IntakeRejected` runtime emission is owned by [ADR 0073](./0073-intake-outcome-runtime-emission.md).
 
 **WOS.**
+
 - Agent A lands `ProvenanceKind::CommitAttemptFailure` and `ProvenanceKind::AuthorizationRejected` (Facts tier) with constructors `ProvenanceRecord::commit_attempt_failure` and `ProvenanceRecord::authorization_rejected`. Six unit tests + four conformance fixtures (retry-success, budget-exhausted, slow-append, authz-rejected-transition, authz-rejected-amendment, intake-rejected-cross-reference).
 - Agent B lands schema `$def`s `$defs/CommitAttemptFailureRecord` and `$defs/AuthorizationRejectedRecord` in `wos-workflow.schema.json` carrying the D-3 and D-6 field sets.
-- Add `Stalled` to closed `InstanceStatus` enum on `CaseInstance` (D-4.1); statechart node taxonomy unchanged.
-- `DurableRuntime` trait method `append_to_custody` returns the typed `AppendFailure` distinguishing `RetryableFailure | BudgetExhaustedFailure` (D-4.3).
+- Add `Stalled` to the closed `InstanceStatus` enum on `CaseInstance` alongside existing variants (D-4.1); statechart node taxonomy unchanged.
+- `DurableRuntime` trait method `append_to_custody` (or equivalent) returns the typed `AppendFailure` distinguishing `RetryableFailure | BudgetExhaustedFailure` (D-4.3) — **PLN-0039** implementation deliverable; may trail ADR ratification.
 - `CaseInstance` gains required `status: InstanceStatus` field and conditional `stalled_since: RFC3339 | null` (non-null iff `status == Stalled`).
 - Retry-budget MAX 24h enforced in the runtime layer; deployment override allowed only within MAX.
 - Lint rule `K-F-010` — a workflow with no operator-accessible recovery path for `Stalled` instances fails load-time validation.
 - Lint rule `K-F-011` — `stalled_since` non-null iff `status == Stalled`.
 
 **Trellis.**
+
 - Verifier surfaces `CommitAttemptFailure` and `AuthorizationRejected` records in verification reports.
 - No changes to envelope or chain format — these records ride on ordinary appends.
 - Bundle manifest optionally includes a `failures.json` summary for verifier-tool ergonomics.
 - `(caseId, recordId)` idempotency tuple replay semantics documented in Trellis Operational Companion per D-4.4.
 
 **Stack-level.**
+
 - Reference deployment topology spec (trigger-gated in [parent TODO](../../TODO.md)) names operational retry-budget tuning guidance within the 24h MAX when it lands.
 
 ## Open questions
@@ -238,6 +260,7 @@ Truth-at-HEAD-after-cluster-implementation.
 1. **`Stalled` instance auto-recovery on substrate restoration.** Default: no. Operator must explicitly re-try. Alternative: auto-retry on substrate health-check success. Recommendation: default — rights-impacting work prefers explicit human intervention to silent auto-recovery of anchor failures.
 
 **Resolved (this revision).**
+
 - ~~Retry-budget default value~~ — resolved by D-4.2: 24-hour normative MAX. Adapters choose policy within ceiling; deployments override within MAX.
 - ~~Cross-tenant failure contagion~~ — resolved by D-5.1: tenant scope is the failure-isolation boundary; one tenant's substrate failure does not stall another tenant's chains.
 - ~~Slow-append timeout values~~ — resolved by D-4.3: deployment-tuned within adapter; `RetryableFailure | BudgetExhaustedFailure` typed distinction is the center contract.

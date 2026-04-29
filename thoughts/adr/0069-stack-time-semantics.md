@@ -76,7 +76,7 @@ clock_source {
 
 Self-hosted RFC 3161 substrate is acceptable — the requirement is registered attestation, not vendor-hosted attestation. Operators choosing self-hosted TSA assume the operational burden of maintaining it.
 
-Non-rights-impacting `ClockStarted` events (operational SLAs, internal targets per [ADR 0067](./0067-stack-statutory-clocks.md) §D-? `ProcessingSLA.kind`) MAY omit `clock_source`; absence implies `wall-clock` best-effort. The deontic line is impact, not record kind.
+Non-rights-impacting `ClockStarted` events (operational SLAs, internal targets per [ADR 0067](./0067-stack-statutory-clocks.md) §D-2.1 `ProcessingSLA.kind`) MAY omit `clock_source`; absence implies `wall-clock` best-effort. The deontic line is impact, not record kind.
 
 **Deployment consequence.** Deployments unable to provide an attestation substrate cannot host rights-impacting workflows. This is a deliberate deployment-readiness gate, not a deferral hatch. Greenfield posture: register the substrate before opening rights-impacting cases; closed deployments using `wall-clock` for rights-impacting determinations are non-conformant.
 
@@ -132,6 +132,7 @@ Rationale: distributed processors carry independent wall clocks; demanding bit-e
 ## Consequences
 
 **Positive.**
+
 - Chain ordering is deterministic and auditable across time zones and daylight-saving transitions.
 - Leap seconds do not produce intermittent integrity failures.
 - FEL temporal expressions produce identical outcomes across deployments for the same input — or hard-refuse, never silently differ.
@@ -140,6 +141,7 @@ Rationale: distributed processors carry independent wall clocks; demanding bit-e
 - Processor-substrate clock skew is observable as `ClockSkewObserved` records — disagreement becomes audit-relevant evidence rather than silent drift.
 
 **Negative.**
+
 - D-6 forces FEL authors to declare timezone. Mitigated by jurisdiction-aware inheritance from `wos-spec/specs/sidecars/business-calendar.md` §7.1; not mitigated for ad-hoc evaluations, which is intentional.
 - D-2 rejecting second-precision breaks any existing fixture using second-precision timestamps. Greenfield — no production data, fixtures regenerate cheaply.
 - D-3 requires runtime clock-monotonicity discipline at anchor time.
@@ -147,6 +149,7 @@ Rationale: distributed processors carry independent wall clocks; demanding bit-e
 - D-6 trait return-type change cascades through every existing FEL test harness. Mechanical fix; one-time cost.
 
 **Neutral.**
+
 - Does not pick an NTP/PTP provider. NTP and PTP are operator concerns; the substrate-authoritative chain time (D-7) makes processor wall-clock posture an audit-observable property, not a center pin.
 
 ## Implementation plan
@@ -154,11 +157,13 @@ Rationale: distributed processors carry independent wall clocks; demanding bit-e
 Truth-at-HEAD-after-cluster-implementation.
 
 **Formspec.**
+
 - Canonical response schema pins all RFC3339 string timestamp fields to the millisecond-or-better regex per D-2.
 - FEL `FelEnvironment` trait return type evolves: `current_date()` and `current_datetime()` return `Result<_, MissingTimezoneContextError>`. `Option<_>` return is removed.
 - `today()` and `now()` resolve against the declared timezone or hard-refuse.
 
 **WOS.**
+
 - Agent A lands `ProvenanceKind::ClockSkewObserved` (Facts tier) with constructor `ProvenanceRecord::clock_skew_observed`. Two unit tests + one conformance fixture.
 - Agent B lands schema `$def` at `$defs/ClockSkewObservedRecord` in `wos-workflow.schema.json` carrying the D-7 field set.
 - `ProvenanceRecord.timestamp` schema pins to D-2 millisecond-or-better regex.
@@ -168,6 +173,7 @@ Truth-at-HEAD-after-cluster-implementation.
 - Lint rule `K-T-011` for `ClockStarted` records of rights-impacting kind missing `clock_source.tsa_token`.
 
 **Trellis.**
+
 - Envelope CBOR timestamp field pinned to `uint64` nanoseconds per D-2.1 (already the byte-protocol shape; this ADR makes it normative).
 - Export-bundle manifest RFC3339 fields pin to D-2 millisecond floor.
 - Verifier rejects chains with timestamp-order violations per D-3.
@@ -183,6 +189,7 @@ Truth-at-HEAD-after-cluster-implementation.
 3. **Clock-skew threshold composition across distributed processors.** D-7's default 1000ms threshold applies per processor-substrate pair. When multiple processors emit into the same chain (e.g., regional WOS instances feeding one ledger scope), is the threshold per-processor or aggregate? Default: per-processor; each emitter independently decides whether to log skew. Aggregate skew is derivable from the chain by replay. Alternative: aggregate threshold computed as max-pairwise. Recommendation: default — per-processor keeps `ClockSkewObserved` emission deterministic at the source; aggregate analysis is a verifier concern.
 
 **Resolved (this revision).**
+
 - ~~Attestation substrate for D-5~~ — resolved: D-5 mandates RFC 3161 TSA (or registered equivalent) for rights-impacting clock starts. Self-hosted RFC 3161 acceptable.
 
 ## Alternatives considered
