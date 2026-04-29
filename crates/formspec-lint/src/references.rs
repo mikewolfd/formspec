@@ -41,16 +41,8 @@ fn check_bind_paths(
 ) {
     let binds_val = document.get("binds");
 
-    // Object format (legacy): keys are bind paths
-    if let Some(binds_obj) = binds_val.and_then(|v| v.as_object()) {
-        for bind_key in binds_obj.keys() {
-            let json_path = format!("$.binds.{bind_key}");
-            if let Some(diag) = validate_path(bind_key, &json_path, "Bind", "E300", index) {
-                diagnostics.push(diag);
-            }
-        }
-    // Array format (schema-canonical): each element has a `path` property
-    } else if let Some(binds_arr) = binds_val.and_then(|v| v.as_array()) {
+    // Schema-canonical: `binds` is an array; each element has a `path` property.
+    if let Some(binds_arr) = binds_val.and_then(|v| v.as_array()) {
         for (i, bind) in binds_arr.iter().enumerate() {
             if let Some(path) = bind.get("path").and_then(|v| v.as_str()) {
                 let json_path = format!("$.binds[{i}].path");
@@ -316,7 +308,7 @@ mod tests {
     fn valid_simple_bind_path_no_e300() {
         let doc = json!({
             "items": [{ "key": "name", "dataType": "string" }],
-            "binds": { "name": { "required": "true" } }
+            "binds": [{ "path": "name", "required": "true" }]
         });
         let diags = lint(&doc);
         assert!(
@@ -331,13 +323,13 @@ mod tests {
     fn unresolved_bind_path_emits_e300() {
         let doc = json!({
             "items": [{ "key": "name", "dataType": "string" }],
-            "binds": { "nonexistent": { "required": "true" } }
+            "binds": [{ "path": "nonexistent", "required": "true" }]
         });
         let diags = lint(&doc);
         let e300: Vec<_> = diags.iter().filter(|d| d.code == "E300").collect();
         assert_eq!(e300.len(), 1);
         assert!(e300[0].message.contains("nonexistent"));
-        assert_eq!(e300[0].path, "$.binds.nonexistent");
+        assert_eq!(e300[0].path, "$.binds[0].path");
     }
 
     // ── 3. Valid dotted path — no E300 ────────────────────────
@@ -349,7 +341,7 @@ mod tests {
                 "key": "address",
                 "children": [{ "key": "street", "dataType": "string" }]
             }],
-            "binds": { "address.street": { "required": "true" } }
+            "binds": [{ "path": "address.street", "required": "true" }]
         });
         let diags = lint(&doc);
         assert!(
@@ -368,7 +360,7 @@ mod tests {
                 "repeatable": true,
                 "children": [{ "key": "amount", "dataType": "decimal" }]
             }],
-            "binds": { "lines[*].amount": { "required": "true" } }
+            "binds": [{ "path": "lines[*].amount", "required": "true" }]
         });
         let diags = lint(&doc);
         assert!(
@@ -389,7 +381,7 @@ mod tests {
                     "children": [{ "key": "startDate", "dataType": "date" }]
                 }]
             }],
-            "binds": { "conditions[*].medications[*].startDate": { "required": "true" } }
+            "binds": [{ "path": "conditions[*].medications[*].startDate", "required": "true" }]
         });
         let diags = lint(&doc);
         assert!(
@@ -409,7 +401,7 @@ mod tests {
                     "children": [{ "key": "startDate", "dataType": "date" }]
                 }]
             }],
-            "binds": { "conditions[*].medications[*].startDate": { "required": "true" } }
+            "binds": [{ "path": "conditions[*].medications[*].startDate", "required": "true" }]
         });
         let diags = lint(&doc);
         let e300: Vec<_> = diags.iter().filter(|d| d.code == "E300").collect();
@@ -426,7 +418,7 @@ mod tests {
                 "key": "personal",
                 "children": [{ "key": "name", "dataType": "string" }]
             }],
-            "binds": { "personal[*].name": { "required": "true" } }
+            "binds": [{ "path": "personal[*].name", "required": "true" }]
         });
         let diags = lint(&doc);
         let e300: Vec<_> = diags.iter().filter(|d| d.code == "E300").collect();
@@ -444,7 +436,7 @@ mod tests {
                 "repeatable": true,
                 "children": [{ "key": "amount", "dataType": "decimal" }]
             }],
-            "binds": { "lines[*].nonexistent": { "required": "true" } }
+            "binds": [{ "path": "lines[*].nonexistent", "required": "true" }]
         });
         let diags = lint(&doc);
         let e300: Vec<_> = diags.iter().filter(|d| d.code == "E300").collect();
@@ -570,7 +562,7 @@ mod tests {
     fn empty_binds_produces_no_diagnostics() {
         let doc = json!({
             "items": [{ "key": "name" }],
-            "binds": {}
+            "binds": []
         });
         let diags = lint(&doc);
         assert!(diags.is_empty());
@@ -584,7 +576,7 @@ mod tests {
                 "repeatable": true,
                 "children": [{ "key": "amount" }]
             }],
-            "binds": { "lines[*]": { "relevant": "true" } }
+            "binds": [{ "path": "lines[*]", "relevant": "true" }]
         });
         let diags = lint(&doc);
         // A bare wildcard with no remainder is valid if the group is repeatable
@@ -598,7 +590,7 @@ mod tests {
     fn multiple_errors_across_binds_and_shapes() {
         let doc = json!({
             "items": [{ "key": "name" }],
-            "binds": { "ghost": { "required": "true" } },
+            "binds": [{ "path": "ghost", "required": "true" }],
             "shapes": [{ "target": "phantom", "constraint": "true" }]
         });
         let diags = lint(&doc);
@@ -705,7 +697,7 @@ mod tests {
                 "key": "address",
                 "children": [{ "key": "street", "dataType": "string" }]
             }],
-            "binds": { "address.nonexistent": { "required": "true" } }
+            "binds": [{ "path": "address.nonexistent", "required": "true" }]
         });
         let diags = lint(&doc);
         let e300: Vec<_> = diags.iter().filter(|d| d.code == "E300").collect();
@@ -718,7 +710,7 @@ mod tests {
     fn dotted_path_unknown_base_key_emits_e300() {
         let doc = json!({
             "items": [{ "key": "name", "dataType": "string" }],
-            "binds": { "ghost.field": { "required": "true" } }
+            "binds": [{ "path": "ghost.field", "required": "true" }]
         });
         let diags = lint(&doc);
         let e300: Vec<_> = diags.iter().filter(|d| d.code == "E300").collect();
@@ -788,7 +780,7 @@ mod tests {
     fn all_diagnostics_are_pass_3() {
         let doc = json!({
             "items": [{ "key": "f", "dataType": "boolean", "optionSet": "missing" }],
-            "binds": { "ghost": { "required": "true" } },
+            "binds": [{ "path": "ghost", "required": "true" }],
             "shapes": [{ "target": "phantom", "constraint": "true" }]
         });
         let diags = lint(&doc);
@@ -804,7 +796,7 @@ mod tests {
 
     // ── Array-format binds with wildcard on non-repeatable group ─
 
-    /// Spec: spec.md §4.5 — wildcard binds in array format validate identically to object format
+    /// Spec: spec.md §4.5 — wildcard binds on non-repeatable groups are invalid (E300).
     #[test]
     fn array_format_wildcard_on_non_repeatable_emits_e300() {
         let doc = json!({
@@ -838,7 +830,7 @@ mod tests {
                     "children": [{ "key": "name", "dataType": "string" }]
                 }
             ],
-            "binds": { "name": { "required": "true" } }
+            "binds": [{ "path": "name", "required": "true" }]
         });
         let index = crate::tree::build_item_index(&doc);
         // "name" should be in ambiguous_keys
@@ -869,7 +861,7 @@ mod tests {
                     "children": [{ "key": "x", "dataType": "string" }]
                 }
             ],
-            "binds": { "x": { "required": "true" } }
+            "binds": [{ "path": "x", "required": "true" }]
         });
         let index = crate::tree::build_item_index(&doc);
         assert!(index.ambiguous_keys.contains("x"));
