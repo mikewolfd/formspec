@@ -44,20 +44,24 @@ export function MappingTab({
       maxWidth={(activeTab === 'all' || activeTab === 'preview') ? "max-w-[1000px]" : "max-w-[660px]"}
       className="overflow-y-auto min-h-[800px]"
     >
-      <WorkspacePageSection padding="px-7" className="sticky top-0 bg-bg-default/80 backdrop-blur-md z-20 pt-4 pb-2 border-b border-border/40">
-        {/* Mapping document selector strip */}
-        <div className="flex items-center mb-3">
-          <span className="font-mono text-[10px] uppercase tracking-widest text-muted mr-2 shrink-0">Mapping</span>
-          <MappingSelector />
+      <WorkspacePageSection
+        padding="px-7"
+        className="pointer-events-none sticky top-0 z-20 border-b border-border/40 bg-bg-default/80 pb-2 pt-4 backdrop-blur-md"
+      >
+        {/* Let clicks reach mapping controls below the sticky chrome (e.g. direction picker). */}
+        <div className="pointer-events-auto">
+          <div className="mb-3 flex items-center">
+            <span className="mr-2 shrink-0 font-mono text-[10px] uppercase tracking-widest text-muted">Mapping</span>
+            <MappingSelector />
+          </div>
+          <SectionFilterBar
+            tabs={sectionTabs}
+            activeTab={activeTab}
+            onTabChange={setActiveTab}
+            ariaLabel="Mapping section filter"
+            testIdPrefix="mapping-filter-tab"
+          />
         </div>
-        {/* Section filter tabs */}
-        <SectionFilterBar
-          tabs={sectionTabs}
-          activeTab={activeTab}
-          onTabChange={setActiveTab}
-          ariaLabel="Mapping section filter"
-          testIdPrefix="mapping-filter-tab"
-        />
       </WorkspacePageSection>
 
       <WorkspacePageSection padding="px-7" className="flex-1 py-10 min-h-0">

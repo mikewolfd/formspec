@@ -2,6 +2,7 @@
 import { useEffect, useId, useState } from 'react';
 import { useProject } from '../../state/useProject';
 import { useMapping } from '../../state/useMapping';
+import { useProjectState } from '../../state/useProjectState';
 import { HelpTip } from '../../components/ui/HelpTip';
 
 import { useControllableState } from '../../hooks/useControllableState';
@@ -16,6 +17,10 @@ interface MappingConfigProps {
 export function MappingConfig({ open: controlledOpen, onOpenChange }: MappingConfigProps = {}) {
   const mapping = useMapping();
   const project = useProject();
+  const projectSnapshot = useProjectState();
+  const activeMappingId =
+    projectSnapshot.selectedMappingId ?? Object.keys(projectSnapshot.mappings)[0] ?? 'default';
+  const mappingHydrationKey = `${activeMappingId}:${mapping?.version ?? ''}:${(mapping?.rules ?? []).length}:${mapping?.direction ?? ''}`;
   const [pickerOpen, setPickerOpen] = useState(false);
   const [open, setOpen] = useControllableState(controlledOpen, onOpenChange, true);
   const listboxId = useId();
@@ -65,7 +70,7 @@ export function MappingConfig({ open: controlledOpen, onOpenChange }: MappingCon
                 <span className="text-[10px] text-muted/50 cursor-help hover:text-accent transition-colors">ⓘ</span>
               </HelpTip>
             </div>
-            <div className="relative">
+            <div className="relative z-30 isolate">
               <button
                 type="button"
                 data-testid="direction-picker"
@@ -87,7 +92,7 @@ export function MappingConfig({ open: controlledOpen, onOpenChange }: MappingCon
                 <div
                   id={listboxId}
                   role="listbox"
-                  className="absolute right-0 top-full z-20 mt-1 min-w-32 rounded-md border border-border bg-panel p-1 shadow-lg"
+                  className="absolute right-0 top-full z-50 mt-1 min-w-32 rounded-md border border-border bg-panel p-1 shadow-lg"
                 >
                   {directions.map((value) => (
                     <button
@@ -116,6 +121,7 @@ export function MappingConfig({ open: controlledOpen, onOpenChange }: MappingCon
             </div>
             <div className="shrink-0">
               <input
+                key={mappingHydrationKey}
                 type="text"
                 data-testid="mapping-version"
                 defaultValue={mapping?.version ?? ''}
@@ -157,6 +163,7 @@ export function MappingConfig({ open: controlledOpen, onOpenChange }: MappingCon
                 </HelpTip>
               </div>
               <input
+                key={`${mappingHydrationKey}-schema-url`}
                 type="text"
                 placeholder="https://example.com/schema.json"
                 defaultValue={mapping?.targetSchema?.url ?? ''}
