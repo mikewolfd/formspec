@@ -14,6 +14,34 @@ interface ImportDialogProps {
 
 const ARTIFACT_TYPES = ['Definition', 'Component', 'Theme', 'Mapping'] as const;
 
+/**
+ * Normalize pasted Mapping JSON into the shape expected by `project.import` (`mappings` map).
+ * - A single mapping document becomes `{ default: doc }`.
+ * - A bundle with a top-level `mappings` object is passed through (must be a plain object, not an array).
+ */
+export function resolveMappingsImportPayload(
+  parsed: unknown,
+): { ok: true; mappings: Record<string, unknown> } | { ok: false; error: string } {
+  if (parsed === null || typeof parsed !== 'object' || Array.isArray(parsed)) {
+    return { ok: false, error: 'Invalid mapping import: expected a JSON object.' };
+  }
+  const doc = parsed as Record<string, unknown>;
+  if (!Object.prototype.hasOwnProperty.call(doc, 'mappings')) {
+    return { ok: true, mappings: { default: doc } };
+  }
+  const raw = doc.mappings;
+  if (raw === undefined) {
+    return { ok: false, error: 'Invalid mapping import: property "mappings" is present but undefined.' };
+  }
+  if (typeof raw !== 'object' || raw === null || Array.isArray(raw)) {
+    return {
+      ok: false,
+      error: 'Invalid mapping import: "mappings" must be an object of named mapping documents, not an array.',
+    };
+  }
+  return { ok: true, mappings: raw as Record<string, unknown> };
+}
+
 export function ImportDialog({ open, onClose, onBeforeLoad, onImportSuccess }: ImportDialogProps) {
   const project = useProject();
   const titleId = useId();
@@ -136,7 +164,16 @@ export function ImportDialog({ open, onClose, onBeforeLoad, onImportSuccess }: I
               try {
                 const parsed = JSON.parse(jsonText);
                 const artifactKey = selectedType.toLowerCase();
-                project.loadBundle({ [artifactKey]: parsed });
+                if (artifactKey === 'mapping') {
+                  const result = resolveMappingsImportPayload(parsed);
+                  if (!result.ok) {
+                    setParseError(result.error);
+                    return;
+                  }
+                  project.loadBundle({ mappings: result.mappings });
+                } else {
+                  project.loadBundle({ [artifactKey]: parsed });
+                }
                 onImportSuccess?.();
                 onClose();
               } catch (e) {

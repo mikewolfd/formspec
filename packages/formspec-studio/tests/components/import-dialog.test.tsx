@@ -2,7 +2,40 @@ import { render, screen, act, fireEvent } from '@testing-library/react';
 import { describe, it, expect, vi } from 'vitest';
 import { createProject } from '@formspec-org/studio-core';
 import { ProjectProvider } from '../../src/state/ProjectContext';
-import { ImportDialog } from '../../src/components/ImportDialog';
+import { ImportDialog, resolveMappingsImportPayload } from '../../src/components/ImportDialog';
+
+describe('resolveMappingsImportPayload', () => {
+  it('wraps a single mapping document as default', () => {
+    const doc = { version: '1.0.0', direction: 'forward', rules: [] };
+    expect(resolveMappingsImportPayload(doc)).toEqual({ ok: true, mappings: { default: doc } });
+  });
+
+  it('passes through a top-level mappings object', () => {
+    const mappings = {
+      default: { version: '1', rules: [] },
+      alt: { version: '2', rules: [] },
+    };
+    expect(resolveMappingsImportPayload({ mappings })).toEqual({ ok: true, mappings });
+  });
+
+  it('rejects mappings as an array', () => {
+    const r = resolveMappingsImportPayload({ mappings: [] });
+    expect(r.ok).toBe(false);
+    if (!r.ok) expect(r.error).toMatch(/not an array/i);
+  });
+
+  it('rejects non-object root', () => {
+    expect(resolveMappingsImportPayload(null).ok).toBe(false);
+    expect(resolveMappingsImportPayload([]).ok).toBe(false);
+    expect(resolveMappingsImportPayload('x').ok).toBe(false);
+  });
+
+  it('rejects mappings explicitly undefined', () => {
+    const r = resolveMappingsImportPayload({ mappings: undefined });
+    expect(r.ok).toBe(false);
+    if (!r.ok) expect(r.error).toMatch(/undefined/i);
+  });
+});
 
 describe('ImportDialog', () => {
   it('shows import instructions when open', () => {
@@ -104,6 +137,60 @@ describe('ImportDialog', () => {
   // existing undo history. Users expect to be able to undo the import just as
   // they can undo any other edit. Currently project.import dispatches
   // `project.import` which returns `clearHistory: true`, wiping the undo stack.
+  it('imports mapping JSON as loadBundle({ mappings }) for a single document', async () => {
+    const project = createProject();
+    const loadBundle = vi.spyOn(project, 'loadBundle');
+    const onClose = vi.fn();
+    render(
+      <ProjectProvider project={project}>
+        <ImportDialog open={true} onClose={onClose} />
+      </ProjectProvider>,
+    );
+
+    await act(async () => {
+      screen.getByRole('button', { name: /mapping/i }).click();
+    });
+
+    const doc = { version: '9.9.9', direction: 'forward', rules: [{ sourcePath: 'a', targetPath: 'b' }] };
+    const textarea = screen.getByPlaceholderText(/paste mapping json here/i);
+    await act(async () => {
+      fireEvent.change(textarea, { target: { value: JSON.stringify(doc) } });
+    });
+
+    await act(async () => {
+      screen.getByRole('button', { name: /load/i }).click();
+    });
+
+    expect(loadBundle).toHaveBeenCalledWith({ mappings: { default: doc } });
+    expect(onClose).toHaveBeenCalled();
+  });
+
+  it('shows an error when mapping JSON has mappings as an array', async () => {
+    const project = createProject();
+    const loadBundle = vi.spyOn(project, 'loadBundle');
+    render(
+      <ProjectProvider project={project}>
+        <ImportDialog open={true} onClose={vi.fn()} />
+      </ProjectProvider>,
+    );
+
+    await act(async () => {
+      screen.getByRole('button', { name: /mapping/i }).click();
+    });
+
+    const textarea = screen.getByPlaceholderText(/paste mapping json here/i);
+    await act(async () => {
+      fireEvent.change(textarea, { target: { value: JSON.stringify({ mappings: [] }) } });
+    });
+
+    await act(async () => {
+      screen.getByRole('button', { name: /load/i }).click();
+    });
+
+    expect(loadBundle).not.toHaveBeenCalled();
+    expect(screen.getByText(/must be an object/i)).toBeInTheDocument();
+  });
+
   it('preserves undo history after importing a definition', async () => {
     const project = createProject();
 
