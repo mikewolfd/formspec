@@ -16,8 +16,20 @@ const ModeContext = createContext<ModeContextValue | null>(null);
 const STORAGE_KEY = 'formspec-studio:mode';
 const VALID_MODES = new Set<StudioMode>(['chat', 'edit', 'design', 'preview']);
 
-function getPersistedMode(fallback: StudioMode): StudioMode {
+/**
+ * Resolve the Studio mode used for the initial `useState` value (cold load only).
+ *
+ * Precedence: valid `?studioMode=` query param → `localStorage` (`formspec-studio:mode`) → `fallback`
+ * from `ModeProvider` props. Query wins for deterministic E2E; it does not write to `localStorage` until
+ * the user changes mode via `setMode` (which calls `persistMode`).
+ */
+function resolveInitialStudioMode(fallback: StudioMode): StudioMode {
   if (typeof window === 'undefined') return fallback;
+  const params = new URLSearchParams(window.location.search);
+  const fromQuery = params.get('studioMode');
+  if (fromQuery && VALID_MODES.has(fromQuery as StudioMode)) {
+    return fromQuery as StudioMode;
+  }
   const stored = window.localStorage.getItem(STORAGE_KEY);
   if (stored && VALID_MODES.has(stored as StudioMode)) return stored as StudioMode;
   return fallback;
@@ -35,7 +47,7 @@ interface ModeProviderProps {
 }
 
 export function ModeProvider({ children, defaultMode = 'chat' }: ModeProviderProps) {
-  const [mode, setModeInternal] = useState<StudioMode>(() => getPersistedMode(defaultMode));
+  const [mode, setModeInternal] = useState<StudioMode>(() => resolveInitialStudioMode(defaultMode));
   const [previousMode, setPreviousMode] = useState<StudioMode | null>(null);
 
   const setMode = useCallback((next: StudioMode) => {
