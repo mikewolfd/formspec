@@ -34,7 +34,8 @@ import {
   type DefinitionEditorItemKind,
 } from '../state/OpenDefinitionInEditorContext';
 import { telemetry } from '../services/telemetry-adapter';
-import { DesignWorkspace } from '../workspaces/design-system/DesignWorkspace';
+import { LayoutCanvas } from '../workspaces/layout/LayoutCanvas';
+import { LayoutLivePreviewSection } from '../workspaces/layout/LayoutLivePreviewSection';
 import type { StudioUIHandlers } from '../components/chat/studio-ui-tools';
 import type { EditorView } from '../workspaces/editor/BuildManageToggle';
 import type { MappingTabId } from '../workspaces/mapping/MappingTab';
@@ -117,6 +118,7 @@ export function UnifiedStudio(): ReactElement {
     setShowAppSettings,
     showPreview,
     setShowPreview,
+    assistantOpen,
   } = panels;
 
   const scopedSelectedKey = primaryKeyForTab(activeTab.toLowerCase());
@@ -364,7 +366,7 @@ export function UnifiedStudio(): ReactElement {
               aria-hidden={overlayOpen ? true : undefined}
             >
               {/* Left sidebar — visible for editable project workspaces */}
-              {(isEditMode || isAdvancedWorkspace) && !compactLayout && (
+              {(isEditMode || isAdvancedWorkspace || isDesignMode) && !compactLayout && (
                 <>
                   <BlueprintSidebar
                     activeTab={activeTab}
@@ -379,7 +381,7 @@ export function UnifiedStudio(): ReactElement {
               )}
 
               {/* Main content area */}
-              <main className="flex-1 overflow-y-auto min-w-0 shrink-0 bg-bg-default">
+              <main className="flex min-h-0 flex-1 shrink-0 min-w-0 flex-col overflow-y-auto bg-bg-default">
                 {isChatMode && (
                   <div className="flex h-full">
                     {/* Chat thread — center */}
@@ -453,8 +455,15 @@ export function UnifiedStudio(): ReactElement {
                 )}
 
                 {isDesignMode && (
-                  <div className="h-full" data-testid="workspace-Design">
-                    <DesignWorkspace />
+                  <div className="flex min-h-0 flex-1 flex-col" data-testid="workspace-Design">
+                    <div
+                      data-testid="design-canvas-shell"
+                      className="flex min-h-0 flex-1 flex-col overflow-hidden bg-subtle/30"
+                    >
+                      <div data-testid="workspace-Layout" className="min-h-0 min-w-0 flex-1">
+                        <LayoutCanvas />
+                      </div>
+                    </div>
                   </div>
                 )}
 
@@ -501,6 +510,49 @@ export function UnifiedStudio(): ReactElement {
                     </div>
                   </aside>
                 </>
+              )}
+
+              {isDesignMode && !compactLayout && !assistantOpen && !showPreview && (
+                showLayoutPreviewPanel ? (
+                  <>
+                    <ResizeHandle side="right" onResize={onResizeRight} />
+                    <aside
+                      className="flex shrink-0 flex-col overflow-hidden border-l border-border/70 bg-surface"
+                      style={{ width: `clamp(280px, ${rightWidth}px, calc(50vw - 260px))` }}
+                      data-testid="layout-preview-panel"
+                      aria-label="Layout live preview"
+                    >
+                      <div className="flex shrink-0 items-center justify-end px-3 pt-2">
+                        <button
+                          type="button"
+                          aria-label="Hide layout preview panel"
+                          className="rounded p-1 text-muted transition-colors hover:bg-subtle hover:text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/35"
+                          onClick={() => setShowLayoutPreviewPanel(false)}
+                        >
+                          <IconChevronRight size={14} />
+                        </button>
+                      </div>
+                      <div className="min-h-0 flex-1 px-3 pb-3">
+                        <div className="h-full overflow-hidden rounded-[22px] border border-border/70 bg-surface/80">
+                          <LayoutLivePreviewSection
+                            width="100%"
+                            className="h-full"
+                            appearance={colorScheme?.resolvedTheme ?? 'light'}
+                          />
+                        </div>
+                      </div>
+                    </aside>
+                  </>
+                ) : (
+                  <button
+                    type="button"
+                    aria-label="Show layout preview panel"
+                    className="shrink-0 border-l border-border/70 bg-surface px-1.5 py-3 text-muted transition-colors hover:bg-subtle hover:text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/35"
+                    onClick={() => setShowLayoutPreviewPanel(true)}
+                  >
+                    <IconChevronLeft size={14} />
+                  </button>
+                )
               )}
 
               {/* Chat rail in edit/design modes */}
